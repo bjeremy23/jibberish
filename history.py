@@ -11,16 +11,41 @@ def complete_path(text, state):
     #if a match is a directory, add a '/' to the end of the match if one does not already exist
     matches = [f"{match}/" if os.path.isdir(match) and not match.endswith('/') else match for match in matches]
 
+    #remove duplicates an list in order sorted by the length of the command
+    # the smallest command length being last
+    matches = sorted(list(set(matches)), key=len)
+
+    return (matches + [None])[state]
+
+def complete_command(text, state):
+    # Get all executables in the PATH
+    paths = os.environ.get('PATH', '').split(os.pathsep)
+    commands = []
+    for path in paths:
+        if os.path.isdir(path):
+            commands.extend(os.listdir(path))
+
+    # Filter commands based on the input text
+    matches = [cmd for cmd in commands if cmd.startswith(text)]
+
+    # remove duplicates an list in order sorted by the length of the command
+    # the smallest command length being last
+    matches = sorted(list(set(matches)), key=len)
+
     return (matches + [None])[state]
 
 def custom_completer(text, state):
     buffer = readline.get_line_buffer()
     line = buffer[:readline.get_endidx()]
-    # Extract the part of the line after the command
-    if ' ' in line:
-        text = line.split(' ', 1)[1]
-    return complete_path(text, state)
 
+    # Heuristic to determine if text is a path or a command
+    if any(char in text for char in ('/', '\\', '.', '~')):
+        matches = complete_path(text, state)
+    else:
+        matches = complete_command(text, state)
+
+    return matches
+    
 def word_break_hook():
     return ' \t\n`!@#$%^&*()=+[{]}\\|;:\'",<>?'
 
