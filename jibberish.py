@@ -5,7 +5,7 @@ def help():
     click.echo(click.style("Commands:", fg="blue"))
     click.echo(click.style("  !<index> - Get the command from the history", fg="blue"))
     click.echo(click.style("  #<command> - Ask the AI to generate a command based on the user input", fg="blue"))
-    click.echo(click.style("  ?<question> - ask a general question of First Officer Spock", fg="blue")) 
+    click.echo(click.style("  ?<question> - ask a general question", fg="blue")) 
     click.echo(click.style("  cd <directory> - Change the current directory", fg="blue"))
     click.echo(click.style("  pushd <directory> - Push the current directory to the stack and change to the new directory", fg="blue"))
     click.echo(click.style("  popd - Pop the directory from the stack and change to that directory", fg="blue"))
@@ -106,6 +106,16 @@ def is_built_in(command):
 
 @click.command()
 def cli():
+    """
+    Jibberish CLI
+    """
+    click.echo(click.style("Welcome to Jibber Shell", fg="blue"))
+    click.echo(click.style("Type 'help' for a list of commands", fg="blue"))
+    click.echo(click.style("Type 'exit, quit, q' to exit", fg="blue"))
+    click.echo(click.style("Type 'h' to see the command history", fg="blue"))
+    click.echo(click.style("Type '#<command description>' to execute the command your looking for", fg="blue"))
+    click.echo(click.style("Type '?<question>' to ask a general question", fg="blue"))
+    click.echo(click.style("Type '!' to get the command from the history", fg="blue"))
     
     while True:
         # find the current directory

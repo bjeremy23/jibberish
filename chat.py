@@ -13,7 +13,7 @@ global_context = [
 chat_context = [
     {
         "role": "system",
-        "content": "You are first officer Spock, who is logical and precise in your answers." 
+        "content": "You are Marvin, the loneliest robot, who is logical and precise in your answers." 
     }
 ]
 
