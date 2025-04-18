@@ -2,23 +2,30 @@ import os, openai
 
 ai_coice = "azure"
 
+# openai
+with open(os.path.expanduser("~/.jbrsh/.env")) as env:
+    for line in env:
+        line = line.strip()
+        # Skip empty lines or comments
+        if not line or line.startswith("//") or line.startswith("#"):
+            continue
+        # Only try to split if there's an equal sign
+        if "=" in line:
+            key, value = line.split("=", 1)  # Split only on the first =
+            # Remove quotes if present
+            value = value.strip('"\'')
+            os.environ[key.strip()] = value
 # azure 
 if ai_coice == "azure":
-    #TODO: need a api for users to be able to set their own api key
     openai.api_type = "azure"
-    openai.api_base = ""
-    openai.api_version = "2023-05-15"
-    openai.api_key = ""
-    model = "gpt-4.1"  # <-- Replace with your actual deployment name
+    openai.api_base = os.environ['AZURE_OPENAI_ENDPOINT']
+    openai.api_version = os.environ['AZURE_OPENAI_API_VERSION']
+    openai.api_key = os.environ['AZURE_OPENAI_API_KEY']
+    model = os.environ ['AZURE_OPENAI_DEPLOYMENT_NAME']  # <-- Replace with your actual deployment name
 else:
-    # openai
-    with open(".env") as env:
-        for line in env:
-            key, value = line.strip().split("=")
-            os.environ[key] = value
 
     client = openai.OpenAI(
-        api_key=os.environ['API_KEY']
+        api_key=os.environ['OPEN_API_KEY']
     )
     model = "gpt-4"
 
