@@ -1,4 +1,3 @@
-
 import chat, click, os, subprocess, history
 
 def help():
@@ -89,7 +88,18 @@ def is_built_in(command):
         history.list_history()
         return True
     elif command.startswith("cd"):
-        os.chdir(os.path.expanduser(command[3:].strip()))
+        path = os.path.expanduser(command[3:].strip())
+        if os.path.isfile(path):
+            click.echo(click.style(f"Error: '{path}' is a file, not a directory", fg="red"))
+        else:
+            try:
+                os.chdir(path)
+            except FileNotFoundError:
+                click.echo(click.style(f"Error: No such directory: '{path}'", fg="red"))
+            except PermissionError:
+                click.echo(click.style(f"Error: Permission denied: '{path}'", fg="red"))
+            except Exception as e:
+                click.echo(click.style(f"Error: {str(e)}", fg="red"))
         return True
     elif command.startswith("pushd"):
         try:
@@ -104,6 +114,38 @@ def is_built_in(command):
 
     return False
 
+def transform(command):
+    if command.startswith("vi "):   
+        print("Transforming vi to gvim")
+        command = command.replace("vi", "gvim", 1)
+    elif command.strip() == "ls" or command.strip().startswith("ls ") and not any(flag in command for flag in ["-l", "-1", "-C", "-x", "-m"]):
+        # Add -C flag for columnar output
+        command = command.replace("ls", "ls -C", 1)
+    return command
+
+def execute_chained_commands(command_chain):
+    """
+    Execute multiple commands separated by &&
+    """
+    commands = command_chain.split('&&')
+    for cmd in commands:
+        cmd = cmd.strip()
+        if not cmd:
+            continue
+            
+        # Check if this is a built-in command
+        if is_built_in(cmd):
+            # Built-in command was executed, continue to next command
+            pass  # Don't return, let the next command execute
+        else:
+            # Execute external command
+            returncode, output, error = execute_shell_command(transform(cmd))
+            if returncode is not None:
+                # Print the error message
+                click.echo(click.style(f"{error}", fg="red"))
+                # If a command fails, stop the chain
+                return
+                
 @click.command()
 def cli():
     """
@@ -154,12 +196,15 @@ def cli():
             chat.change_partner(command[2:])
             # print who you are talking with
             click.echo(click.style(f"Now talking with {command[2:]}", fg="blue"))
+        # Check if the command contains && for command chaining
+        elif '&&' in command:
+            execute_chained_commands(command)
         # check if the command is a built-in command
         elif is_built_in(command):
             pass
         else:
             # we will execute the command in the case of a non-built-in command or
-            execute_command(command)
+            execute_command(transform(command))
 
 if __name__ == "__main__":
     cli()

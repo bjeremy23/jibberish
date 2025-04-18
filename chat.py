@@ -1,7 +1,7 @@
-from api import client
-from openai import APIConnectionError
+import api, time, click, re, json
 
-import time, click, re, json
+chat_file_path = "/tmp/jibberish.txt"
+n =3 # number of lines to return
 
 global_context = [
     {
@@ -52,10 +52,6 @@ base_messages = [
     }
 ]
 
-model = "gpt-4"
-chat_file_path = "/tmp/jibberish.txt"
-n =3 # number of lines to return
-
 def change_partner(name):
     """
     Change the partner name
@@ -87,7 +83,7 @@ def load_chat_from_file():
         except json.JSONDecodeError:
             return []
 
-    
+
 def ask_why_failed(command, output):
     """
     Send a request to explain why the command failed
@@ -104,17 +100,21 @@ def ask_why_failed(command, output):
     retries = 3
     for _ in range(retries):
         try:
-            response = client.chat.completions.create(
-                model=model,
-                messages=global_context + messages,
-                max_tokens=300,
-                temperature=0.5
-            )
+            if api.ai_coice == "azure":
+                response = api.openai.ChatCompletion.create(engine= api.model,
+                messages=global_context + messages)
+            else:
+                response = api.client.chat.completions.create(
+                    model=api.model,
+                    messages=global_context + messages,
+                    max_tokens=300,
+                    temperature=0.5
+                ) 
             break
-        except APIConnectionError as e:
+        except Exception as e:
             click.echo(click.style(f"Connection error: {e}. Retrying...", fg="red"))
             time.sleep(2)
-    
+
     if response:
         r =  response.choices[0].message.content.strip()
         messages.append(
@@ -127,7 +127,7 @@ def ask_why_failed(command, output):
         return r
     else:
         return "Failed to connect to OpenAI API after multiple attempts."
-    
+
 def ask_ai(command):
     """
     Ask the AI to generate a command based on the user input
@@ -145,22 +145,26 @@ def ask_ai(command):
     retries = 3
     for _ in range(retries):
         try:
-            response = client.chat.completions.create(
-                model=model,
-                messages=messages,
-                max_tokens=300,
-                temperature=0.0
-            )
+            if api.ai_coice == "azure":
+                response = api.openai.ChatCompletion.create(engine=api.model,
+                messages=messages)
+            else:
+                response = api.client.chat.completions.create(
+                    model=api.model,
+                    messages=messages,
+                    max_tokens=300,
+                    temperature=0.5
+                )
             break
-        except APIConnectionError as e:
+        except Exception as e:
             click.echo(click.style(f"Connection error: {e}. Retrying...", fg="red"))
             time.sleep(2)
-    
+
     if response:
         return response.choices[0].message.content.strip()
     else:
         return "Failed to connect to OpenAI API after multiple attempts."
-    
+
 def ask_question(command):
     """
     Have a small contextual chat with the AI
@@ -177,17 +181,21 @@ def ask_question(command):
     retries = 3
     for _ in range(retries):
         try:
-            response = client.chat.completions.create(
-                model=model,
-                messages=chat_context+messages,
-                max_tokens=500,
-                temperature=1.0
-            )
+            if api.ai_coice == "azure":
+                response = api.openai.ChatCompletion.create(engine=api.model,
+                messages=chat_context + messages)
+            else:
+                response = api.client.chat.completions.create(
+                    model=api.model,
+                    messages=chat_context + messages,
+                    max_tokens=300,
+                    temperature=0.5
+                )
             break
-        except APIConnectionError as e:
+        except Exception as e:
             click.echo(click.style(f"Connection error: {e}. Retrying...", fg="red"))
             time.sleep(2)
-    
+
     if response:
         r =  response.choices[0].message.content.strip()
         messages.append(
@@ -200,7 +208,7 @@ def ask_question(command):
         return r
     else:
         return "Failed to connect to OpenAI API after multiple attempts."
-    
+
 def is_valid_sentence(text):
     """
     Check if the text contains at least one valid sentence
@@ -208,13 +216,13 @@ def is_valid_sentence(text):
 
     # Define a regular expression pattern for a valid sentence
     pattern = r'[A-Z][^.!?]*[.!?]'
-    
+
     # Use the re.findall function to find all sentences that match the pattern
     valid_sentences = re.findall(pattern, text)
-    
+
     # Check if there is at least one valid sentence
     if valid_sentences:
         return True
     else:
         return False
-    
+
