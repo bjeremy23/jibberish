@@ -3,7 +3,7 @@ import os, openai
 ai_coice = "azure"
 
 # openai
-with open(os.path.expanduser("~/.jbrsh/.env")) as env:
+with open(os.path.expanduser("~/.jbrsh")) as env:
     for line in env:
         line = line.strip()
         # Skip empty lines or comments
