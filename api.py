@@ -4,10 +4,11 @@ ai_coice = "azure"
 
 # azure 
 if ai_coice == "azure":
+    #TODO: need a api for users to be able to set their own api key
     openai.api_type = "azure"
-    openai.api_base = "https://bjere-m9n0vzju-eastus2.cognitiveservices.azure.com/"
+    openai.api_base = ""
     openai.api_version = "2023-05-15"
-    openai.api_key = "1TZWQHLuMCT9M2zscBuTrpZGnw1zfrctI5dqSiGunZhNm3JPYn4BJQQJ99BDACHYHv6XJ3w3AAAAACOGO3I8"
+    openai.api_key = ""
     model = "gpt-4.1"  # <-- Replace with your actual deployment name
 else:
     # openai
