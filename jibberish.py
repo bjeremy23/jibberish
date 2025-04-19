@@ -24,19 +24,18 @@ def help():
     click.echo(click.style("  history, h - List the command history", fg="blue"))
     click.echo(click.style("  exit, quit, q - Exit the shell", fg="blue"))
     click.echo(click.style("  help - help menu", fg="blue"))
-    
+
 @click.command()
 def cli():
     """
     Jibberish CLI
     """
     click.echo(click.style("Welcome to Jibber Shell", fg="blue"))
-    click.echo(click.style("Type 'help' for a list of commands", fg="blue"))
-    click.echo(click.style("Type 'exit, quit, q' to exit", fg="blue"))
-    click.echo(click.style("Type 'h' to see the command history", fg="blue"))
+    click.echo(click.style("Type '<command>' to execute the command", fg="blue"))
     click.echo(click.style("Type '#<command description>' to execute the command your looking for", fg="blue"))
     click.echo(click.style("Type '?<question>' to ask a general question", fg="blue"))
-    click.echo(click.style("Type '!' to get the command from the history", fg="blue"))
+    click.echo(click.style("Type 'help' for a list of commands", fg="blue"))
+    click.echo(click.style("Type 'exit, quit, q' to exit", fg="blue"))
     
     # get the warn environment variable
     while True:
