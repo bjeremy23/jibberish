@@ -46,26 +46,52 @@ def popd():
         click.echo(click.style("Directory stack is empty", fg="red"))
 
 def execute_shell_command(command):
+    """
+    Execute a shell command and return the output
+    """
 
-    # Use subprocess.run for better interactive command handling
+    # Check if the command is empty
+    if not command.strip():
+        return 0, "", ""
+    
+    #transform the command
+    command = transform(command)
+    
+    # Check if command is in the INTERACTIVE_LIST environment variable
+    # Default list if not set: "vi,vim,nano,emacs,less,more,top,htop"
+    default_interactive = "vi,vim,nano,emacs,less,more,top,htop"
+    interactive_list = os.environ.get("INTERACTIVE_LIST", default_interactive)
+    interactive_commands = [cmd.strip() for cmd in interactive_list.split(",") if cmd.strip()]  # Clean up the list
+    
+    # Check if the command is interactive - only the command name, not full path
+    cmd_name = command.strip().split()[0] if command.strip().split() else ""
+    is_interactive = any(cmd_name == ic or cmd_name.endswith('/' + ic) for ic in interactive_commands)
+    
     try:
-        result = subprocess.run(
-            command,
-            shell=True,
-            executable='/bin/bash',
-            text=True,
-            capture_output=True
-        )
-        
-        # Display stdout
-        if result.stdout:
-            click.echo(result.stdout, nl=False)
+        if is_interactive:
+            # For interactive applications, don't capture output and use os.system
+            # This gives the command direct access to the terminal
+            return_code = os.system(command)
+            return return_code, "", ""
+        else:
+            # For non-interactive commands, use subprocess.run as before
+            result = subprocess.run(
+                command,
+                shell=True,
+                executable='/bin/bash',
+                text=True,
+                capture_output=True
+            )
             
-        # Display stderr
-        if result.stderr:
-            click.echo(click.style(result.stderr, fg="red"), nl=False)
-            
-        return result.returncode, result.stdout, result.stderr
+            # Display stdout
+            if result.stdout:
+                click.echo(result.stdout, nl=False)
+                
+            # Display stderr
+            if result.stderr:
+                click.echo(click.style(result.stderr, fg="red"), nl=False)
+                
+            return result.returncode, result.stdout, result.stderr
     except KeyboardInterrupt:
         click.echo(click.style("\nCommand interrupted by user", fg="red"))
         return -1, "", "Aborted by user"
@@ -86,7 +112,7 @@ def execute_command(command):
     
     # if the command is in the warn_list and the command does not contain '-f', 
     # ask the user if they want to execute the command
-    if warn:
+    if warn and '-f' not in command:
         choice = input( click.style(f"Are you sure you want to execute this command? [y/n]: ", fg="blue") )
         if choice.lower() != "y":
             click.echo( click.style(f"Command not executed", fg="red") )
@@ -125,7 +151,7 @@ def execute_chained_commands(command_chain):
             pass  # Don't return, let the next command execute
         else:
             # Execute external command
-            execute_command(transform(cmd))
+            execute_command(cmd)
 
 def is_built_in(command):
     """
@@ -171,19 +197,92 @@ def is_built_in(command):
 
 def transform(command):
     """
-    Transform the command to a more user-friendly version
+    Transform the command
     """
     # Transformations
-    if command.startswith("vi "):   
-        print("Transforming vi to gvim")
-        command = command.replace("vi", "gvim", 1)
-    elif command.strip() == "ls" or command.strip().startswith("ls ") and not any(flag in command for flag in ["-l", "-1", "-C", "-x", "-m"]):
+    if command.strip() == "ls" or command.strip().startswith("ls ") and not any(flag in command for flag in ["-l", "-1", "-C", "-x", "-m"]):
         # Add -C flag for columnar output
         command = command.replace("ls", "ls -CF", 1)
     elif command.startswith('rm ') and '-f' not in command:
         # For interactive commands, use subprocess.run instead of Popen to allow direct interaction
         # Add '-f' flag to rm commands to avoid interactive prompts
         command = command.replace('rm ', 'rm -f ', 1)
+    
+    # Handle filenames with spaces by adding quotes
+    # Try to preserve existing command structure while ensuring arguments are properly quoted
+    if ' ' in command:
+        # First handle the command as a whole string to preserve original structure
+        parts = []
+        current_part = ""
+        in_quotes = False
+        quote_type = None
+        
+        # Extract the command name (before the first space)
+        cmd_parts = command.split(' ', 1)
+        cmd = cmd_parts[0]
+        
+        if len(cmd_parts) > 1:
+            remaining = cmd_parts[1]
+            
+            # Special handling for arguments with unusual characters that need quoting
+            special_chars = '<>|&;()$`\\!{}"\'*?[]#~=%'
+            args_to_process = []
+            
+            # Try to intelligently split arguments while respecting existing quotes
+            i = 0
+            current_arg = ""
+            while i < len(remaining):
+                char = remaining[i]
+                
+                # Handle quoted sections
+                if char in ['"', "'"]:
+                    if not in_quotes:
+                        # Start of quoted section
+                        in_quotes = True
+                        quote_type = char
+                        current_arg += char
+                    elif char == quote_type:
+                        # End of quoted section
+                        in_quotes = False
+                        quote_type = None
+                        current_arg += char
+                    else:
+                        # Different quote inside quoted section
+                        current_arg += char
+                elif char == ' ' and not in_quotes:
+                    # Space outside quotes means end of argument
+                    if current_arg:
+                        args_to_process.append(current_arg)
+                        current_arg = ""
+                else:
+                    current_arg += char
+                
+                i += 1
+                
+            # Don't forget the last argument
+            if current_arg:
+                args_to_process.append(current_arg)
+            
+            # Process each argument and quote if needed
+            processed_args = []
+            for arg in args_to_process:
+                # If already properly quoted, leave as is
+                if (arg.startswith('"') and arg.endswith('"')) or (arg.startswith("'") and arg.endswith("'")):
+                    processed_args.append(arg)
+                # If it's a flag, leave as is
+                elif arg.startswith('-'):
+                    processed_args.append(arg)
+                # If it contains spaces or special characters, quote it
+                elif any(c in arg for c in special_chars) or ' ' in arg:
+                    # Remove any existing unmatched quotes
+                    arg = arg.strip('"\'')
+                    processed_args.append(f'"{arg}"')
+                else:
+                    processed_args.append(arg)
+            
+            # Reconstruct the command
+            command = cmd + ' ' + ' '.join(processed_args)
+    
     return command
 
 @click.command()
@@ -245,7 +344,7 @@ def cli():
             pass
         else:
             # we will execute the command in the case of a non-built-in command or
-            execute_command(transform(command))
+            execute_command(command)
 
 if __name__ == "__main__":
     cli()
