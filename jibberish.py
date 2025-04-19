@@ -46,24 +46,32 @@ def popd():
         click.echo(click.style("Directory stack is empty", fg="red"))
 
 def execute_shell_command(command):
-    process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, executable='/bin/bash', bufsize=1, universal_newlines=True)
-    output = []
-    error = []
 
+    # Use subprocess.run for better interactive command handling
     try:
-        for line in iter(process.stdout.readline, ''):
-            click.echo(line, nl=False)
-            output.append(line)
-        for line in iter(process.stderr.readline, ''):
-            click.echo(click.style(line, fg="red"), nl=False)
-            error.append(line)
-        process.stdout.close()
-        process.stderr.close()
+        result = subprocess.run(
+            command,
+            shell=True,
+            executable='/bin/bash',
+            text=True,
+            capture_output=True
+        )
+        
+        # Display stdout
+        if result.stdout:
+            click.echo(result.stdout, nl=False)
+            
+        # Display stderr
+        if result.stderr:
+            click.echo(click.style(result.stderr, fg="red"), nl=False)
+            
+        return result.returncode, result.stdout, result.stderr
     except KeyboardInterrupt:
-        process.kill()
+        click.echo(click.style("\nCommand interrupted by user", fg="red"))
         return -1, "", "Aborted by user"
-
-    return process.returncode, ''.join(output), ''.join(error)
+    except Exception as e:
+        click.echo(click.style(f"\nError executing command: {str(e)}", fg="red"))
+        return -1, "", str(e)
 
 def execute_command(command):
 
@@ -76,7 +84,8 @@ def execute_command(command):
             warn = True
             break
     
-    # if the command is in the warn_list, ask the user if they want to execute the command
+    # if the command is in the warn_list and the command does not contain '-f', 
+    # ask the user if they want to execute the command
     if warn:
         choice = input( click.style(f"Are you sure you want to execute this command? [y/n]: ", fg="blue") )
         if choice.lower() != "y":
@@ -108,18 +117,26 @@ def is_built_in(command):
         history.list_history()
         return True
     elif command.startswith("cd"):
-        path = os.path.expanduser(command[3:].strip())
-        if os.path.isfile(path):
-            click.echo(click.style(f"Error: '{path}' is a file, not a directory", fg="red"))
+        # Extract the path part after 'cd'
+        path_part = command[2:].strip()
+        
+        # If no path provided (just 'cd'), go to home directory
+        if not path_part:
+            home_dir = os.path.expanduser("~")
+            os.chdir(home_dir)
         else:
-            try:
-                os.chdir(path)
-            except FileNotFoundError:
-                click.echo(click.style(f"Error: No such directory: '{path}'", fg="red"))
-            except PermissionError:
-                click.echo(click.style(f"Error: Permission denied: '{path}'", fg="red"))
-            except Exception as e:
-                click.echo(click.style(f"Error: {str(e)}", fg="red"))
+            path = os.path.expanduser(path_part)
+            if os.path.isfile(path):
+                click.echo(click.style(f"Error: '{path}' is a file, not a directory", fg="red"))
+            else:
+                try:
+                    os.chdir(path)
+                except FileNotFoundError:
+                    click.echo(click.style(f"Error: No such directory: '{path}'", fg="red"))
+                except PermissionError:
+                    click.echo(click.style(f"Error: Permission denied: '{path}'", fg="red"))
+                except Exception as e:
+                    click.echo(click.style(f"Error: {str(e)}", fg="red"))
         return True
     elif command.startswith("pushd"):
         try:
@@ -141,6 +158,10 @@ def transform(command):
     elif command.strip() == "ls" or command.strip().startswith("ls ") and not any(flag in command for flag in ["-l", "-1", "-C", "-x", "-m"]):
         # Add -C flag for columnar output
         command = command.replace("ls", "ls -C", 1)
+    elif command.startswith('rm ') and '-f' not in command:
+        # For interactive commands, use subprocess.run instead of Popen to allow direct interaction
+        # Add '-f' flag to rm commands to avoid interactive prompts
+        command = command.replace('rm ', 'rm -f ', 1)
     return command
 
 def execute_chained_commands(command_chain):
@@ -198,7 +219,7 @@ def cli():
         # if the command starts with '#', ask the AI to generate a command
         # or if the command starts with '?', ask a general question
         if command.startswith("#"):
-            #remove the leading '?' from the command
+            #remove the leading '#' from the command
             command = chat.ask_ai(command[1:])
             # print the command
             click.echo(click.style(f"{command}", fg="blue"))
@@ -209,7 +230,7 @@ def cli():
             # print the response
             click.echo(click.style(f"{response}", fg="blue"))
         elif command.startswith(":)"):
-            #remove the leading '*' from the command
+            #remove the leading ':)' from the command
             chat.change_partner(command[2:])
             # print who you are talking with
             click.echo(click.style(f"Now talking with {command[2:]}", fg="blue"))
