@@ -161,7 +161,24 @@ def ask_ai(command):
             time.sleep(2)
 
     if response:
-        return response.choices[0].message.content.strip()
+        # Get the raw response from the AI
+        raw_response = response.choices[0].message.content.strip()
+        
+        # Remove markdown code block formatting if present
+        # This handles patterns like ```bash\ncommand\n``` or ```\ncommand\n```
+        code_block_pattern = r"```(?:bash|sh)?\s*([\s\S]*?)```"
+        match = re.search(code_block_pattern, raw_response)
+        if match:
+            # Get the command inside the code block and handle possible newlines
+            command_text = match.group(1).strip()
+            # Replace newlines with spaces to ensure it's a single command
+            # This fixes issues where SSH commands with remote parts are split into multiple lines
+            command_text = ' '.join(line.strip() for line in command_text.splitlines())
+            return command_text
+        else:
+            # If no code block found, return the original response
+            # But still handle possible newlines in the response
+            return raw_response
     else:
         return "Failed to connect to OpenAI API after multiple attempts."
 
