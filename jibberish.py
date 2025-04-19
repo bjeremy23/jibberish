@@ -118,7 +118,9 @@ def execute_command(command):
     warn_list = os.environ.get("WARN_LIST", "").split(",")
     warn = False
     for item in warn_list:
-        if command.startswith(item.strip()):
+        if command.startswith(item.strip()) or item.strip() == "all":
+            # if the command is in the warn_list,  or 'all' exists
+            # set warn to True
             warn = True
             break
     
@@ -129,21 +131,32 @@ def execute_command(command):
         if choice.lower() != "y":
             click.echo( click.style(f"Command not executed", fg="red") )
             return
+    
+    # Check if this is an SSH-related command
+    ssh_commands = ["ssh", "ssh-keygen", "ssh-copy-id", "ssh-add", "scp", "sftp", "rsync"]
+    is_ssh_command = any(command.strip().startswith(cmd) for cmd in ssh_commands)
         
     # execute the command. if it is not successful print the error message
     try:
         returncode, output, error = execute_shell_command(command)
         if returncode == -1:
             click.echo( click.style(f"{error}", fg="red") )
-        elif error and "command not found" not in error:
-            # have the user choose to explain why the command failed
-            choice = input( click.style(f"more information? [y/n]: ", fg="blue") )
-            if choice.lower() == "y":
-                why_failed = chat.ask_why_failed(command, error)
-                if why_failed is not None:
-                    click.echo( click.style(f"{why_failed}", fg="red") )
-                else:
-                    click.echo( click.style(f"No explanation provided.", fg="red") )
+        elif error:
+            # For SSH commands with successful return code, treat stderr as normal output 
+            # since they often output informational messages to stderr
+            if is_ssh_command and returncode == 0:
+                click.echo(error)
+            # For other commands with stderr output, show as error and offer to explain
+            elif "command not found" not in error:
+                click.echo(click.style(error, fg="red"), nl=False)
+                # have the user choose to explain why the command failed
+                choice = input( click.style(f"\nMore information about error? [y/n]: ", fg="blue") )
+                if choice.lower() == "y":
+                    why_failed = chat.ask_why_failed(command, error)
+                    if why_failed is not None:
+                        click.echo( click.style(f"{why_failed}", fg="red") )
+                    else:
+                        click.echo( click.style(f"No explanation provided.", fg="red") )
     except Exception as e:
         click.echo( click.style(f"Error: {e}", fg="red") )
 
@@ -214,6 +227,8 @@ def is_built_in(command):
                 
                 # Set the environment variable
                 os.environ[var_name] = var_value
+                        
+                # Print the variable name and value
                 click.echo(click.style(f"Environment variable {var_name}={var_value}", fg="green"))
             else:
                 click.echo(click.style(f"Error: Invalid export format. Use export NAME=VALUE", fg="red"))
