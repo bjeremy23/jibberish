@@ -209,20 +209,4 @@ def ask_question(command):
     else:
         return "Failed to connect to OpenAI API after multiple attempts."
 
-def is_valid_sentence(text):
-    """
-    Check if the text contains at least one valid sentence
-    """
-
-    # Define a regular expression pattern for a valid sentence
-    pattern = r'[A-Z][^.!?]*[.!?]'
-
-    # Use the re.findall function to find all sentences that match the pattern
-    valid_sentences = re.findall(pattern, text)
-
-    # Check if there is at least one valid sentence
-    if valid_sentences:
-        return True
-    else:
-        return False
 
