@@ -18,7 +18,7 @@ def help():
     click.echo(click.style("  <command>     - Execute the command", fg="blue"))
     click.echo(click.style("  #<command>    - Ask the AI to generate a command based on the user input", fg="blue"))
     click.echo(click.style("  ?<question>   - ask a general question", fg="blue")) 
-    click.echo(click.style("  exit, quit    - Exit the shell", fg="blue"))
+    click.echo(click.style("  exit, quit, q - Exit the shell", fg="blue"))
     click.echo(click.style("  help          - help menu", fg="blue"))
 
 @click.command()
@@ -32,7 +32,7 @@ def cli():
     click.echo(click.style("# Type '#<command description>' to execute the command your looking for", fg="blue"))
     click.echo(click.style("# Type '?<question>' to ask a general question", fg="blue"))
     click.echo(click.style("# Type 'help' for a list of commands", fg="blue"))
-    click.echo(click.style("# Type 'exit, quit' to exit", fg="blue"))
+    click.echo(click.style("# Type 'exit, quit, q' to exit", fg="blue"))
     click.echo(click.style("##########################################################################", fg="blue"))
     # get the warn environment variable
     while True:
@@ -41,8 +41,15 @@ def cli():
 
         prompt_text = click.style(f"{current_directory}# ", fg="green")
         command = input(prompt_text).strip()
-        if command.lower() in ["exit", "quit"]:
-            break
+        if command.lower() in ["exit", "quit", "q"]:
+            # prompt the user to confirm exit
+            choice = input(click.style("Are you sure you want to exit? [y/n]: ", fg="blue"))
+            if choice.lower() == "y":
+                click.echo(click.style("Exiting Jibber Shell...", fg="blue"))
+                break
+            else:
+                click.echo(click.style("Continuing in Jibber Shell...", fg="blue"))
+                continue
         elif command.lower() in ["help"]:
             help()
             continue

@@ -5,7 +5,7 @@
 - `<command>`                 - Execute a shell command
 - `#<command>`                - Ask the AI to generate shell commands based on the user input
 - `?<question>`               - Ask a general question
-- `exit`, `quit`              - Exit the shell
+- `exit`, `quit`, `q`         - Exit the shell
 - `help`                      - Help menu
 
 ### Plugins
