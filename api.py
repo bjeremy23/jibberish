@@ -26,7 +26,6 @@ if ai_coice == "azure":
     openai.api_key = os.environ['AZURE_OPENAI_API_KEY']
     model = os.environ ['AZURE_OPENAI_DEPLOYMENT_NAME']  # <-- Replace with your actual deployment name
 else:
-
     client = openai.OpenAI(
         api_key=os.environ['OPEN_API_KEY']
     )
