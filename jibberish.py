@@ -15,15 +15,11 @@ def help():
     Display help information
     """
     click.echo(click.style("Commands:", fg="blue"))
-    click.echo(click.style("  !<index> - Get the command from the history", fg="blue"))
-    click.echo(click.style("  #<command> - Ask the AI to generate a command based on the user input", fg="blue"))
-    click.echo(click.style("  ?<question> - ask a general question", fg="blue")) 
-    click.echo(click.style("  cd <directory> - Change the current directory", fg="blue"))
-    click.echo(click.style("  pushd <directory> - Push the current directory to the stack and change to the new directory", fg="blue"))
-    click.echo(click.style("  popd - Pop the directory from the stack and change to that directory", fg="blue"))
-    click.echo(click.style("  history, h - List the command history", fg="blue"))
+    click.echo(click.style("  <command>     - Execute the command", fg="blue"))
+    click.echo(click.style("  #<command>    - Ask the AI to generate a command based on the user input", fg="blue"))
+    click.echo(click.style("  ?<question>   - ask a general question", fg="blue")) 
     click.echo(click.style("  exit, quit, q - Exit the shell", fg="blue"))
-    click.echo(click.style("  help - help menu", fg="blue"))
+    click.echo(click.style("  help          - help menu", fg="blue"))
 
 @click.command()
 def cli():
