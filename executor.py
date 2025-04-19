@@ -20,6 +20,35 @@ def transform(command):
     
     return command
 
+def transform_multiline(command_chain):
+    """
+    Transform multiline commands into proper single-line commands when appropriate
+    """
+    # Split the command chain into lines
+    lines = command_chain.strip().split('\n')
+    if len(lines) < 2:
+        return command_chain
+    
+    # Check for SSH followed by a command pattern
+    for i in range(len(lines) - 1):
+        current_line = lines[i].strip()
+        next_line = lines[i + 1].strip()
+        
+        # Detect SSH command pattern
+        if current_line.startswith('ssh ') and not current_line.endswith('"') and not current_line.endswith("'"):
+            # Get the SSH destination part
+            ssh_parts = current_line.split()
+            if len(ssh_parts) >= 2:
+                # Combine the SSH command with the next command in quotes
+                combined_command = f"{current_line} \"{next_line}\""
+                
+                # Replace the two lines with the combined command
+                lines[i] = combined_command
+                lines[i + 1] = ""  # Empty the second line
+    
+    # Remove empty lines and join the lines back
+    return '\n'.join(line for line in lines if line)
+
 def execute_shell_command(command):
     """
     Execute a shell command and return the output
@@ -141,6 +170,9 @@ def execute_chained_commands(command_chain):
     """
     Execute multiple commands separated by &&
     """
+    # First transform any multiline commands into proper format
+    command_chain = transform_multiline(command_chain)
+    
     commands = command_chain.split('&&')
     for cmd in commands:
         cmd = cmd.strip()
@@ -152,5 +184,8 @@ def execute_chained_commands(command_chain):
             # Built-in command was executed, continue to next command
             pass  # Don't return, let the next command execute
         else:
+            # Apply transformation to the command before executing it
+            transformed_cmd = transform(cmd)
+            
             # Execute external command
-            execute_command(cmd)
+            execute_command(transformed_cmd)

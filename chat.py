@@ -10,6 +10,14 @@ global_context = [
     } 
 ]
 
+# Additional context for SSH commands
+ssh_context = [
+    {
+        "role": "system",
+        "content": "When generating SSH commands that need to execute commands on the remote server, always use the format: ssh hostname \"command1 && command2\" with the remote commands in quotes. Never use the format: ssh hostname && command1 && command2."
+    }
+]
+
 chat_context = [
     {
         "role": "system",
@@ -132,7 +140,14 @@ def ask_ai(command):
     """
     Ask the AI to generate a command based on the user input
     """
-    messages = global_context + base_messages.copy()
+    # Start with the base context
+    context = global_context.copy()
+    
+    # Add SSH-specific guidance if the command appears to be related to SSH
+    if any(term in command.lower() for term in ['ssh', 'remote', 'login', 'connect', 'master']):
+        context.extend(ssh_context)
+    
+    messages = context + base_messages.copy()
 
     messages.append(
         {
@@ -171,14 +186,54 @@ def ask_ai(command):
         if match:
             # Get the command inside the code block and handle possible newlines
             command_text = match.group(1).strip()
-            # Replace newlines with spaces to ensure it's a single command
-            # This fixes issues where SSH commands with remote parts are split into multiple lines
-            command_text = ' '.join(line.strip() for line in command_text.splitlines())
+            
+            # Process multiple lines of commands
+            lines = command_text.splitlines()
+            if len(lines) >= 2:
+                # Handle multiple separate commands - join with && to execute sequentially locally
+                if len(lines) >= 2:
+                    combined_commands = []
+                    for line in lines:
+                        line = line.strip()
+                        if line:  # Only include non-empty lines
+                            combined_commands.append(line)
+                    # Join all commands with && to execute them sequentially
+                    command_text = ' && '.join(combined_commands)
+                    return command_text
+            
+            # For simple one-line commands or commands with line continuations
+            if len(lines) == 1 or any(line.strip().endswith('\\') for line in lines[:-1]):
+                command_text = ' '.join(line.strip() for line in lines)
+            
             return command_text
         else:
             # If no code block found, return the original response
-            # But still handle possible newlines in the response
-            return raw_response
+            lines = raw_response.splitlines()
+            
+            # Special handling for SSH commands
+            if len(lines) >= 2:
+                first_line = lines[0].strip()
+                second_line = lines[1].strip()
+                
+                # If the first line is an SSH command and doesn't end with quotes
+                if first_line.startswith('ssh ') and not (first_line.endswith('"') or first_line.endswith("'")):
+                    # Combine the SSH command with the next line in quotes
+                    raw_response = f"{first_line} \"{second_line}\""
+                    return raw_response
+                    
+                # Multiple separate commands - join with && to execute sequentially
+                elif first_line and second_line and not first_line.endswith('\\'):
+                    combined_commands = []
+                    for line in lines:
+                        line = line.strip()
+                        if line:  # Only include non-empty lines
+                            combined_commands.append(line)
+                    # Join all commands with && to execute them sequentially
+                    raw_response = ' && '.join(combined_commands)
+                    return raw_response
+                    
+            # Otherwise return the first line only to maintain backward compatibility
+            return lines[0] if lines else raw_response
     else:
         return "Failed to connect to OpenAI API after multiple attempts."
 
