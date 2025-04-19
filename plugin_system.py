@@ -34,7 +34,10 @@ class BuiltinCommand(ABC):
             command (str): The command to execute
             
         Returns:
-            bool: True if the command was handled, False otherwise
+            bool or tuple: 
+                - True if the command was handled and execution should stop
+                - False if the command was not handled
+                - Tuple (False, new_command) if the plugin wants to return a new command for processing
         """
         pass
 

@@ -180,9 +180,19 @@ def execute_chained_commands(command_chain):
             continue
             
         # Check if this is a built-in command
-        if is_built_in(cmd):
+        handled, new_command = is_built_in(cmd)
+        
+        if handled:
             # Built-in command was executed, continue to next command
             pass  # Don't return, let the next command execute
+        elif new_command is not None:
+            # A new command was returned (e.g., from history or AI), execute it
+            if '&&' in new_command:
+                # If the new command itself contains chains, process them
+                execute_chained_commands(new_command)
+            else:
+                # Execute the new command
+                execute_command(new_command)
         else:
             # Apply transformation to the command before executing it
             transformed_cmd = transform(cmd)

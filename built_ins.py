@@ -18,9 +18,21 @@ def is_built_in(command):
         command (str): The command to check
         
     Returns:
-        bool: True if the command was handled by a built-in plugin, False otherwise
+        tuple: (bool, str or None)
+            - First element is True if the command was handled, False otherwise
+            - Second element is a new command to process if returned by the plugin, or None
     """
     handler = BuiltinCommandRegistry.find_handler(command)
     if handler:
-        return handler.execute(command)
-    return False
+        result = handler.execute(command)
+        
+        # Check if the plugin returned a tuple with a new command
+        if isinstance(result, tuple) and len(result) == 2:
+            handled, new_command = result
+            return handled, new_command
+        
+        # Standard case: just return the boolean result and None
+        return result, None
+    
+    # No handler found
+    return False, None

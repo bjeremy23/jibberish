@@ -16,7 +16,20 @@ class SSHCommand(BuiltinCommand):
     def execute(self, command):
         """Execute an SSH command"""
         try:
-            # Check for the case of "ssh host && command1 && command2" which should be converted to "ssh host "command1 && command2""
+            # If the command is already properly quoted and formatted or contains variables/substitutions, 
+            # don't try to reformat it
+            if '"$(' in command or '`' in command or '$' in command or '\\$' in command:
+                # This looks like a complex command with shell substitution or variables
+                # Execute it directly without reformatting
+                result = subprocess.run(
+                    command,
+                    shell=True,
+                    text=True
+                )
+                return True
+            
+            # For standard SSH commands, check for the case of "ssh host && command1 && command2"
+            # which should be converted to "ssh host "command1 && command2""
             if " && " in command:
                 # Split at the first occurrence of && to separate SSH part from commands
                 parts = command.split(" && ")

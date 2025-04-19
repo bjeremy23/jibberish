@@ -18,7 +18,7 @@ def help():
     click.echo(click.style("  <command>     - Execute the command", fg="blue"))
     click.echo(click.style("  #<command>    - Ask the AI to generate a command based on the user input", fg="blue"))
     click.echo(click.style("  ?<question>   - ask a general question", fg="blue")) 
-    click.echo(click.style("  exit, quit, q - Exit the shell", fg="blue"))
+    click.echo(click.style("  exit, quit    - Exit the shell", fg="blue"))
     click.echo(click.style("  help          - help menu", fg="blue"))
 
 @click.command()
@@ -26,13 +26,14 @@ def cli():
     """
     Jibberish CLI
     """
-    click.echo(click.style("Welcome to Jibber Shell", fg="blue"))
-    click.echo(click.style("Type '<command>' to execute the command", fg="blue"))
-    click.echo(click.style("Type '#<command description>' to execute the command your looking for", fg="blue"))
-    click.echo(click.style("Type '?<question>' to ask a general question", fg="blue"))
-    click.echo(click.style("Type 'help' for a list of commands", fg="blue"))
-    click.echo(click.style("Type 'exit, quit, q' to exit", fg="blue"))
-    
+    click.echo(click.style("\n##########################################################################", fg="blue"))
+    click.echo(click.style("# Welcome to Jibber Shell", fg="blue"))
+    click.echo(click.style("# Type '<command>' to execute the command", fg="blue"))
+    click.echo(click.style("# Type '#<command description>' to execute the command your looking for", fg="blue"))
+    click.echo(click.style("# Type '?<question>' to ask a general question", fg="blue"))
+    click.echo(click.style("# Type 'help' for a list of commands", fg="blue"))
+    click.echo(click.style("# Type 'exit, quit' to exit", fg="blue"))
+    click.echo(click.style("##########################################################################", fg="blue"))
     # get the warn environment variable
     while True:
         # find the current directory
@@ -40,43 +41,39 @@ def cli():
 
         prompt_text = click.style(f"{current_directory}# ", fg="green")
         command = input(prompt_text).strip()
-        if command.lower() in ["exit", "quit", "q"]:
+        if command.lower() in ["exit", "quit"]:
             break
         elif command.lower() in ["help"]:
             help()
             continue
 
-        # if the command starts with '!', get the command from the history
-        # The history could return a command starting with '#' or '?'
-        if command.startswith("!"):
-            command = history.get_history(command)
-            if command is None:
-                continue
+        # Check if the command is a built-in command or requires special handling
+        handled, new_command = is_built_in(command)
         
-        # if the command starts with '#', ask the AI to generate a command
-        # or if the command starts with '?', ask a general question
-        if command.startswith("#"):
-            #remove the leading '#' from the command
-            command = chat.ask_ai(command[1:])
-            # print the command
-            click.echo(click.style(f"{command}", fg="blue"))
-            execute_command(command)
-        elif command.startswith("?"):
-            #remove the leading '?' from the command
-            response = chat.ask_question(command[1:])
-            # print the response
-            click.echo(click.style(f"{response}", fg="blue"))
-        elif command.startswith(":)"):
-            #remove the leading ':)' from the command
-            chat.change_partner(command[2:])
-            # print who you are talking with
-            click.echo(click.style(f"Now talking with {command[2:]}", fg="blue"))
+        # If a plugin returned a new command to process, update the command
+        if not handled and new_command is not None:
+            command = new_command
+            
+            # Process the new command
+            if '&&' in command:
+                execute_chained_commands(command)
+            else:
+                # Check if the new command is a built-in
+                new_handled, another_command = is_built_in(command)
+                if not new_handled:
+                    # Just execute the command directly
+                    execute_command(command)
+                elif another_command is not None:
+                    # Handle nested command returns (rare case)
+                    click.echo(click.style(f"Executing nested command: {another_command}", fg="blue"))
+                    # For complex commands with nested quotes, use proper escaping
+                    execute_command(another_command)
+        # If command was fully handled by a built-in, do nothing more
+        elif handled:
+            pass
         # Check if the command contains && for command chaining
         elif '&&' in command:
             execute_chained_commands(command)
-        # check if the command is a built-in command
-        elif is_built_in(command):
-            pass
         else:
             # we will execute the command in the case of a non-built-in command or
             execute_command(command)
