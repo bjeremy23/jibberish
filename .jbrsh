@@ -10,5 +10,7 @@ AZURE_OPENAI_ENDPOINT=<your azure openai endpoint>
 AZURE_OPENAI_API_VERSION=<your azure openai api version>
 AZURE_OPENAI_DEPLOYMENT_NAME=<your azure openai deployment name> # model i.e. gpt-4, gpt-4.1
 
+# the warn list is a list of commands that will prompt the user before executing
 WARN_LIST="rm, rmdir, mv, cp, ln, chmod, chown, chgrp, kill, pkill, killall, shutdown, reboot, halt, poweroff"
-INTERACTIVE_LIST="vi, vim, nano, emacs, less, more, top, htop"
+# the interactive list is a list of commands that will be run in interactive mode
+INTERACTIVE_LIST="vi, vim, nano, emacs, less, more, top, htop, tail -f, watch, ssh, scp, rsync, ftp, curl, wget" 

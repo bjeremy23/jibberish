@@ -59,13 +59,27 @@ def execute_shell_command(command):
     
     # Check if command is in the INTERACTIVE_LIST environment variable
     # Default list if not set: "vi,vim,nano,emacs,less,more,top,htop"
-    default_interactive = "vi,vim,nano,emacs,less,more,top,htop"
+    default_interactive = "vi,vim,nano,emacs,less,more,top,htop,tail -f,watch"
     interactive_list = os.environ.get("INTERACTIVE_LIST", default_interactive)
     interactive_commands = [cmd.strip() for cmd in interactive_list.split(",") if cmd.strip()]  # Clean up the list
     
-    # Check if the command is interactive - only the command name, not full path
+    # Check if the command is interactive - check for interactive commands anywhere in the pipeline
+    # This handles cases like "cat file | more" where "more" is not the first command
+    is_interactive = False
+    
+    # First check if the main command is interactive
     cmd_name = command.strip().split()[0] if command.strip().split() else ""
-    is_interactive = any(cmd_name == ic or cmd_name.endswith('/' + ic) for ic in interactive_commands)
+    if any(cmd_name == ic or cmd_name.endswith('/' + ic) for ic in interactive_commands):
+        is_interactive = True
+    
+    # If not, check if any part of a pipeline is interactive
+    if not is_interactive and '|' in command:
+        pipeline_parts = command.split('|')
+        for part in pipeline_parts:
+            part_cmd = part.strip().split()[0] if part.strip().split() else ""
+            if any(part_cmd == ic or part_cmd.endswith('/' + ic) for ic in interactive_commands):
+                is_interactive = True
+                break
     
     try:
         if is_interactive:
@@ -207,81 +221,6 @@ def transform(command):
         # For interactive commands, use subprocess.run instead of Popen to allow direct interaction
         # Add '-f' flag to rm commands to avoid interactive prompts
         command = command.replace('rm ', 'rm -f ', 1)
-    
-    # Handle filenames with spaces by adding quotes
-    # Try to preserve existing command structure while ensuring arguments are properly quoted
-    if ' ' in command:
-        # First handle the command as a whole string to preserve original structure
-        parts = []
-        current_part = ""
-        in_quotes = False
-        quote_type = None
-        
-        # Extract the command name (before the first space)
-        cmd_parts = command.split(' ', 1)
-        cmd = cmd_parts[0]
-        
-        if len(cmd_parts) > 1:
-            remaining = cmd_parts[1]
-            
-            # Special handling for arguments with unusual characters that need quoting
-            special_chars = '<>|&;()$`\\!{}"\'*?[]#~=%'
-            args_to_process = []
-            
-            # Try to intelligently split arguments while respecting existing quotes
-            i = 0
-            current_arg = ""
-            while i < len(remaining):
-                char = remaining[i]
-                
-                # Handle quoted sections
-                if char in ['"', "'"]:
-                    if not in_quotes:
-                        # Start of quoted section
-                        in_quotes = True
-                        quote_type = char
-                        current_arg += char
-                    elif char == quote_type:
-                        # End of quoted section
-                        in_quotes = False
-                        quote_type = None
-                        current_arg += char
-                    else:
-                        # Different quote inside quoted section
-                        current_arg += char
-                elif char == ' ' and not in_quotes:
-                    # Space outside quotes means end of argument
-                    if current_arg:
-                        args_to_process.append(current_arg)
-                        current_arg = ""
-                else:
-                    current_arg += char
-                
-                i += 1
-                
-            # Don't forget the last argument
-            if current_arg:
-                args_to_process.append(current_arg)
-            
-            # Process each argument and quote if needed
-            processed_args = []
-            for arg in args_to_process:
-                # If already properly quoted, leave as is
-                if (arg.startswith('"') and arg.endswith('"')) or (arg.startswith("'") and arg.endswith("'")):
-                    processed_args.append(arg)
-                # If it's a flag, leave as is
-                elif arg.startswith('-'):
-                    processed_args.append(arg)
-                # If it contains spaces or special characters, quote it
-                elif any(c in arg for c in special_chars) or ' ' in arg:
-                    # Remove any existing unmatched quotes
-                    arg = arg.strip('"\'')
-                    processed_args.append(f'"{arg}"')
-                else:
-                    processed_args.append(arg)
-            
-            # Reconstruct the command
-            command = cmd + ' ' + ' '.join(processed_args)
     
     return command
 
