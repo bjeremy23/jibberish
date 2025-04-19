@@ -109,6 +109,24 @@ def execute_command(command):
     except Exception as e:
         click.echo( click.style(f"Error: {e}", fg="red") )
 
+def execute_chained_commands(command_chain):
+    """
+    Execute multiple commands separated by &&
+    """
+    commands = command_chain.split('&&')
+    for cmd in commands:
+        cmd = cmd.strip()
+        if not cmd:
+            continue
+            
+        # Check if this is a built-in command
+        if is_built_in(cmd):
+            # Built-in command was executed, continue to next command
+            pass  # Don't return, let the next command execute
+        else:
+            # Execute external command
+            execute_command(transform(cmd))
+
 def is_built_in(command):
     """
     Check if the command is a built-in command
@@ -152,36 +170,22 @@ def is_built_in(command):
     return False
 
 def transform(command):
+    """
+    Transform the command to a more user-friendly version
+    """
+    # Transformations
     if command.startswith("vi "):   
         print("Transforming vi to gvim")
         command = command.replace("vi", "gvim", 1)
     elif command.strip() == "ls" or command.strip().startswith("ls ") and not any(flag in command for flag in ["-l", "-1", "-C", "-x", "-m"]):
         # Add -C flag for columnar output
-        command = command.replace("ls", "ls -C", 1)
+        command = command.replace("ls", "ls -CF", 1)
     elif command.startswith('rm ') and '-f' not in command:
         # For interactive commands, use subprocess.run instead of Popen to allow direct interaction
         # Add '-f' flag to rm commands to avoid interactive prompts
         command = command.replace('rm ', 'rm -f ', 1)
     return command
 
-def execute_chained_commands(command_chain):
-    """
-    Execute multiple commands separated by &&
-    """
-    commands = command_chain.split('&&')
-    for cmd in commands:
-        cmd = cmd.strip()
-        if not cmd:
-            continue
-            
-        # Check if this is a built-in command
-        if is_built_in(cmd):
-            # Built-in command was executed, continue to next command
-            pass  # Don't return, let the next command execute
-        else:
-            # Execute external command
-            execute_command(transform(cmd))
-             
 @click.command()
 def cli():
     """
@@ -195,7 +199,6 @@ def cli():
     click.echo(click.style("Type '?<question>' to ask a general question", fg="blue"))
     click.echo(click.style("Type '!' to get the command from the history", fg="blue"))
     
-
     # get the warn environment variable
     while True:
         # find the current directory
