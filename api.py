@@ -15,6 +15,7 @@ with open(os.path.expanduser("~/.jbrsh")) as env:
             # Remove quotes if present
             value = value.strip('"\'')
             os.environ[key.strip()] = value
+            print(f"Set {key.strip()} to {value.strip()}")
 # azure 
 if ai_coice == "azure":
     openai.api_type = "azure"

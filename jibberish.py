@@ -22,7 +22,10 @@ def pushd(directory):
     global dir_stack
     current_directory = os.getcwd()
     dir_stack.append(current_directory)
-    os.chdir(directory)
+    
+    # Expand tilde to home directory
+    expanded_dir = os.path.expanduser(directory)
+    os.chdir(expanded_dir)
 
     # join the directories in reverse order
     dirs = ' '.join(map(str, dir_stack[::-1]))
@@ -63,6 +66,23 @@ def execute_shell_command(command):
     return process.returncode, ''.join(output), ''.join(error)
 
 def execute_command(command):
+
+    # check to see if the command starts with anything in the WARNLIST env variable
+    # if it does, ask the user if they want to execute the command
+    warn_list = os.environ.get("WARN_LIST", "").split(",")
+    warn = False
+    for item in warn_list:
+        if command.startswith(item.strip()):
+            warn = True
+            break
+    
+    # if the command is in the warn_list, ask the user if they want to execute the command
+    if warn:
+        choice = input( click.style(f"Are you sure you want to execute this command? [y/n]: ", fg="blue") )
+        if choice.lower() != "y":
+            click.echo( click.style(f"Command not executed", fg="red") )
+            return
+        
     # execute the command. if it is not successful print the error message
     try:
         returncode, output, error = execute_shell_command(command)
@@ -139,13 +159,8 @@ def execute_chained_commands(command_chain):
             pass  # Don't return, let the next command execute
         else:
             # Execute external command
-            returncode, output, error = execute_shell_command(transform(cmd))
-            if returncode is not None:
-                # Print the error message
-                click.echo(click.style(f"{error}", fg="red"))
-                # If a command fails, stop the chain
-                return
-                
+            execute_command(transform(cmd))
+             
 @click.command()
 def cli():
     """
@@ -159,6 +174,8 @@ def cli():
     click.echo(click.style("Type '?<question>' to ask a general question", fg="blue"))
     click.echo(click.style("Type '!' to get the command from the history", fg="blue"))
     
+
+    # get the warn environment variable
     while True:
         # find the current directory
         current_directory = os.getcwd()

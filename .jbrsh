@@ -9,3 +9,5 @@ AZURE_OPENAI_API_KEY= <your azure openai api key>
 AZURE_OPENAI_ENDPOINT=<your azure openai endpoint>
 AZURE_OPENAI_API_VERSION=<your azure openai api version>
 AZURE_OPENAI_DEPLOYMENT_NAME=<your azure openai deployment name> # model i.e. gpt-4, gpt-4.1
+
+WARN_LIST=["rm", "rmdir", "mv", "cp", "ln", "chmod", "chown", "chgrp", "kill", "pkill", "killall", "shutdown", "reboot", "halt", "poweroff"]
