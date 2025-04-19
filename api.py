@@ -16,6 +16,8 @@ with open(os.path.expanduser("~/.jbrsh")) as env:
             value = value.strip('"\'')
             os.environ[key.strip()] = value
             print(f"Set {key.strip()} to {value.strip()}")
+    print("Environment variables loaded from ~/.jbrsh\n")
+    
 # azure 
 if ai_coice == "azure":
     openai.api_type = "azure"
