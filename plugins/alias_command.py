@@ -71,17 +71,6 @@ class AliasCommand(BuiltinCommand):
             # Remove the 'alias ' prefix
             alias_def = command[6:].strip()
             
-            # Check for show flag (-s or --show)
-            if alias_def == "-s" or alias_def == "--show":
-                # Display all aliases
-                if not aliases:
-                    click.echo("No aliases defined")
-                else:
-                    click.echo(click.style("Current aliases:", fg="blue"))
-                    for alias_name, alias_value in aliases.items():
-                        click.echo(f"alias {alias_name}='{alias_value}'")
-                return True
-            
             # Check if this is attempting to remove an alias
             if alias_def.startswith("unalias "):
                 alias_to_remove = alias_def[8:].strip()
