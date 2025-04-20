@@ -210,16 +210,16 @@ def execute_command(command):
         if returncode == -1:
             click.echo(click.style(f"{error}", fg="red"))
         elif error:
-            # if IGNORE_ERROS is set, ignore the error
-            ignore_errors = os.environ.get("IGNORE_ERRORS", "").lower()
-            if ignore_errors not in ["true", "yes", "1"]:
-                # For SSH commands with successful return code, treat stderr as normal output 
-                # since they often output informational messages to stderr
-                if is_ssh_command and returncode == 0:
-                    click.echo(error)
-                # For other commands with stderr output, show as error and offer to explain
-                elif "command not found" not in error:
-                    click.echo(click.style(error, fg="red"), nl=False)
+            # For SSH commands with successful return code, treat stderr as normal output 
+            # since they often output informational messages to stderr
+            if is_ssh_command and returncode == 0:
+                click.echo(error)
+            # For other commands with stderr output, show as error and offer to explain
+            elif "command not found" not in error:
+                click.echo(click.style(error, fg="red"), nl=False)
+                # if IGNORE_ERROR is set, ignore the error
+                ignore_errors = os.environ.get("IGNORE_ERRORS", "").lower()
+                if ignore_errors not in ["true", "yes", "1"]:
                     # have the user choose to explain why the command failed
                     choice = input(click.style(f"\nMore information about error? [y/n]: ", fg="blue"))
                     if choice.lower() == "y":
