@@ -10,8 +10,8 @@ def transform(command):
     Transform the command
     """
     # Transformations
-    if command.strip() == "ls" or command.strip().startswith("ls ") and not any(flag in command for flag in ["-l", "-1", "-C", "-x", "-m"]):
-        # Add -C flag for columnar output
+    if command.strip() == "ls" or command.strip().startswith("ls ") and not any(flag in command for flag in ["-l", "-d", "-1", "-C", "-x", "-m"]):
+        # Add -C flag for columnar output, but don't add -F flag which can cause double slashes
         command = command.replace("ls", "ls -CF", 1)
     elif command.startswith('rm ') and '-f' not in command:
         # For interactive commands, use subprocess.run instead of Popen to allow direct interaction
@@ -174,11 +174,12 @@ def execute_chained_commands(command_chain):
     command_chain = transform_multiline(command_chain)
     
     commands = command_chain.split('&&')
+    
     for cmd in commands:
         cmd = cmd.strip()
         if not cmd:
             continue
-            
+    
         # Check if this is a built-in command
         handled, new_command = is_built_in(cmd)
         

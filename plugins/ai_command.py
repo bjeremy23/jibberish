@@ -4,6 +4,7 @@ AI command generation plugin.
 import click
 import chat
 import importlib
+import os
 from plugin_system import BuiltinCommand, BuiltinCommandRegistry
 
 
@@ -16,7 +17,7 @@ class AICommandPlugin(BuiltinCommand):
     
     def execute(self, command):
         """Generate and execute a command using AI"""
-        # Remove the leading '#' from the command
+                # Remove the leading '#' from the command
         query = command[1:]
         
         # Ask the AI to generate a command
@@ -32,10 +33,9 @@ class AICommandPlugin(BuiltinCommand):
             # (assuming comment lines come first and the actual command is last)
             actual_command = lines[-1].strip()
             
-            # Only execute if the line doesn't start with a comment
+            # Only consider it executable if the line doesn't start with a comment
             if not actual_command.startswith('#'):
-                click.echo(click.style(f"Executing: {actual_command}", fg="green"))
-                return False, actual_command
+                to_execute = actual_command
             else:
                 # If the last line is also a comment, don't execute anything
                 click.echo(click.style("No executable command found in AI response", fg="yellow"))
@@ -43,12 +43,27 @@ class AICommandPlugin(BuiltinCommand):
         
         # If it's a single-line response, check if it's an actual command or just a comment
         elif not generated_response.strip().startswith('#'):
-            # It's a single line command, return it for execution
-            return False, generated_response
+            # It's a single line command
+            to_execute = generated_response.strip()
         else:
             # It's just a comment, don't execute
             click.echo(click.style("AI response was a comment, not executing", fg="yellow"))
             return True
+            
+        # Check if we should prompt before executing
+        prompt_setting = os.environ.get('PROMPT_AI_COMMANDS', '').lower()
+        if prompt_setting in ('true', 'always', 'yes', '1'):
+            choice = input(click.style("Execute this command? [y/n]: ", fg="blue"))
+            if choice.lower() != 'y':
+                click.echo(click.style("Command execution cancelled", fg="yellow"))
+                return True
+        
+        # Execute the command
+        if to_execute:
+            click.echo(click.style(f"Executing: {to_execute}", fg="green"))
+            return False, to_execute
+            
+        return True
 
 
 # Register the plugin with the registry
