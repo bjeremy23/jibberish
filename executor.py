@@ -1,8 +1,11 @@
 import os
+import sys
 import subprocess
 import click
 import chat
 import history
+import threading
+import io
 from built_ins import is_built_in
 
 
@@ -75,24 +78,100 @@ def execute_shell_command(command):
             return_code = os.system(command)
             return return_code, "", ""
         else:
-            # For non-interactive commands, use subprocess.run as before
-            result = subprocess.run(
+            # Use the simplest and most reliable approach: communicate() with a separate thread
+            # for outputting lines as they come in
+            from queue import Queue, Empty
+            from threading import Thread
+            
+            # Queue for collecting output
+            stdout_queue = Queue()
+            stderr_queue = Queue()
+            
+            # Start process with pipes
+            process = subprocess.Popen(
                 command,
                 shell=True,
                 executable='/bin/bash',
-                text=True,
-                capture_output=True
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                bufsize=1,
+                text=True
             )
             
-            # Display stdout
-            if result.stdout:
-                click.echo(result.stdout, nl=False)
+            # Function to read from pipes and put lines into queues
+            def reader(pipe, queue):
+                try:
+                    with pipe:
+                        for line in iter(pipe.readline, ''):
+                            queue.put(line)
+                finally:
+                    queue.put(None)  # Signal that reading is done
+                    
+            # Start reader threads
+            Thread(target=reader, args=[process.stdout, stdout_queue], daemon=True).start()
+            Thread(target=reader, args=[process.stderr, stderr_queue], daemon=True).start()
+            
+            # Collect all output
+            collected_stdout = []
+            collected_stderr = []
+            
+            # Process output from both queues until both are done
+            stdout_done = False
+            stderr_done = False
+            
+            while not (stdout_done and stderr_done):
+                # Check stdout
+                try:
+                    stdout_line = stdout_queue.get(block=False)
+                    if stdout_line is None:
+                        stdout_done = True
+                    else:
+                        click.echo(stdout_line, nl=False)
+                        sys.stdout.flush()
+                        collected_stdout.append(stdout_line)
+                except Empty:
+                    pass
                 
-            # Display stderr
-            if result.stderr:
-                click.echo(click.style(result.stderr, fg="red"), nl=False)
+                # Check stderr
+                try:
+                    stderr_line = stderr_queue.get(block=False)
+                    if stderr_line is None:
+                        stderr_done = True
+                    else:
+                        click.echo(click.style(stderr_line, fg="red"), nl=False)
+                        sys.stdout.flush()
+                        collected_stderr.append(stderr_line)
+                except Empty:
+                    pass
                 
-            return result.returncode, result.stdout, result.stderr
+                # If either queue is waiting for more output, give the process some time to produce it
+                if not (stdout_done and stderr_done):
+                    # Sleep a tiny bit to avoid busy waiting
+                    import time
+                    time.sleep(0.01)
+                    
+                    # Check if process is done and both queues are empty
+                    if process.poll() is not None and stdout_queue.empty() and stderr_queue.empty():
+                        # Double check by calling communicate() to get any remaining output
+                        final_stdout, final_stderr = process.communicate()
+                        
+                        if final_stdout:
+                            click.echo(final_stdout, nl=False)
+                            collected_stdout.append(final_stdout)
+                        if final_stderr:
+                            click.echo(click.style(final_stderr, fg="red"), nl=False)
+                            collected_stderr.append(final_stderr)
+                        
+                        break
+            
+            # Wait for process to finish and get return code
+            return_code = process.wait()
+            
+            # Join all the output
+            stdout_content = ''.join(collected_stdout)
+            stderr_content = ''.join(collected_stderr)
+            
+            return return_code, stdout_content, stderr_content
     except KeyboardInterrupt:
         return -1, "", "Aborted by user"
     except Exception as e:
@@ -131,21 +210,24 @@ def execute_command(command):
         if returncode == -1:
             click.echo(click.style(f"{error}", fg="red"))
         elif error:
-            # For SSH commands with successful return code, treat stderr as normal output 
-            # since they often output informational messages to stderr
-            if is_ssh_command and returncode == 0:
-                click.echo(error)
-            # For other commands with stderr output, show as error and offer to explain
-            elif "command not found" not in error:
-                click.echo(click.style(error, fg="red"), nl=False)
-                # have the user choose to explain why the command failed
-                choice = input(click.style(f"\nMore information about error? [y/n]: ", fg="blue"))
-                if choice.lower() == "y":
-                    why_failed = chat.ask_why_failed(command, error)
-                    if why_failed is not None:
-                        click.echo(click.style(f"{why_failed}", fg="red"))
-                    else:
-                        click.echo(click.style(f"No explanation provided.", fg="red"))
+            # if IGNORE_ERROS is set, ignore the error
+            ignore_errors = os.environ.get("IGNORE_ERRORS", "").lower()
+            if ignore_errors not in ["true", "yes", "1"]:
+                # For SSH commands with successful return code, treat stderr as normal output 
+                # since they often output informational messages to stderr
+                if is_ssh_command and returncode == 0:
+                    click.echo(error)
+                # For other commands with stderr output, show as error and offer to explain
+                elif "command not found" not in error:
+                    click.echo(click.style(error, fg="red"), nl=False)
+                    # have the user choose to explain why the command failed
+                    choice = input(click.style(f"\nMore information about error? [y/n]: ", fg="blue"))
+                    if choice.lower() == "y":
+                        why_failed = chat.ask_why_failed(command, error)
+                        if why_failed is not None:
+                            click.echo(click.style(f"{why_failed}", fg="red"))
+                        else:
+                            click.echo(click.style(f"No explanation provided.", fg="red"))
     except Exception as e:
         click.echo(click.style(f"Error: {e}", fg="red"))
 
