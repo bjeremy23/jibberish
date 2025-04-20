@@ -11,7 +11,7 @@ def transform(command):
     """
     # Transformations
     if command.strip() == "ls" or command.strip().startswith("ls ") and not any(flag in command for flag in ["-l", "-d", "-1", "-C", "-x", "-m"]):
-        # Add -C flag for columnar output, but don't add -F flag which can cause double slashes
+        # Add -C flag for columnar output
         command = command.replace("ls", "ls -CF", 1)
     elif command.startswith('rm ') and '-f' not in command:
         # For interactive commands, use subprocess.run instead of Popen to allow direct interaction
