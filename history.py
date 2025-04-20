@@ -184,13 +184,28 @@ import atexit
 atexit.register(readline.write_history_file, histfile)
 
 # Function to list command history
-def list_history():
+def list_history(return_output=False):
     """
     List the command history
+    
+    Args:
+        return_output (bool): If True, return the history as a string instead of printing it
+        
+    Returns:
+        str or None: If return_output is True, returns history as a string; otherwise None
     """
     history_length = readline.get_current_history_length()
+    output = []
+    
     for i in range(1, history_length + 1):
-       print(f"{i}: {readline.get_history_item(i)}")
+        line = f"{i}: {readline.get_history_item(i)}"
+        if return_output:
+            output.append(line)
+        else:
+            print(line)
+            
+    if return_output:
+        return '\n'.join(output)
 
 def get_history_item(index):
     """
