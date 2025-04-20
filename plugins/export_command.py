@@ -11,11 +11,16 @@ class ExportCommand(BuiltinCommand):
     
     def can_handle(self, command):
         """Check if this plugin can handle the command"""
-        return command.startswith("export ")
+        return command == "export" or command.startswith("export ")
     
     def execute(self, command):
-        """Set an environment variable"""
+        """Set an environment variable or list all environment variables"""
         try:
+            # Check if it's just 'export' without arguments
+            if command.strip() == 'export':
+                # Return a tuple to signal that this command should be passed to the executor
+                return False, command
+
             # Strip the 'export ' prefix
             var_assignment = command[7:].strip()
             
@@ -37,7 +42,7 @@ class ExportCommand(BuiltinCommand):
                 # Print the variable name and value
                 click.echo(click.style(f"Environment variable {var_name}={var_value}", fg="green"))
             else:
-                click.echo(click.style(f"Error: Invalid export format. Use export NAME=VALUE", fg="red"))
+                click.echo(click.style(f"Invalid format: Use export NAME=VALUE", fg="red"))
         except Exception as e:
             click.echo(click.style(f"Error setting environment variable: {str(e)}", fg="red"))
         
