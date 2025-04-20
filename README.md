@@ -229,4 +229,72 @@ The Jibberish shell includes several plugins that extend its functionality:
     /dev/sda1        50G   15G   35G  30% /
     /dev/sdb1       500G  100G  400G  20% /data
     ```
+    
+### Running Tests
+
+The Jibberish shell includes a comprehensive test suite using Python's unittest framework. These tests ensure that all components of the shell work as expected.
+
+#### Running the Test Suite
+
+The simplest way to run all tests is using the provided test runner script:
+
+```bash
+cd /home/brownjer/bin/jibberish
+
+```python3 tests/run_tests.py
+
+This will automatically find and run all tests in the project.
+
+#### Running Specific Tests
+
+You can run tests from a specific directory:
+
+```bash
+# Run only plugin tests
+python3 tests/run_tests.py tests/plugins
+
+# Run only framework tests
+python3 tests/run_tests.py tests/framework
+```
+
+Or run a specific test file:
+
+```bash
+# Run tests for the alias command
+python3 tests/run_tests.py tests/plugins/test_alias_command.py
+
+# Run tests for the executor module
+python3 tests/run_tests.py tests/framework/test_executor.py
+```
+
+#### Running Individual Test Methods
+
+You can run a specific test method within a file using the `-m` flag:
+
+```bash
+# Run a specific test method
+python3 tests/run_tests.py tests/plugins/test_cd_command.py -m test_execute_home_directory
+
+# Run a test method with the class name specified
+python3 tests/run_tests.py tests/plugins/test_cd_command.py -m TestCDCommand.test_execute_home_directory
+```
+
+#### Additional Options
+
+The test runner script supports these additional options:
+
+- `-v` or `--verbose`: Increase output verbosity for more detailed test information
+- `-m METHOD` or `--method METHOD`: Specify a test method to run
+
+#### Using Standard Unittest
+
+You can also run the tests using Python's standard unittest module:
+
+```bash
+# Run all tests
+python3 -m unittest discover -s tests
+
+# Run tests in a specific file
+python3 -m unittest tests/plugins/test_cd_command.py
+```
 

@@ -1,0 +1,18 @@
+# Configuration for PyATS tests
+testbed:
+  name: jibberish-test-environment
+  credentials:
+    default:
+      username: "%ENV{USER}"
+      password: ""
+  
+devices:
+  local:
+    os: linux
+    type: linux
+    credentials:
+      default:
+        username: "%ENV{USER}"
+    connections:
+      default:
+        protocol: local
