@@ -27,7 +27,6 @@ The Jibberish shell includes several plugins that extend its functionality:
     -rw-r--r-- 1 user group 235M Apr 19 10:23 ./large_dataset.zip
     -rw-r--r-- 1 user group 125M Apr 18 15:45 ./logs/system.log
     ```
-  - Test mode: `#test find large files` (shows command but doesn't execute)
 
 - **alias_command.py** - Manages command aliases that persist between shell sessions
   - Usage: `alias ls='ls -FC'` to create an alias
