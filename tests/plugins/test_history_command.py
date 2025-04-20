@@ -56,6 +56,52 @@ class TestHistoryCommand(unittest.TestCase):
         
         # Check that list_history was called
         self.mock_list_history.assert_called_once()
+    
+    def test_can_handle_with_pipe(self):
+        """Test can_handle method with piped command."""
+        # Should handle 'history | grep command' format
+        self.assertTrue(self.history_cmd.can_handle("history | grep test"), 
+                      "Should handle 'history | grep test'")
+        
+        self.assertTrue(self.history_cmd.can_handle("h | grep test"), 
+                      "Should handle 'h | grep test'")
+        
+        # Should not handle other piped commands
+        self.assertFalse(self.history_cmd.can_handle("ls | grep test"), 
+                       "Should not handle 'ls | grep test'")
+    
+    @patch('subprocess.run')
+    @patch('tempfile.NamedTemporaryFile')
+    @patch('os.unlink')
+    def test_execute_history_with_pipe(self, mock_unlink, mock_tempfile, mock_subprocess_run):
+        """Test executing history command with pipe."""
+        # Set up the mocks
+        mock_temp_file = MagicMock()
+        mock_temp_file.name = "/tmp/test_history_file"
+        mock_tempfile.return_value.__enter__.return_value = mock_temp_file
+        
+        # Mock list_history to return a test string
+        self.mock_list_history.return_value = "1: command1\n2: command2\n3: command3"
+        
+        # Execute the command with a pipe
+        result = self.history_cmd.execute("history | grep command")
+        
+        # Verify that the command was handled properly
+        self.assertTrue(result, "Should return True to indicate command was handled")
+        
+        # Check that list_history was called with return_output=True
+        self.mock_list_history.assert_called_once_with(return_output=True)
+        
+        # Check that the temporary file was created and written to
+        mock_temp_file.write.assert_called_once_with("1: command1\n2: command2\n3: command3")
+        
+        # Check that subprocess.run was called with the correct command
+        expected_command = f"cat {mock_temp_file.name} | grep command"
+        mock_subprocess_run.assert_called_once()
+        self.assertEqual(mock_subprocess_run.call_args[0][0], expected_command)
+        
+        # Check that the temporary file was cleaned up
+        mock_unlink.assert_called_once_with(mock_temp_file.name)
 
 if __name__ == '__main__':
     # Run the test

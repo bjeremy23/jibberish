@@ -160,6 +160,81 @@ class TestAliasCommands(unittest.TestCase):
         # Check that output contains the error message
         self.assertIn("not found", output.stdout_content, 
                     "Output should contain 'not found'")
+    
+    def test_alias_can_handle_with_pipe(self):
+        """Test the can_handle method of AliasCommand with pipe."""
+        # Should handle 'alias | grep ls' command
+        self.assertTrue(self.alias_cmd.can_handle("alias | grep ls"), 
+                      "Should handle 'alias | grep ls'")
+        
+        # Should not handle other piped commands
+        self.assertFalse(self.alias_cmd.can_handle("ls | grep test"), 
+                       "Should not handle 'ls | grep test'")
+    
+    @patch('subprocess.run')
+    @patch('tempfile.NamedTemporaryFile')
+    @patch('os.unlink')
+    def test_execute_alias_with_pipe(self, mock_unlink, mock_tempfile, mock_subprocess_run):
+        """Test executing alias command with pipe."""
+        # Set up some aliases for testing
+        alias_command.aliases["ls"] = "ls -la"
+        alias_command.aliases["ll"] = "ls -l"
+        alias_command.aliases["grep"] = "grep --color=auto"
+        
+        # Set up the mocks
+        mock_temp_file = MagicMock()
+        mock_temp_file.name = "/tmp/test_alias_file"
+        mock_tempfile.return_value.__enter__.return_value = mock_temp_file
+        
+        # Execute the command with a pipe
+        result = self.alias_cmd.execute("alias | grep ls")
+        
+        # Verify that the command was handled properly
+        self.assertTrue(result, "Should return True to indicate command was handled")
+        
+        # Check that the temporary file was created and written to
+        mock_temp_file.write.assert_called_once()
+        write_content = mock_temp_file.write.call_args[0][0]
+        self.assertIn("alias ls='ls -la'", write_content)
+        self.assertIn("alias ll='ls -l'", write_content)
+        
+        # Check that subprocess.run was called with the correct command
+        expected_command = f"cat {mock_temp_file.name} | grep ls"
+        mock_subprocess_run.assert_called_once()
+        self.assertEqual(mock_subprocess_run.call_args[0][0], expected_command)
+        
+        # Check that the temporary file was cleaned up
+        mock_unlink.assert_called_once_with(mock_temp_file.name)
+    
+    @patch('subprocess.run')
+    @patch('tempfile.NamedTemporaryFile')
+    @patch('os.unlink')
+    def test_execute_alias_with_pipe_no_aliases(self, mock_unlink, mock_tempfile, mock_subprocess_run):
+        """Test executing alias command with pipe when no aliases are defined."""
+        # Clear any existing aliases
+        alias_command.aliases.clear()
+        
+        # Set up the mocks
+        mock_temp_file = MagicMock()
+        mock_temp_file.name = "/tmp/test_alias_file"
+        mock_tempfile.return_value.__enter__.return_value = mock_temp_file
+        
+        # Execute the command with a pipe
+        result = self.alias_cmd.execute("alias | grep anything")
+        
+        # Verify that the command was handled properly
+        self.assertTrue(result, "Should return True to indicate command was handled")
+        
+        # Check that the temporary file was created with the correct content
+        mock_temp_file.write.assert_called_once_with("No aliases defined")
+        
+        # Check that subprocess.run was called with the correct command
+        expected_command = f"cat {mock_temp_file.name} | grep anything"
+        mock_subprocess_run.assert_called_once()
+        self.assertEqual(mock_subprocess_run.call_args[0][0], expected_command)
+        
+        # Check that the temporary file was cleaned up
+        mock_unlink.assert_called_once_with(mock_temp_file.name)
 
 if __name__ == '__main__':
     # Run the test
