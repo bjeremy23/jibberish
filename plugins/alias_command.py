@@ -51,7 +51,6 @@ class AliasCommand(BuiltinCommand):
         # If command matches an existing alias, replace it with the aliased command
         if command.strip() in aliases:
             aliased_command = aliases[command.strip()]
-            click.echo(click.style(f"Using alias: {command} -> {aliased_command}", fg="blue"))
             return False, aliased_command
         
         # Parse and handle alias commands

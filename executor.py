@@ -5,20 +5,6 @@ import chat
 import history
 from built_ins import is_built_in
 
-def transform(command):
-    """
-    Transform the command
-    """
-    # Transformations
-    if command.strip() == "ls" or command.strip().startswith("ls ") and not any(flag in command for flag in ["-l", "-d", "-1", "-C", "-x", "-m"]):
-        # Add -C flag for columnar output
-        command = command.replace("ls", "ls -CF", 1)
-    elif command.startswith('rm ') and '-f' not in command:
-        # For interactive commands, use subprocess.run instead of Popen to allow direct interaction
-        # Add '-f' flag to rm commands to avoid interactive prompts
-        command = command.replace('rm ', 'rm -f ', 1)
-    
-    return command
 
 def transform_multiline(command_chain):
     """
@@ -57,9 +43,6 @@ def execute_shell_command(command):
     # Check if the command is empty
     if not command.strip():
         return 0, "", ""
-    
-    #transform the command
-    command = transform(command)
     
     # Check if command is in the INTERACTIVE_LIST environment variable
     # Default list if not set: "vi,vim,nano,emacs,less,more,top,htop"
@@ -132,7 +115,7 @@ def execute_command(command):
     
     # if the command is in the warn_list and the command does not contain '-f', 
     # ask the user if they want to execute the command
-    if warn and '-f' not in command:
+    if warn:
         choice = input(click.style(f"Are you sure you want to execute this command? [y/n]: ", fg="blue"))
         if choice.lower() != "y":
             click.echo(click.style(f"Command not executed", fg="red"))
@@ -195,8 +178,5 @@ def execute_chained_commands(command_chain):
                 # Execute the new command
                 execute_command(new_command)
         else:
-            # Apply transformation to the command before executing it
-            transformed_cmd = transform(cmd)
-            
             # Execute external command
-            execute_command(transformed_cmd)
+            execute_command(cmd)

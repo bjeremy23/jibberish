@@ -200,17 +200,36 @@ def get_history_item(index):
 
 def get_history(command):
     """
-    Get the command from the history
+    Get the command from the history.
+    Handles both numeric indices (e.g., !3) and partial text searches (e.g., !cd).
     """
+    search_term = command[1:]  # Remove the '!' prefix
+    
     try:
-        history_index = int(command[1:])
-        command = get_history_item(history_index).strip()
-        if command is None:
-            click.echo(click.style(f"No command found at history index {history_index}", fg="red"))
+        # First try to interpret as a numeric index
+        if search_term.isdigit():
+            history_index = int(search_term)
+            history_command = get_history_item(history_index)
+            if history_command is None:
+                click.echo(click.style(f"No command found at history index {history_index}", fg="red"))
+                return None
+            click.echo(click.style(f"{history_command}", fg="blue"))
+            return history_command
+        
+        # If not a number, search for the most recent command starting with the search term
+        else:
+            history_length = readline.get_current_history_length()
+            # Search through history from most recent to oldest
+            for i in range(history_length, 0, -1):
+                history_item = get_history_item(i)
+                if history_item and history_item.startswith(search_term):
+                    click.echo(click.style(f"{history_item}", fg="blue"))
+                    return history_item
+            
+            # If no match found
+            click.echo(click.style(f"No command starting with '{search_term}' found in history", fg="red"))
             return None
-        click.echo(click.style(command, fg="blue"))
-        return command
-    except:
-        click.echo(click.style("Invalid history index", fg="red"))
+    except Exception as e:
+        click.echo(click.style(f"Error accessing history: {str(e)}", fg="red"))
         return None
 
