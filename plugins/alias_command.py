@@ -44,7 +44,8 @@ class AliasCommand(BuiltinCommand):
     
     def can_handle(self, command):
         """Check if this plugin can handle the command"""
-        return command.strip().startswith("alias") or command.strip() in aliases
+        command = command.strip()
+        return command == "alias" or command.startswith("alias ") or command.startswith("alias |") or command in aliases
     
     def execute(self, command):
         """Handle alias commands or replace with aliased command"""
@@ -54,15 +55,48 @@ class AliasCommand(BuiltinCommand):
             return False, aliased_command
         
         # Parse and handle alias commands
-        if command.strip() == "alias":
-            # Display all aliases
-            if not aliases:
-                click.echo("No aliases defined")
+        cmd = command.strip()
+        if cmd == "alias" or cmd.startswith("alias |"):
+            # Check if this is a piped command
+            if '|' in cmd:
+                # Get the part after the pipe
+                pipe_command = cmd[cmd.index('|')+1:].strip()
+                
+                # Generate alias output as a string
+                alias_output = []
+                if not aliases:
+                    alias_output.append("No aliases defined")
+                else:
+                    for alias_name, alias_value in aliases.items():
+                        alias_output.append(f"alias {alias_name}='{alias_value}'")
+                
+                # Create a temporary file to store the alias output
+                import tempfile
+                with tempfile.NamedTemporaryFile(mode='w+', delete=False) as temp:
+                    temp.write('\n'.join(alias_output))
+                    temp_path = temp.name
+                
+                # Execute the pipe command with alias output as input
+                import subprocess
+                full_command = f"cat {temp_path} | {pipe_command}"
+                
+                # Execute the command
+                result = subprocess.run(full_command, shell=True, text=True)
+                
+                # Clean up the temporary file
+                import os
+                os.unlink(temp_path)
+                
+                return True
             else:
-                click.echo(click.style("Current aliases:", fg="blue"))
-                for alias_name, alias_value in aliases.items():
-                    click.echo(f"alias {alias_name}='{alias_value}'")
-            return True
+                # Display all aliases
+                if not aliases:
+                    click.echo("No aliases defined")
+                else:
+                    click.echo(click.style("Current aliases:", fg="blue"))
+                    for alias_name, alias_value in aliases.items():
+                        click.echo(f"alias {alias_name}='{alias_value}'")
+                return True
         
         # For alias setting commands, parse and store the alias
         command = command.strip()
