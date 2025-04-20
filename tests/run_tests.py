@@ -28,19 +28,27 @@ def collect_tests(test_dir=None):
     
     # Helper function to add tests from a module
     def add_tests_from_module(module):
+        has_unittest_tests = False
         for name in dir(module):
             obj = getattr(module, name)
             if isinstance(obj, type) and issubclass(obj, unittest.TestCase) and obj != unittest.TestCase:
                 test_suite.addTest(unittest.makeSuite(obj))
+                has_unittest_tests = True
+        return has_unittest_tests
     
     # Convert PyATS tests to unittest tests
     def convert_pyats_test_to_unittest(module):
         # For each class that inherits from aetest.Testcase
+        has_pyats_tests = False
         for name in dir(module):
             obj = getattr(module, name)
             if isinstance(obj, type) and hasattr(obj, '__name__') and not name.startswith('__'):
                 # Check if it's a PyATS testcase
                 if 'Testcase' in name or 'TestCase' in name:
+                    # Skip if this is already a unittest TestCase
+                    if issubclass(obj, unittest.TestCase):
+                        continue
+                    
                     # Create a unittest TestCase equivalent
                     class UnittestWrapper(unittest.TestCase):
                         pass
@@ -55,6 +63,8 @@ def collect_tests(test_dir=None):
                     # Add the wrapper class to our test suite if it has test methods
                     if any(m.startswith('test_') for m in dir(UnittestWrapper)):
                         test_suite.addTest(unittest.makeSuite(UnittestWrapper))
+                        has_pyats_tests = True
+        return has_pyats_tests
     
     # Walk through all test directories
     for root, dirs, files in os.walk(test_dir):
@@ -66,10 +76,12 @@ def collect_tests(test_dir=None):
                     module = load_test_module(file_path)
                     
                     # First try to add unittest tests
-                    add_tests_from_module(module)
+                    has_unittest = add_tests_from_module(module)
                     
-                    # Also try to convert PyATS tests
-                    convert_pyats_test_to_unittest(module)
+                    # Only convert PyATS tests if there are no unittest tests
+                    # to avoid double-counting
+                    if not has_unittest:
+                        convert_pyats_test_to_unittest(module)
                     
                 except Exception as e:
                     print(f"Error loading tests from {file_path}: {e}")
