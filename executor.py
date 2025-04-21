@@ -231,6 +231,44 @@ def execute_command(command):
     except Exception as e:
         click.echo(click.style(f"Error: {e}", fg="red"))
 
+def split_commands_respect_quotes(command_chain):
+    """
+    Split command chain on '&&' while respecting quotes.
+    This ensures that '&&' inside quotes won't be treated as command separators.
+    """
+    commands = []
+    current_cmd = ""
+    in_single_quote = False
+    in_double_quote = False
+    i = 0
+    
+    while i < len(command_chain):
+        char = command_chain[i]
+        
+        # Handle quotes
+        if char == "'" and not in_double_quote:
+            in_single_quote = not in_single_quote
+            current_cmd += char
+        elif char == '"' and not in_single_quote:
+            in_double_quote = not in_double_quote
+            current_cmd += char
+        # Handle potential command separator
+        elif char == '&' and not in_single_quote and not in_double_quote and i + 1 < len(command_chain) and command_chain[i + 1] == '&':
+            # Found '&&' outside quotes - split the command
+            commands.append(current_cmd.strip())
+            current_cmd = ""
+            i += 1  # Skip the second &
+        else:
+            current_cmd += char
+        
+        i += 1
+    
+    # Add the last command
+    if current_cmd.strip():
+        commands.append(current_cmd.strip())
+    
+    return commands
+
 def execute_chained_commands(command_chain):
     """
     Execute multiple commands separated by &&
@@ -238,7 +276,8 @@ def execute_chained_commands(command_chain):
     # First transform any multiline commands into proper format
     command_chain = transform_multiline(command_chain)
     
-    commands = command_chain.split('&&')
+    # Split commands respecting quotes
+    commands = split_commands_respect_quotes(command_chain)
     
     for cmd in commands:
         cmd = cmd.strip()

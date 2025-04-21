@@ -290,6 +290,45 @@ class TestChainedCommands(unittest.TestCase):
         self.mock_cmd.assert_any_call("ls")
         self.mock_cmd.assert_any_call("cd /tmp")
         print("test_empty_commands passed!")
+        
+    def test_quoted_and_operators(self):
+        """Test execute_chained_commands with quoted strings containing && operators."""
+        print("Running test_quoted_and_operators")
+        
+        # Reset mock for this test
+        self.mock_cmd.reset_mock()
+        
+        # Test with single quotes containing &&
+        single_quoted_cmd = "echo 'This && should be treated as one' && echo Second"
+        self.executor.execute_chained_commands(single_quoted_cmd)
+        self.assertEqual(self.mock_cmd.call_count, 2, f"Expected 2 calls but got {self.mock_cmd.call_count}")
+        # Check that commands were properly split respecting quotes
+        self.mock_cmd.assert_any_call("echo 'This && should be treated as one'")
+        self.mock_cmd.assert_any_call("echo Second")
+        
+        # Reset mock for next test
+        self.mock_cmd.reset_mock()
+        
+        # Test with double quotes containing &&
+        double_quoted_cmd = 'echo "First && not a separator" && echo Final'
+        self.executor.execute_chained_commands(double_quoted_cmd)
+        self.assertEqual(self.mock_cmd.call_count, 2, f"Expected 2 calls but got {self.mock_cmd.call_count}")
+        # Check that commands were properly split respecting quotes
+        self.mock_cmd.assert_any_call('echo "First && not a separator"')
+        self.mock_cmd.assert_any_call("echo Final")
+        
+        # Reset mock for next test
+        self.mock_cmd.reset_mock()
+        
+        # Test with nested quotes
+        nested_quotes_cmd = 'echo "Outer \'inner && still outer\' end" && echo Last'
+        self.executor.execute_chained_commands(nested_quotes_cmd)
+        self.assertEqual(self.mock_cmd.call_count, 2, f"Expected 2 calls but got {self.mock_cmd.call_count}")
+        # Check that commands were properly split respecting nested quotes
+        self.mock_cmd.assert_any_call('echo "Outer \'inner && still outer\' end"')
+        self.mock_cmd.assert_any_call("echo Last")
+        
+        print("test_quoted_and_operators passed!")
 
 # When run directly
 if __name__ == '__main__':
