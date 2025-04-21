@@ -98,6 +98,72 @@ class TestDirStackCommand(unittest.TestCase):
                        f"Expected 1 item in stack but got {len(dir_stack_command.dir_stack)}")
         self.assertEqual(dir_stack_command.dir_stack[0], self.temp_dir1, 
                        f"Expected '{self.temp_dir1}' but got '{dir_stack_command.dir_stack[0]}'")
+                       
+    def test_pushd_with_command_chaining(self):
+        """Test pushing a directory onto the stack with command chaining."""
+        # Change to a known directory
+        os.chdir(self.temp_dir1)
+        
+        # Test with a simple command chain
+        result = self.pushd_cmd.execute(f"pushd {self.temp_dir2} && ls")
+        
+        # The result should be a tuple indicating command not fully handled
+        self.assertIsInstance(result, tuple, f"Expected tuple but got {type(result)}")
+        self.assertEqual(len(result), 2, f"Expected tuple of length 2 but got {len(result)}")
+        self.assertFalse(result[0], f"Expected False for first element but got {result[0]}")
+        self.assertEqual(result[1], "ls", f"Expected 'ls' for second element but got '{result[1]}'")
+        
+        # Check that we're in the new directory (pushd part executed)
+        current_dir = os.getcwd()
+        self.assertEqual(current_dir, self.temp_dir2, 
+                       f"Expected '{self.temp_dir2}' but got '{current_dir}'")
+        
+        # Check that the stack has the original directory
+        self.assertEqual(len(dir_stack_command.dir_stack), 1, 
+                       f"Expected 1 item in stack but got {len(dir_stack_command.dir_stack)}")
+        self.assertEqual(dir_stack_command.dir_stack[0], self.temp_dir1, 
+                       f"Expected '{self.temp_dir1}' but got '{dir_stack_command.dir_stack[0]}'")
+                       
+    def test_pushd_with_command_chaining_and_alias(self):
+        """Test pushd with command chaining and alias expansion."""
+        # Change to a known directory
+        os.chdir(self.temp_dir1)
+        
+        # Directly modify the aliases dict for this test
+        # Save the original aliases to restore later
+        original_aliases = dir_stack_command.aliases.copy()
+        # Set up our test alias
+        dir_stack_command.aliases["ls"] = "ls -la"
+        
+        try:
+            # Test with a chain that includes an aliased command
+            result = self.pushd_cmd.execute(f"pushd {self.temp_dir2} && ls")
+            
+            # The result should contain the expanded alias
+            self.assertIsInstance(result, tuple, f"Expected tuple but got {type(result)}")
+            self.assertEqual(len(result), 2, f"Expected tuple of length 2 but got {len(result)}")
+            self.assertFalse(result[0], f"Expected False for first element but got {result[0]}")
+            self.assertEqual(result[1], "ls -la", f"Expected 'ls -la' for second element but got '{result[1]}'")
+            
+            # Check that pushd was executed correctly
+            current_dir = os.getcwd()
+            self.assertEqual(current_dir, self.temp_dir2, 
+                           f"Expected '{self.temp_dir2}' but got '{current_dir}'")
+            
+            # Test with a more complex chain and arguments
+            os.chdir(self.temp_dir1)  # Reset directory
+            dir_stack_command.dir_stack = []  # Reset stack
+            
+            result = self.pushd_cmd.execute(f"pushd {self.temp_dir3} && ls -h something.txt")
+            
+            # Check that alias expansion preserves arguments
+            self.assertEqual(result[1], "ls -la -h something.txt", 
+                           f"Expected 'ls -la -h something.txt' but got '{result[1]}'")
+                           
+        finally:
+            # Restore original aliases
+            dir_stack_command.aliases.clear()
+            dir_stack_command.aliases.update(original_aliases)
     
     def test_pushd_invalid_directory(self):
         """Test pushing an invalid directory."""

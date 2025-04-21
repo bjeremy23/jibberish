@@ -4,6 +4,8 @@ Directory stack commands (pushd/popd) plugin.
 import os
 import click
 from plugin_system import BuiltinCommand, BuiltinCommandRegistry
+# Import the aliases dictionary to check for aliases in command chains
+from plugins.alias_command import aliases
 
 # Directory stack (shared state at module level)
 dir_stack = []
@@ -18,6 +20,10 @@ class DirStackCommand(BuiltinCommand):
     
     def execute(self, command):
         """Execute pushd, popd, or dirs command"""
+        # Check if command contains a chain
+        has_chain = '&&' in command
+        rest_of_chain = None
+        
         if command.startswith("pushd"):
             try:
                 # Extract directory argument
@@ -26,15 +32,52 @@ class DirStackCommand(BuiltinCommand):
                     click.echo(click.style("Usage: pushd <directory>", fg="red"))
                     return True
                 
-                directory = parts[1]
+                if has_chain:
+                    # Split the command to get directory and rest of chain
+                    cmd_parts = parts[1].split('&&', 1)
+                    directory = cmd_parts[0].strip()
+                    if len(cmd_parts) > 1:
+                        rest_of_chain = cmd_parts[1].strip()
+                else:
+                    # No command chaining
+                    directory = parts[1].strip()
+                
                 self._pushd(directory)
             except IndexError:
                 click.echo(click.style("Usage: pushd <directory>", fg="red"))
         elif command.startswith("popd"):
             self._popd()
+            if has_chain:
+                # Get everything after the "popd" command and &&
+                rest_of_chain = command.split('&&', 1)[1].strip()
         elif command.startswith("dirs"):
             self._dirs()
+            if has_chain:
+                # Get everything after the "dirs" command and &&
+                rest_of_chain = command.split('&&', 1)[1].strip()
+        
+        # If there's a command chain, check for aliases before returning
+        if rest_of_chain:
+            # Check if the chained command is a simple command (no pipes, redirects, etc.)
+            # that could match an alias
+            first_cmd = rest_of_chain.split()[0] if rest_of_chain.split() else ""
             
+            # If the first word in the rest of chain matches an alias, replace it
+            if first_cmd in aliases:
+                # Replace the first command with its alias
+                aliased_cmd = aliases[first_cmd]
+                # Replace only the first word, preserving any arguments
+                if len(first_cmd) == len(rest_of_chain):
+                    # Simple command with no args
+                    rest_of_chain = aliased_cmd
+                else:
+                    # Command with args - replace only the command part
+                    args = rest_of_chain[len(first_cmd):].strip()
+                    rest_of_chain = f"{aliased_cmd} {args}"
+                    
+            # Return False to continue processing with the new chain
+            return False, rest_of_chain
+        
         return True
     
     def _pushd(self, directory):
