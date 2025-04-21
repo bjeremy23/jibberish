@@ -120,6 +120,31 @@ class TestAICommand(unittest.TestCase):
             self.mock_input.assert_called_once()
             
             # No need to check if execute_command was called, as the plugin doesn't call it directly
+    
+    def test_execute_double_hash_ai_command(self):
+        """Test executing a double hash AI command (## prefix)."""
+        # Set up the AI response for this test
+        self.mock_ask_ai.return_value = "ls -la"
+        
+        with CaptureOutput() as output:
+            result = self.ai_cmd.execute("## find large files")
+            
+            # With double hash, the result should be True (handled) and not passed for execution
+            self.assertTrue(result, "Expected True for double hash command (should be handled)")
+            
+            # Capture and check the output - flush and read the output file
+            output.stdout.flush()
+            output.stdout.seek(0)
+            stdout_content = output.stdout.read()
+            self.assertIn("# ls -la", stdout_content, 
+                        "Expected output to contain '# ls -la'")
+        
+        # Check that the API was called with the right query (without ## prefix)
+        self.mock_ask_ai.assert_called_once()
+        call_args = self.mock_ask_ai.call_args[0]
+        self.assertGreater(len(call_args), 0, "Expected at least one argument")
+        self.assertEqual(" find large files", call_args[0], 
+                       "Expected query to be ' find large files' with leading space after removing # characters")
 
 if __name__ == '__main__':
     # Run the test

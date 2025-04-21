@@ -15,12 +15,12 @@ def help():
     Display help information
     """
     click.echo(click.style("Commands:", fg="blue"))
-    click.echo(click.style("  <command>       - Execute the command", fg="blue"))
-    click.echo(click.style("  #<command>      - Ask the AI to generate a command based on the user input", fg="blue"))
-    click.echo(click.style("  #test <command>    - Ask the AI to generate a command based on the user input", fg="blue"))
-    click.echo(click.style("  ?<question>     - ask a general question", fg="blue")) 
-    click.echo(click.style("  exit, quit, q   - Exit the shell", fg="blue"))
-    click.echo(click.style("  help            - help menu", fg="blue"))
+    click.echo(click.style("  <command>         - Execute the command", fg="blue"))
+    click.echo(click.style("  #<command desc>   - Ask the AI to generate a command based on the user input", fg="blue"))
+    click.echo(click.style("  ## <command desc> - Ask the AI to generate a commented command based on the user input", fg="blue"))
+    click.echo(click.style("  ?<question>       - ask a general question", fg="blue")) 
+    click.echo(click.style("  exit, quit, q     - Exit the shell", fg="blue"))
+    click.echo(click.style("  help              - help menu", fg="blue"))
 
 @click.command()
 def cli():
@@ -31,6 +31,7 @@ def cli():
     click.echo(click.style("# Welcome to Jibber Shell", fg="blue"))
     click.echo(click.style("# Type '<command>' to execute the command", fg="blue"))
     click.echo(click.style("# Type '#<command description>' to execute the command your looking for", fg="blue"))
+    click.echo(click.style("# Type '## <command desc>' to generate a commented command based on the user input", fg="blue"))
     click.echo(click.style("# Type '?<question>' to ask a general question", fg="blue"))
     click.echo(click.style("# Type 'help' for a list of commands", fg="blue"))
     click.echo(click.style("# Type 'exit, quit, q' to exit", fg="blue"))

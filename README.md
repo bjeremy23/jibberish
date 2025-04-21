@@ -3,7 +3,8 @@
 
 ### Commands:
 - `<command>`                 - Execute a shell command
-- `#<command>`                - Ask the AI to generate shell commands based on the user input
+- `#<command description>`    - Ask the AI to generate shell commands based on the user input
+- `##<command description>`   - Ask the AI to generate commented shell commands based on the user input
 - `?<question>`               - Ask a general question
 - `exit`, `quit`, `q`         - Exit the shell          
 - `help`                      - Help menu

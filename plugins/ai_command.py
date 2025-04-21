@@ -17,9 +17,20 @@ class AICommandPlugin(BuiltinCommand):
     
     def execute(self, command):
         """Generate and execute a command using AI"""
-                # Remove the leading '#' from the command
+        # Remove the leading '#' from the command
         query = command[1:]
         
+        # if the query starts with another '#', call ask_ai on the rest of the string, 
+        # but add a comment to the generated response and return the response without executing it
+        if query.startswith("#"):
+            # Remove the leading '#' from the query
+            query = query[1:]
+            # Call ask_ai on the rest of the string
+            generated_response = chat.ask_ai(query)
+            # Add a comment to the generated response
+            click.echo(click.style(f"# {generated_response}", fg="blue"))
+            return True
+        # Check if the command is a chai
         # Ask the AI to generate a command
         generated_response = chat.ask_ai(query)
         
