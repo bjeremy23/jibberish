@@ -1,7 +1,12 @@
 import api, time, click, re, json
 
+# contains a history of questions '?' asked to the ai sothere is some context to the chat
 chat_file_path = "/tmp/jibberish.txt"
-n =3 # number of lines to return
+# number of questions in the context 
+noof_questions=3
+
+# Maximum number of user/assistant pairs to maintain in base_messages
+MAX_HISTORY_PAIRS = 4
 
 global_context = [
     {
@@ -25,6 +30,7 @@ chat_context = [
     }
 ]
 
+# Initialize with example messages that will be kept within the 4-pair limit
 base_messages = [
     {
         "role": "user",
@@ -86,8 +92,8 @@ def load_chat_from_file():
         import json
         try:
             chat = json.loads(f.read())
-            # return the last n lines
-            return chat[-n:]
+            # return the most recent questions for context
+            return chat[-noof_questions:]
         except json.JSONDecodeError:
             return []
 
@@ -140,6 +146,9 @@ def ask_ai(command):
     """
     Ask the AI to generate a command based on the user input
     """
+    # Declare global variable at the beginning of the function
+    global base_messages
+    
     # Start with the base context
     context = global_context.copy()
     
@@ -147,8 +156,12 @@ def ask_ai(command):
     if any(term in command.lower() for term in ['ssh', 'remote', 'login', 'connect', 'master']):
         context.extend(ssh_context)
     
-    messages = context + base_messages.copy()
-
+    # Create a copy of base_messages to work with
+    current_messages = base_messages.copy()
+    
+    # Add the current user query
+    messages = context + current_messages.copy()
+    
     messages.append(
         {
             "role": "user",
@@ -179,6 +192,9 @@ def ask_ai(command):
         # Get the raw response from the AI
         raw_response = response.choices[0].message.content.strip()
         
+        # Process the raw response to get the final command
+        final_command = None
+        
         # Remove markdown code block formatting if present
         # This handles patterns like ```bash\ncommand\n``` or ```\ncommand\n```
         code_block_pattern = r"```(?:bash|sh)?\s*([\s\S]*?)```"
@@ -198,16 +214,13 @@ def ask_ai(command):
                         if line:  # Only include non-empty lines
                             combined_commands.append(line)
                     # Join all commands with && to execute them sequentially
-                    command_text = ' && '.join(combined_commands)
-                    return command_text
-            
+                    final_command = ' && '.join(combined_commands)
+                    
             # For simple one-line commands or commands with line continuations
             if len(lines) == 1 or any(line.strip().endswith('\\') for line in lines[:-1]):
-                command_text = ' '.join(line.strip() for line in lines)
-            
-            return command_text
+                final_command = ' '.join(line.strip() for line in lines)
         else:
-            # If no code block found, return the original response
+            # If no code block found, process the original response
             lines = raw_response.splitlines()
             
             # Special handling for SSH commands
@@ -218,8 +231,7 @@ def ask_ai(command):
                 # If the first line is an SSH command and doesn't end with quotes
                 if first_line.startswith('ssh ') and not (first_line.endswith('"') or first_line.endswith("'")):
                     # Combine the SSH command with the next line in quotes
-                    raw_response = f"{first_line} \"{second_line}\""
-                    return raw_response
+                    final_command = f"{first_line} \"{second_line}\""
                     
                 # Multiple separate commands - join with && to execute sequentially
                 elif first_line and second_line and not first_line.endswith('\\'):
@@ -229,11 +241,29 @@ def ask_ai(command):
                         if line:  # Only include non-empty lines
                             combined_commands.append(line)
                     # Join all commands with && to execute them sequentially
-                    raw_response = ' && '.join(combined_commands)
-                    return raw_response
-                    
-            # Otherwise return the first line only to maintain backward compatibility
-            return lines[0] if lines else raw_response
+                    final_command = ' && '.join(combined_commands)
+            
+            # Otherwise use the first line or the raw response
+            if final_command is None:
+                final_command = lines[0] if lines else raw_response
+        
+        
+        # Add the new conversation pair
+        new_pair = [
+            {"role": "user", "content": command},
+            {"role": "assistant", "content": final_command}
+        ]
+        
+        # Add new messages to the base messages
+        base_messages.extend(new_pair)
+        
+        # If we now have more than MAX_HISTORY_PAIRS (4) pairs, trim the oldest ones
+        if len(base_messages) > MAX_HISTORY_PAIRS * 2:
+            # Remove the oldest pairs (2 messages per pair) to maintain the limit
+            excess_pairs = (len(base_messages) - MAX_HISTORY_PAIRS * 2) // 2
+            base_messages = base_messages[excess_pairs * 2:]
+        
+        return final_command
     else:
         return "Failed to connect to OpenAI API after multiple attempts."
 
