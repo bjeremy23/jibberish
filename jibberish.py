@@ -28,7 +28,7 @@ def cli():
     Jibberish CLI
     """
     click.echo(click.style("\n##############################################################################################", fg="blue"))
-    sentence = chat.ask_question("give me only one sentence Welcoming the user to Jibberish shell")
+    sentence = chat.ask_question("give me only one sentence Welcoming the user to Jibberish")
     click.echo(click.style(f"# {sentence}", fg="red"))
     click.echo(click.style("# Type '<command>' to execute the command", fg="blue"))
     click.echo(click.style("# Type '#<command description>' to execute the command your looking for", fg="blue"))
