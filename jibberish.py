@@ -27,15 +27,16 @@ def cli():
     """
     Jibberish CLI
     """
-    click.echo(click.style("\n##########################################################################", fg="blue"))
-    click.echo(click.style("# Welcome to Jibber Shell", fg="blue"))
+    click.echo(click.style("\n##############################################################################################", fg="blue"))
+    sentence = chat.ask_question("give me only one sentence Welcoming the user to Jibberish shell")
+    click.echo(click.style(f"# {sentence}", fg="red"))
     click.echo(click.style("# Type '<command>' to execute the command", fg="blue"))
     click.echo(click.style("# Type '#<command description>' to execute the command your looking for", fg="blue"))
     click.echo(click.style("# Type '## <command desc>' to generate a commented command based on the user input", fg="blue"))
     click.echo(click.style("# Type '?<question>' to ask a general question", fg="blue"))
     click.echo(click.style("# Type 'help' for a list of commands", fg="blue"))
     click.echo(click.style("# Type 'exit, quit, q' to exit", fg="blue"))
-    click.echo(click.style("##########################################################################", fg="blue"))
+    click.echo(click.style("\n##############################################################################################", fg="blue"))
     # get the warn environment variable
     while True:
         # find the current directory
