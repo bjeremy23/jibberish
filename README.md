@@ -115,6 +115,15 @@ The Jibberish shell includes several plugins that extend its functionality:
     -rw-r--r-- 1 user group 235M Apr 19 10:23 ./large_dataset.zip
     -rw-r--r-- 1 user group 125M Apr 18 15:45 ./logs/system.log
     ```
+  - You can also use `##` to generate commands without executing them (useful for learning or reviewing commands first)
+  - Example:
+    ```
+    /home/user# ##monitor system load for 10 seconds
+    # vmstat 1 10
+    
+    /home/user# ##find all Docker containers including stopped ones
+    # docker ps -a --format "table {{.ID}}\t{{.Image}}\t{{.Status}}\t{{.Names}}"
+    ```
 
 - **alias_command.py** - Manages command aliases that persist between shell sessions
   - Usage: `alias ls='ls -FC'` to create an alias
