@@ -1,7 +1,5 @@
 import os, openai
 
-ai_coice = "azure"
-
 # openai
 with open(os.path.expanduser("~/.jbrsh")) as env:
     for line in env:
@@ -17,9 +15,13 @@ with open(os.path.expanduser("~/.jbrsh")) as env:
             os.environ[key.strip()] = value
             print(f"Set {key.strip()} to {value.strip()}")
     print("Environment variables loaded from ~/.jbrsh\n")
-    
+
+ai_choice = os.environ.get('AI_CHOICE', 'openai').lower()
+if ai_choice not in ["openai", "azure"]:
+    raise ValueError("Invalid AI_CHOICE. Must be 'openai' or 'azure'.")
+
 # azure 
-if ai_coice == "azure":
+if ai_choice == "azure":
     openai.api_type = "azure"
     openai.api_base = os.environ['AZURE_OPENAI_ENDPOINT']
     openai.api_version = os.environ['AZURE_OPENAI_API_VERSION']

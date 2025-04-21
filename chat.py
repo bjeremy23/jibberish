@@ -108,7 +108,7 @@ def ask_why_failed(command, output):
     retries = 3
     for _ in range(retries):
         try:
-            if api.ai_coice == "azure":
+            if api.ai_choice == "azure":
                 response = api.openai.ChatCompletion.create(engine= api.model,
                 messages=global_context + messages)
             else:
@@ -160,7 +160,7 @@ def ask_ai(command):
     retries = 3
     for _ in range(retries):
         try:
-            if api.ai_coice == "azure":
+            if api.ai_choice == "azure":
                 response = api.openai.ChatCompletion.create(engine=api.model,
                 messages=messages)
             else:
@@ -253,7 +253,7 @@ def ask_question(command):
     retries = 3
     for _ in range(retries):
         try:
-            if api.ai_coice == "azure":
+            if api.ai_choice == "azure":
                 response = api.openai.ChatCompletion.create(engine=api.model,
                 messages=chat_context + messages)
             else:
