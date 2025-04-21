@@ -27,8 +27,6 @@ def cli():
     """
     Jibberish CLI
     """
-    sentence = chat.ask_question("give me only one sentence Welcoming the user to Jibberish")
-    click.echo(click.style(f"\n{sentence}", fg="red", bold=True))
     click.echo(click.style("##############################################################################################", fg="blue"))
     click.echo(click.style("# Type '<command>' to execute the command", fg="blue"))
     click.echo(click.style("# Type '#<command description>' to execute the command your looking for", fg="blue"))
@@ -37,6 +35,10 @@ def cli():
     click.echo(click.style("# Type 'help' for a list of commands", fg="blue"))
     click.echo(click.style("# Type 'exit, quit, q' to exit", fg="blue"))
     click.echo(click.style("##############################################################################################", fg="blue"))
+
+    sentence = chat.ask_question("give me only one sentence Welcoming the user to Jibberish")
+    click.echo(click.style(f"\n{sentence}", fg="red", bold=True))
+    
     # get the warn environment variable
     while True:
         # find the current directory
