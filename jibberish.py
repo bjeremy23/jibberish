@@ -29,7 +29,7 @@ def cli():
     """
     help()
 
-    sentence = chat.ask_question("give me only one sentence Welcoming the user to Jibberish")
+    sentence = chat.ask_question("Give me only one sentence Welcoming the user to Jibberish")
     click.echo(click.style(f"\n{sentence}", fg="red", bold=True))
 
     # get the warn environment variable
