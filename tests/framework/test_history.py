@@ -77,5 +77,4 @@ class TestHistory(unittest.TestCase):
             self.assertIsNone(cmd, f"Expected None but got '{cmd}'")
 
 if __name__ == '__main__':
-    # Run the test
     unittest.main()

@@ -96,10 +96,17 @@ def main():
                       help='Run specific test method (format: TestClass.test_method or just test_method)')
     parser.add_argument('-v', '--verbose', action='store_true',
                       help='Increase output verbosity')
+    parser.add_argument('-d', '--debug', action='store_true',
+                      help='Print debug information during test discovery')
     args = parser.parse_args()
     
-    # Add the parent directory to the path so that imports work properly
-    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    # Add the project root to the path so that imports work properly
+    # This is crucial for proper test discovery, especially for executor tests
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    sys.path.insert(0, project_root)
+    
+    if args.debug:
+        print(f"Added {project_root} to Python path")
     
     verbosity = 2 if args.verbose else 1
     
