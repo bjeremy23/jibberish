@@ -45,7 +45,7 @@ def update_job_status():
                 click.echo(click.style(f"Job {job_id}: Process error - {str(e)}", fg="red"))
                 job["running"] = False
 
-class JobControlCommand(BuiltinCommand):
+class JobControlPlugin(BuiltinCommand):
     """Plugin for job control commands (jobs, fg, bg)"""
     
     def can_handle(self, command):
@@ -254,4 +254,4 @@ class JobControlCommand(BuiltinCommand):
         return self._jobs_command()
 
 # Register the plugin with the registry
-BuiltinCommandRegistry.register(JobControlCommand())
+BuiltinCommandRegistry.register(JobControlPlugin())

@@ -12,11 +12,11 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 
 # Import the plugin to test
 from plugins import job_control_command
-from plugins.job_control_command import JobControlCommand, register_background_job, update_job_status
+from plugins.job_control_command import JobControlPlugin, register_background_job, update_job_status
 from tests.utils.test_utils import CaptureOutput, mock_click_echo
 
-class TestJobControlCommand(unittest.TestCase):
-    """Tests for the JobControlCommand plugin."""
+class TestJobControlPlugin(unittest.TestCase):
+    """Tests for the JobControlPlugin plugin."""
     
     def setUp(self):
         """Set up the test environment before each test method."""
@@ -25,7 +25,7 @@ class TestJobControlCommand(unittest.TestCase):
         job_control_command.job_counter = 1
         
         # Create an instance of the plugin
-        self.job_control_plugin = JobControlCommand()
+        self.job_control_plugin = JobControlPlugin()
         
         # Mock click.echo to capture output
         self.click_echo_patcher = patch('click.echo', side_effect=mock_click_echo)
