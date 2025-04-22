@@ -3,6 +3,7 @@ Plugin system for Jibberish built-in commands.
 This module provides a registry and base classes for plugins.
 """
 import os
+import sys
 import importlib
 import pkgutil
 import click
@@ -107,10 +108,20 @@ def load_plugins():
         # Load all modules in the plugins package
         for _, name, is_pkg in pkgutil.iter_modules([plugins_dir]):
             if not is_pkg:
-                try:
-                    importlib.import_module(f"plugins.{name}")
+                try:  
+                    # Simple import without trying to reload
+                    module_name = f"plugins.{name}"
+                    module = importlib.import_module(module_name)
+                    
                     click.echo(click.style(f"Loaded plugin module: {name}", fg="green"))
+                    # Add more detailed debugging for version_command
+                    if name == "version_command":
+                        click.echo(f"Loaded version_command module: {module}")
+                        click.echo(f"Module contents: {dir(module)}")
                 except Exception as e:
                     click.echo(click.style(f"Error loading plugin {name}: {str(e)}", fg="red"))
+                    # Print more details for exceptions
+                    import traceback
+                    click.echo(traceback.format_exc())
     except Exception as e:
         click.echo(click.style(f"Error loading plugins: {str(e)}", fg="red"))
