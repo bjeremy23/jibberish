@@ -61,7 +61,7 @@ def execute_shell_command(command):
     cmd_name = command.strip().split()[0] if command.strip().split() else ""
     if any(cmd_name == ic or cmd_name.endswith('/' + ic) for ic in interactive_commands):
         is_interactive = True
-    
+
     # If not, check if any part of a pipeline is interactive
     if not is_interactive and '|' in command:
         pipeline_parts = command.split('|')
@@ -72,7 +72,50 @@ def execute_shell_command(command):
                 break
     
     try:
-        if is_interactive:
+        # First check if command explicitly requests background execution with &
+        force_background = command.strip().endswith('&')
+        
+        # If command ends with &, always run in background regardless of type
+        if force_background:
+            # Remove the & at the end - we'll handle backgrounding ourselves
+            actual_command = command.rstrip('&').strip()
+            
+            # Import the job control module to register the background process
+            try:
+                from plugins.job_control_command import register_background_job
+                
+                # Launch the process without & and use proper flags to run in background
+                # Use nohup to ensure the process continues even if the terminal closes
+                process = subprocess.Popen(
+                    f"nohup {actual_command} > /dev/null 2>&1 & echo $!",
+                    shell=True,
+                    executable='/bin/bash',
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+                
+                # Get the actual PID of the background process
+                output, _ = process.communicate()
+                try:
+                    # Extract the PID from the output
+                    pid = int(output.strip())
+                    
+                    # Register the job with our job control system
+                    job_id = register_background_job(pid, actual_command)
+                    click.echo(click.style(f"[{job_id}] Running in background: {actual_command} (PID: {pid})", fg="blue"))
+                except (ValueError, TypeError):
+                    click.echo(click.style(f"Running in background: {actual_command} (unable to track PID)", fg="blue"))
+                
+                # Let the process run independently
+                return 0, "", ""
+            except ImportError:
+                # Fall back to the old behavior if job_control isn't available
+                click.echo(click.style(f"Running in background: {actual_command}", fg="blue"))
+                bg_command = f"nohup {actual_command} > /dev/null 2>&1 &"
+                return_code = os.system(bg_command)
+                return return_code, "", ""
+        elif is_interactive:
             # For interactive applications, don't capture output and use os.system
             # This gives the command direct access to the terminal
             return_code = os.system(command)

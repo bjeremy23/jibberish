@@ -114,10 +114,6 @@ def load_plugins():
                     module = importlib.import_module(module_name)
                     
                     click.echo(click.style(f"Loaded plugin module: {name}", fg="green"))
-                    # Add more detailed debugging for version_command
-                    if name == "version_command":
-                        click.echo(f"Loaded version_command module: {module}")
-                        click.echo(f"Module contents: {dir(module)}")
                 except Exception as e:
                     click.echo(click.style(f"Error loading plugin {name}: {str(e)}", fg="red"))
                     # Print more details for exceptions

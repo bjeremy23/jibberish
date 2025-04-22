@@ -16,7 +16,7 @@ AZURE_OPENAI_DEPLOYMENT_NAME=<your azure openai deployment name> # model i.e. gp
 # setting the WARN_LIST="all" will make the script warn you about all commands
 WARN_LIST="rm, rmdir, mv, cp, ln, chmod, chown, chgrp, kill, pkill, killall, shutdown, reboot, halt, poweroff"
 # the interactive list is a list of commands that will be run in interactive mode
-INTERACTIVE_LIST="vi, vim, nano, emacs, less, more, top, htop, tail -f, watch, ssh, scp, rsync, ftp, curl, wget, exec, bash" 
+INTERACTIVE_LIST="gvim, vi, vim, nano, emacs, less, more, top, htop, tail -f, watch, ssh, scp, rsync, ftp, curl, wget, exec, bash" 
 # Prompt before proceeding with any AI generated command
 PROMPT_AI_COMMANDS=true
 # Prompt for more AI assisted information on returned errors
