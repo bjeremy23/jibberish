@@ -36,12 +36,23 @@ if ai_choice not in ["openai", "azure"]:
 
 # azure 
 if ai_choice == "azure":
-    openai.api_type = "azure"
-    openai.api_base = os.environ['AZURE_OPENAI_ENDPOINT']
-    openai.api_version = os.environ['AZURE_OPENAI_API_VERSION']
-    openai.api_key = os.environ['AZURE_OPENAI_API_KEY']
-    model = os.environ ['AZURE_OPENAI_DEPLOYMENT_NAME']  # <-- Replace with your actual deployment name
+    # Use AzureOpenAI client for Azure
+    from openai import AzureOpenAI
+    try:
+        client = AzureOpenAI(
+            api_key=os.environ['AZURE_OPENAI_API_KEY'],
+            api_version=os.environ['AZURE_OPENAI_API_VERSION'],
+            azure_endpoint=os.environ['AZURE_OPENAI_ENDPOINT']
+        )
+        # For Azure, we use the deployment name as the model name
+        model = os.environ['AZURE_OPENAI_DEPLOYMENT_NAME']
+    except (ImportError, AttributeError) as e:
+        print(f"Error initializing AzureOpenAI client: {e}")
+        # Fallback to standard client
+        client = openai.OpenAI(api_key=os.environ['AZURE_OPENAI_API_KEY'])
+        model = os.environ['AZURE_OPENAI_DEPLOYMENT_NAME']
 else:
+    # Standard OpenAI client
     client = openai.OpenAI(
         api_key=os.environ['OPEN_API_KEY']
     )
