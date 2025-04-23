@@ -46,6 +46,75 @@ def execute_shell_command(command):
     # Check if the command is empty
     if not command.strip():
         return 0, "", ""
+        
+    # Expand aliases if present
+    try:
+        # First try to import the alias plugin
+        from plugins.alias_command import get_aliases
+        
+        # Get all currently defined aliases
+        aliases = get_aliases()
+        
+        # Check if the command contains pipes
+        if '|' in command:
+            # For piped commands, handle each part separately
+            pipe_parts = [part.strip() for part in command.split('|')]
+            expanded_parts = []
+            
+            # Process each command in the pipeline
+            for part in pipe_parts:
+                part_expanded = False
+                part_parts = part.strip().split()
+                
+                if part_parts and part_parts[0] in aliases:
+                    # Replace the alias with its definition
+                    alias_value = aliases[part_parts[0]]
+                    
+                    # Replace only the first word (the command) with the alias value
+                    if len(part_parts) > 1:
+                        # Alias with arguments
+                        expanded_part = f"{alias_value} {' '.join(part_parts[1:])}"
+                    else:
+                        # Alias with no arguments
+                        expanded_part = alias_value
+                    
+                    expanded_parts.append(expanded_part)
+                    part_expanded = True
+                
+                if not part_expanded:
+                    # If no alias was found, keep the original part
+                    expanded_parts.append(part)
+            
+            # Join the expanded parts back with pipe symbols
+            expanded_command = ' | '.join(expanded_parts)
+            
+            # Update the command with the expanded alias
+            if expanded_command != command:
+                command = expanded_command
+                # Print a note about the alias expansion
+                click.echo(click.style(f"Expanded alias: {command}", fg="blue"))
+        else:
+            # For non-piped commands, check if it starts with an alias
+            command_parts = command.strip().split()
+            if command_parts and command_parts[0] in aliases:
+                # Replace the alias with its definition
+                alias_value = aliases[command_parts[0]]
+                
+                # Replace only the first word (the command) with the alias value
+                if len(command_parts) > 1:
+                    # Alias with arguments
+                    expanded_command = f"{alias_value} {' '.join(command_parts[1:])}"
+                else:
+                    # Alias with no arguments
+                    expanded_command = alias_value
+                
+                # Update the command with the expanded alias
+                command = expanded_command
+                # Print a note about the alias expansion
+                click.echo(click.style(f"Expanded alias: {command}", fg="blue"))
+    except (ImportError, AttributeError):
+        # If there's an error importing the plugin or getting aliases, just continue
+        pass
     
     # Check if command is in the INTERACTIVE_LIST environment variable
     # Default list if not set: "vi,vim,nano,emacs,less,more,top,htop"

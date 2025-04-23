@@ -26,6 +26,12 @@ def load_aliases():
             click.echo(click.style(f"Failed to load aliases: {str(e)}", fg="red"))
     return False
 
+# Function to get all aliases - used by executor.py for alias expansion
+def get_aliases():
+    # Make sure aliases are loaded
+    load_aliases()
+    return aliases
+
 # Save aliases to file
 def save_aliases():
     try:
