@@ -14,10 +14,20 @@ with open(os.path.expanduser("~/.jbrsh")) as env:
         # Only try to split if there's an equal sign
         if "=" in line:
             key, value = line.split("=", 1)  # Split only on the first =
-            # Remove quotes if present
-            value = value.strip('"\'')
-            os.environ[key.strip()] = value
-            print(f"Set {key.strip()} to {value.strip()}")
+            key = key.strip()
+            
+            # Special handling for GIT_CONFIG_PARAMETERS which needs quoted value
+            if key == "GIT_CONFIG_PARAMETERS":
+                # Extract the actual value while preserving inner quotes
+                if value.startswith('"') and value.endswith('"'):
+                    value = value[1:-1]  # Remove outer double quotes only
+                os.environ[key] = value
+                print(f"Environment variable {key}={value}")
+            else:
+                # Standard processing for other variables - remove quotes if present
+                value = value.strip('"\'')
+                os.environ[key] = value
+                print(f"Set {key} to {value}")
     print("Environment variables loaded from ~/.jbrsh\n")
 
 ai_choice = os.environ.get('AI_CHOICE', 'openai').lower()

@@ -15,9 +15,35 @@ AZURE_OPENAI_DEPLOYMENT_NAME=<your azure openai deployment name> # model i.e. gp
 # the warn list is a list of commands that will prompt the user before executing
 # setting the WARN_LIST="all" will make the script warn you about all commands
 WARN_LIST="rm, rmdir, mv, cp, ln, chmod, chown, chgrp, kill, pkill, killall, shutdown, reboot, halt, poweroff"
+
 # the interactive list is a list of commands that will be run in interactive mode
 INTERACTIVE_LIST="gvim, vi, vim, nano, emacs, less, more, top, htop, tail -f, watch, ssh, scp, rsync, ftp, curl, wget, exec, bash" 
+
 # Prompt before proceeding with any AI generated command
 PROMPT_AI_COMMANDS=true
+
 # Prompt for more AI assisted information on returned errors
 IGNORE_ERRORS=true
+
+# Master switch to enable/disable colored output (default: true)
+FORCE_COLOR_OUTPUT=true
+
+# Color forcing for different tools
+FORCE_COLOR=1
+CLICOLOR_FORCE=1
+CLICOLOR=1
+COLORTERM=truecolor
+TERM=xterm-256color
+
+# Git-specific settings
+GIT_PAGER=cat
+# Git config requires single quotes INSIDE the value
+GIT_CONFIG_PARAMETERS="'color.ui=always'"
+
+# Other tools
+GREP_OPTIONS=--color=always
+LS_COLORS=rs=0:di=01;34:ln=01;36:mh=00:pi=40;33
+
+# Other tools
+GREP_OPTIONS=--color=always
+LS_COLORS=rs=0:di=01;34:ln=01;36:mh=00:pi=40;33

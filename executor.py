@@ -199,7 +199,33 @@ def execute_shell_command(command):
             stdout_queue = Queue()
             stderr_queue = Queue()
             
-            # Start process with pipes
+            # Set environment variables to force color output
+            env = os.environ.copy()
+            
+            # Check if FORCE_COLOR_OUTPUT is set in .jbrsh
+            force_colors = os.environ.get("FORCE_COLOR_OUTPUT", "true").lower() in ["true", "yes", "1"]
+            
+            # Only apply color forcing if enabled (default is true)
+            if force_colors:
+                # Apply color forcing variables if not already set in .jbrsh
+                color_vars = {
+                    'FORCE_COLOR': os.environ.get('FORCE_COLOR', '1'),
+                    'CLICOLOR_FORCE': os.environ.get('CLICOLOR_FORCE', '1'),
+                    'CLICOLOR': os.environ.get('CLICOLOR', '1'),
+                    'COLORTERM': os.environ.get('COLORTERM', 'truecolor'),
+                    'TERM': os.environ.get('TERM', 'xterm-256color'),
+                    'GIT_PAGER': os.environ.get('GIT_PAGER', 'cat'),
+                    'GIT_CONFIG_PARAMETERS': os.environ.get('GIT_CONFIG_PARAMETERS', "'color.ui=always'"),
+                    'GREP_OPTIONS': os.environ.get('GREP_OPTIONS', '--color=always'),
+                    'LS_COLORS': os.environ.get('LS_COLORS', 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33')
+                }
+                
+                # Apply the color variables to the environment
+                for var, value in color_vars.items():
+                    if value:  # Only set if there's a value
+                        env[var] = value
+            
+            # Start process with pipes and the enhanced environment
             process = subprocess.Popen(
                 command,
                 shell=True,
@@ -207,7 +233,8 @@ def execute_shell_command(command):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 bufsize=1,
-                text=True
+                text=True,
+                env=env
             )
             
             # Function to read from pipes and put lines into queues
