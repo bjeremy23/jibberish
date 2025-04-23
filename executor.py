@@ -91,8 +91,6 @@ def execute_shell_command(command):
             # Update the command with the expanded alias
             if expanded_command != command:
                 command = expanded_command
-                # Print a note about the alias expansion
-                click.echo(click.style(f"Expanded alias: {command}", fg="blue"))
         else:
             # For non-piped commands, check if it starts with an alias
             command_parts = command.strip().split()
@@ -110,8 +108,6 @@ def execute_shell_command(command):
                 
                 # Update the command with the expanded alias
                 command = expanded_command
-                # Print a note about the alias expansion
-                click.echo(click.style(f"Expanded alias: {command}", fg="blue"))
     except (ImportError, AttributeError):
         # If there's an error importing the plugin or getting aliases, just continue
         pass
