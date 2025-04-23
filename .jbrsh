@@ -43,7 +43,3 @@ GIT_CONFIG_PARAMETERS="'color.ui=always'"
 # Other tools
 GREP_OPTIONS=--color=always
 LS_COLORS=rs=0:di=01;34:ln=01;36:mh=00:pi=40;33
-
-# Other tools
-GREP_OPTIONS=--color=always
-LS_COLORS=rs=0:di=01;34:ln=01;36:mh=00:pi=40;33
