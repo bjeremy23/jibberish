@@ -114,13 +114,23 @@ def ask_why_failed(command, output):
     retries = 3
     for _ in range(retries):
         try:
-            # Use the client object for both Azure and OpenAI with the new API
-            response = api.client.chat.completions.create(
-                model=api.model,  # For Azure this will be the deployment name
-                messages=global_context + messages,
-                max_tokens=300,
-                temperature=0.5
-            )
+            # Handle both new and legacy Azure OpenAI APIs
+            if hasattr(api.client, 'chat'):
+                # New OpenAI API (v1.0.0+)
+                response = api.client.chat.completions.create(
+                    model=api.model,  # For Azure this will be the deployment name
+                    messages=global_context + messages,
+                    max_tokens=300,
+                    temperature=0.5
+                )
+            else:
+                # Legacy OpenAI API (pre-v1.0.0)
+                response = api.client.ChatCompletion.create(
+                    engine=api.model,  # For Azure legacy API, use engine instead of model
+                    messages=global_context + messages,
+                    max_tokens=300,
+                    temperature=0.5
+                )
             break
         except Exception as e:
             click.echo(click.style(f"Connection error: {e}. Retrying...", fg="red"))
@@ -170,13 +180,23 @@ def ask_ai(command):
     retries = 3
     for _ in range(retries):
         try:
-            # Use the client object for both Azure and OpenAI with the new API
-            response = api.client.chat.completions.create(
-                model=api.model,
-                messages=messages,
-                max_tokens=300,
-                temperature=0.5
-            )
+            # Handle both new and legacy Azure OpenAI APIs
+            if hasattr(api.client, 'chat'):
+                # New OpenAI API (v1.0.0+)
+                response = api.client.chat.completions.create(
+                    model=api.model,
+                    messages=messages,
+                    max_tokens=300,
+                    temperature=0.5
+                )
+            else:
+                # Legacy OpenAI API (pre-v1.0.0)
+                response = api.client.ChatCompletion.create(
+                    engine=api.model,  # For Azure legacy API, use engine instead of model
+                    messages=messages,
+                    max_tokens=300,
+                    temperature=0.5
+                )
             break
         except Exception as e:
             click.echo(click.style(f"Connection error: {e}. Retrying...", fg="red"))
@@ -277,13 +297,23 @@ def ask_question(command):
     retries = 3
     for _ in range(retries):
         try:
-            # Use the client object for both Azure and OpenAI with the new API
-            response = api.client.chat.completions.create(
-                model=api.model,
-                messages=chat_context + messages,
-                max_tokens=300,
-                temperature=0.5
-            )
+            # Handle both new and legacy Azure OpenAI APIs
+            if hasattr(api.client, 'chat'):
+                # New OpenAI API (v1.0.0+)
+                response = api.client.chat.completions.create(
+                    model=api.model,
+                    messages=chat_context + messages,
+                    max_tokens=300,
+                    temperature=0.5
+                )
+            else:
+                # Legacy OpenAI API (pre-v1.0.0)
+                response = api.client.ChatCompletion.create(
+                    engine=api.model,  # For Azure legacy API, use engine instead of model
+                    messages=chat_context + messages,
+                    max_tokens=300,
+                    temperature=0.5
+                )
             break
         except Exception as e:
             click.echo(click.style(f"Connection error: {e}. Retrying...", fg="red"))
