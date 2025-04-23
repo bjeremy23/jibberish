@@ -4,9 +4,6 @@ import os, openai
 __version__ = "25.04.1"
 VERSION_NAME = "Angora Release"
 
-azure_openai_version = "0.0.1"
-openai_version = "1.59.7"
-
 # openai
 with open(os.path.expanduser("~/.jbrsh")) as env:
     for line in env:
