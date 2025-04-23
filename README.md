@@ -154,40 +154,6 @@ The Jibberish shell includes several plugins that extend its functionality:
     # docker ps -a --format "table {{.ID}}\t{{.Image}}\t{{.Status}}\t{{.Names}}"
     ```
 
-- **job_control_command.py** - Provides background process management similar to bash's job control
-  - Usage: Commands ending with `&` run in background, `jobs` lists jobs, `fg` brings jobs to foreground
-  - Example:
-    ```
-    /home/user# tail -f logfile.txt &
-    [1] Running in background: tail -f logfile.txt (PID: 12345)
-    
-    /home/user# jobs
-    Updating job status...
-    Job 1 (PID 12345): tail -f logfile.txt - Status: sleeping
-    Jobs:
-    [1] Running (PID: 12345) tail -f logfile.txt
-    
-    /home/user# fg
-    ### Processing Jibberish fg command ###
-    Updating job status...
-    Job 1 (PID 12345): tail -f logfile.txt - Status: sleeping
-    Bringing job 1 (tail -f logfile.txt) to foreground
-    Process is sleeping
-    Note: Full job control is limited in Jibberish shell. Here are your options:
-    1. Process ID: 12345 - You can use 'kill -15 12345' to terminate if needed
-    Do you want to see the content of logfile.txt now? (y/n): y
-    
-    --- Content of logfile.txt ---
-    [log content appears here]
-    ^C
-    
-    Restart 'tail -f logfile.txt' in the background? (y/n): y
-    Restarting in background: tail -f logfile.txt
-    [2] Running in background: tail -f logfile.txt (PID: 12346)
-    ```
-  - Use `fg %2` to bring a specific job to the foreground
-  - Configure which apps run interactively via `INTERACTIVE_LIST` in `.jbrsh`
-
 - **alias_command.py** - Manages command aliases that persist between shell sessions
   - Usage: `alias ls='ls -FC'` to create an alias
   - Example:
@@ -278,6 +244,40 @@ The Jibberish shell includes several plugins that extend its functionality:
     Executing: cd Documents
     /home/user/Documents#
     ```
+    
+- **job_control_command.py** - Provides background process management similar to bash's job control
+  - Usage: Commands ending with `&` run in background, `jobs` lists jobs, `fg` brings jobs to foreground
+  - Example:
+    ```
+    /home/user# tail -f logfile.txt &
+    [1] Running in background: tail -f logfile.txt (PID: 12345)
+    
+    /home/user# jobs
+    Updating job status...
+    Job 1 (PID 12345): tail -f logfile.txt - Status: sleeping
+    Jobs:
+    [1] Running (PID: 12345) tail -f logfile.txt
+    
+    /home/user# fg
+    ### Processing Jibberish fg command ###
+    Updating job status...
+    Job 1 (PID 12345): tail -f logfile.txt - Status: sleeping
+    Bringing job 1 (tail -f logfile.txt) to foreground
+    Process is sleeping
+    Note: Full job control is limited in Jibberish shell. Here are your options:
+    1. Process ID: 12345 - You can use 'kill -15 12345' to terminate if needed
+    Do you want to see the content of logfile.txt now? (y/n): y
+    
+    --- Content of logfile.txt ---
+    [log content appears here]
+    ^C
+    
+    Restart 'tail -f logfile.txt' in the background? (y/n): y
+    Restarting in background: tail -f logfile.txt
+    [2] Running in background: tail -f logfile.txt (PID: 12346)
+    ```
+  - Use `fg %2` to bring a specific job to the foreground
+  - Configure which apps run interactively via `INTERACTIVE_LIST` in `.jbrsh`
 
 - **question_command.py** - Processes questions starting with `?` and provides AI-generated answers
   - Usage: `?what is a shell script?`
