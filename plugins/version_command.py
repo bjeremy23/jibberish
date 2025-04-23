@@ -20,6 +20,9 @@ class VersionPlugin(BuiltinCommand):
         click.echo(click.style(f"Jibberish v{api.__version__}", fg="green", bold=True))
         click.echo(click.style(f"{api.VERSION_NAME}", fg="green"))
         
+        click.echo()
+        click.echo(click.style(f"azureopenai v{api.azure_openai_version}", fg="green"))
+        click.echo(click.style(f"openai v{api.openai_version}", fg="green"))
         # Print additional information if desired
         click.echo()
         click.echo("For more information, visit: https://github.com/bjeremy23/jibberish")
