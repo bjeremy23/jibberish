@@ -1,9 +1,65 @@
 #!/usr/bin/env python3
 
+import sys
+import io
+import os
+
+# Get command-line arguments
+args = sys.argv[1:] if len(sys.argv) > 1 else []
+
+# Process the help flag specially if present (before any imports)
+if args and args[0] in ['-h', '--help']:
+    # For help command, we need to replace the actual Python code execution
+    # with a direct call to the help text, bypassing all the module loading
+    click_help_text = """
+Usage: jibberish.py [OPTIONS]
+
+  Jibberish - An AI-powered Linux Shell
+
+  This shell can be run in two modes:
+
+  1. Interactive Mode - Launch the full interactive shell (default)
+
+  2. Standalone Mode - Execute a single command using one of the options below
+
+  STANDALONE MODE OPTIONS:
+    -v, --version        Display version information
+    -q, --question TEXT  Ask a general question (without needing the '?' prefix)
+    -c, --command TEXT   Generate and execute a command (without needing the '#' prefix)
+    -h, --help           Show this message and exit
+
+  EXAMPLES:
+    python jibberish.py                       # Start interactive shell
+    python jibberish.py -v                    # Show version info
+    python jibberish.py -q "What is Linux?"   # Ask a question
+    python jibberish.py -c "list large files" # Generate and execute a command
+
+Options:
+  -v, --version        Display version information
+  -q, --question TEXT  Ask a general question
+  -c, --command TEXT   Generate and execute a command
+  -h, --help           Show this message and exit.
+"""
+    print(click_help_text)
+    sys.exit(0)
+    
+# Check if we're running in standalone mode with command line args
+is_standalone_mode = len(sys.argv) > 1 and sys.argv[1] in ['-v', '--version', '-q', '--question', '-c', '--command']
+
+# Redirect stdout before any other imports for regular standalone commands
+if is_standalone_mode:
+    # Redirect stdout before any other imports
+    original_stdout = sys.stdout
+    sys.stdout = io.StringIO()  # Redirect to a string buffer
+
+# Now do the rest of the imports
+import builtins
+builtins.JIBBERISH_STANDALONE_MODE = len(sys.argv) > 1 and sys.argv[1] in ['-v', '--version', '-q', '--question', '-c', '--command', '-h', '--help']
+
 import chat
 import click
 import history
-import os
+from contextlib import redirect_stdout
 from executor import (
     execute_command,
     execute_chained_commands,
@@ -12,7 +68,7 @@ from executor import (
 
 def help():
     """
-    Display help information
+    Display help information for interactive mode
     """
     click.echo(click.style("Commands:", fg="blue"))
     click.echo(click.style("  <command>         - Execute the command", fg="blue"))
@@ -22,11 +78,98 @@ def help():
     click.echo(click.style("  exit, quit, q     - Exit the shell", fg="blue"))
     click.echo(click.style("  help              - help menu", fg="blue"))
 
-@click.command()
-def cli():
+def version_standalone():
+    """Run the version command in standalone mode"""
+    # Import the version plugin
+    from plugins.version_command import VersionPlugin
+    version_plugin = VersionPlugin()
+    version_plugin.execute("version")
+    return True
+
+def question_standalone(query):
+    """Run the question command in standalone mode"""
+    # Import the question plugin
+    from plugins.question_command import QuestionPlugin
+    question_cmd = QuestionPlugin()
+    # Prepend the ? character
+    formatted_query = f"?{query}"
+    question_cmd.execute(formatted_query)
+    return True
+
+def ai_command_standalone(query):
+    """Run the AI command plugin in standalone mode"""
+    # Import the AI command plugin
+    from plugins.ai_command import AICommandPlugin
+    ai_cmd = AICommandPlugin()
+    # Prepend the # character
+    formatted_query = f"#{query}"
+    result = ai_cmd.execute(formatted_query)
+    
+    # If the plugin returned a command to execute, run it
+    if isinstance(result, tuple) and result[0] is False:
+        command_to_execute = result[1]
+        click.echo(click.style(f"\nExecuting generated command: {command_to_execute}", fg="green"))
+        execute_command(command_to_execute)
+    
+    return True
+
+class CustomContext(click.Context):
+    def make_formatter(self):
+        from click import formatting
+        return formatting.HelpFormatter(width=120)
+
+@click.command(context_settings=dict(
+    help_option_names=['-h', '--help'],
+    max_content_width=120
+))
+@click.option('-v', '--version', is_flag=True, help='Display version information')
+@click.option('-q', '--question', help='Ask a general question')
+@click.option('-c', '--command', help='Generate and execute a command')
+def cli(version, question, command):
     """
-    Jibberish CLI
+    Jibberish - An AI-powered Linux Shell
+
+    This shell can be run in two modes:
+
+    1. Interactive Mode - Launch the full interactive shell (default)
+
+    2. Standalone Mode - Execute a single command using one of the options below
+
+    \b
+    STANDALONE MODE OPTIONS:
+      -v, --version        Display version information
+      -q, --question TEXT  Ask a general question (without needing the '?' prefix)
+      -c, --command TEXT   Generate and execute a command (without needing the '#' prefix)
+      -h, --help           Show this message and exit
+
+    \b
+    EXAMPLES:
+      python jibberish.py                       # Start interactive shell
+      python jibberish.py -v                    # Show version info
+      python jibberish.py -q "What is Linux?"   # Ask a question
+      python jibberish.py -c "list large files" # Generate and execute a command
     """
+    # Restore stdout for any commands - we want to see the output from this point forward
+    if 'original_stdout' in globals():
+        sys.stdout = original_stdout
+        
+    # For help option, Click will automatically display the help text and exit
+    # so we don't need additional handling for it
+    
+    # Check if we're running in standalone mode with command-line options
+    if version or question or command:
+        
+        # Now execute the requested standalone command
+        if version:
+            return version_standalone()
+        
+        if question:
+            return question_standalone(question)
+        
+        if command:
+            return ai_command_standalone(command)
+    
+    # If no command-line options were provided, run in interactive mode
     help()
 
     sentence = chat.ask_question("Give me only one sentence Welcoming the user to Jibberish")
