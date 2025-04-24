@@ -70,13 +70,25 @@ def execute_shell_command(command):
                     # Replace the alias with its definition
                     alias_value = aliases[part_parts[0]]
                     
-                    # Replace only the first word (the command) with the alias value
-                    if len(part_parts) > 1:
-                        # Alias with arguments
-                        expanded_part = f"{alias_value} {' '.join(part_parts[1:])}"
+                    # Check for recursive alias expansion - avoid expanding if alias value starts with same name
+                    if alias_value.startswith(f"{part_parts[0]} "):
+                        # This is a problematic pattern like "ls='ls -CF --color=always'"
+                        # Only use the options part of the alias to avoid recursive expansion
+                        alias_options = alias_value[len(part_parts[0]):].strip()
+                        if len(part_parts) > 1:
+                            # Alias with arguments
+                            expanded_part = f"{part_parts[0]} {alias_options} {' '.join(part_parts[1:])}"
+                        else:
+                            # Alias with no arguments
+                            expanded_part = f"{part_parts[0]} {alias_options}"
                     else:
-                        # Alias with no arguments
-                        expanded_part = alias_value
+                        # Normal alias that doesn't cause recursive expansion
+                        if len(part_parts) > 1:
+                            # Alias with arguments
+                            expanded_part = f"{alias_value} {' '.join(part_parts[1:])}"
+                        else:
+                            # Alias with no arguments
+                            expanded_part = alias_value
                     
                     expanded_parts.append(expanded_part)
                     part_expanded = True
@@ -181,10 +193,48 @@ def execute_shell_command(command):
                 return_code = os.system(bg_command)
                 return return_code, "", ""
         elif is_interactive:
-            # For interactive applications, don't capture output and use os.system
-            # This gives the command direct access to the terminal
-            return_code = os.system(command)
-            return return_code, "", ""
+            # Use subprocess for interactive applications instead of os.system
+            # This gives us more control over the process execution
+            import signal
+            import time
+            
+            # Store original SIGINT handler
+            original_sigint = signal.getsignal(signal.SIGINT)
+            
+            def custom_sigint_handler(sig, frame):
+                # Restore original SIGINT handler
+                signal.signal(signal.SIGINT, original_sigint)
+                click.echo(click.style("\nInteractive command interrupted by user (Ctrl+C)", fg="yellow"))
+                return
+            
+            try:
+                # Set our custom interrupt handler
+                signal.signal(signal.SIGINT, custom_sigint_handler)
+                
+                # Run the interactive command with subprocess
+                process = subprocess.Popen(
+                    command,
+                    shell=True,
+                    executable='/bin/bash'
+                )
+                
+                # Wait for command to complete
+                return_code = process.wait()
+                
+                # Restore the original signal handler
+                signal.signal(signal.SIGINT, original_sigint)
+                
+                return return_code, "", ""
+            except KeyboardInterrupt:
+                # This will be caught if CTRL+C is pressed while not in subprocess
+                click.echo(click.style("\nInteractive command interrupted by user (Ctrl+C)", fg="yellow"))
+                # Restore original handler
+                signal.signal(signal.SIGINT, original_sigint)
+                return -1, "", "Aborted by user"
+            except Exception as e:
+                # Restore original handler before propagating
+                signal.signal(signal.SIGINT, original_sigint)
+                raise e
         else:
             # Use the simplest and most reliable approach: communicate() with a separate thread
             # for outputting lines as they come in
@@ -343,7 +393,11 @@ def execute_command(command):
     try:
         returncode, output, error = execute_shell_command(command)
         if returncode == -1:
-            click.echo(click.style(f"{error}", fg="red"))
+            # Check specifically for keyboard interrupt
+            if error == "Aborted by user":
+                click.echo(click.style("\nCommand interrupted by user (Ctrl+C)", fg="yellow"))
+            else:
+                click.echo(click.style(f"{error}", fg="red"))
         elif error:
             # For SSH commands with successful return code, treat stderr as normal output 
             # since they often output informational messages to stderr
@@ -363,6 +417,9 @@ def execute_command(command):
                             click.echo(click.style(f"{why_failed}", fg="red"))
                         else:
                             click.echo(click.style(f"No explanation provided.", fg="red"))
+    except KeyboardInterrupt:
+        # Handle keyboard interrupt in this function as well
+        click.echo(click.style("\nCommand execution interrupted by user (Ctrl+C)", fg="yellow"))
     except Exception as e:
         click.echo(click.style(f"Error: {e}", fg="red"))
 

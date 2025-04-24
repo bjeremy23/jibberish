@@ -179,23 +179,29 @@ def cli(version, question, command):
 
     # get the warn environment variable
     while True:
-        # find the current directory
-        current_directory = os.getcwd()
+        try:
+            # find the current directory
+            current_directory = os.getcwd()
 
-        prompt_text = click.style(f"{current_directory}# ", fg="green")
-        command = input(prompt_text).strip()
-        if command.lower() in ["exit", "quit", "q"]:
-            # prompt the user to confirm exit
-            choice = input(click.style("Are you sure you want to exit? [y/n]: ", fg="blue"))
-            if choice.lower() == "y":
-                click.echo(click.style("Exiting Jibber Shell...", fg="blue"))
-                break
-            else:
-                click.echo(click.style("Continuing in Jibber Shell...", fg="blue"))
+            prompt_text = click.style(f"{current_directory}# ", fg="green")
+            command = input(prompt_text).strip()
+            if command.lower() in ["exit", "quit", "q"]:
+                # prompt the user to confirm exit
+                choice = input(click.style("Are you sure you want to exit? [y/n]: ", fg="blue"))
+                if choice.lower() == "y":
+                    click.echo(click.style("Exiting Jibber Shell...", fg="blue"))
+                    break
+                else:
+                    click.echo(click.style("Continuing in Jibber Shell...", fg="blue"))
+                    continue
+            elif command.lower() in ["help"]:
+                help()
                 continue
-        elif command.lower() in ["help"]:
-            help()
-            continue
+        except KeyboardInterrupt:
+            # User pressed Ctrl+C
+            print()  # Print a newline for better formatting
+            click.echo(click.style("\nPress Ctrl+D or type 'exit' to exit the shell.", fg="yellow"))
+            continue  # Continue the loop instead of exiting
 
         # Check if the command is a built-in command or requires special handling
         handled, new_command = is_built_in(command)

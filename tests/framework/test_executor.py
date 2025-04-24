@@ -158,12 +158,28 @@ class TestShellCommand(unittest.TestCase):
         print("Running test_interactive_command")
         # Since the original code checks if a command is in the interactive list,
         # we'll patch os.environ.get to return a list that includes our test command
+        # Also patch subprocess.Popen for our new implementation
         with patch.dict(os.environ, {"INTERACTIVE_LIST": "vim,nano"}):
-            return_code, stdout, stderr = self.executor.execute_shell_command("vim")
-            self.assertEqual(return_code, 0, f"Expected return code 0 but got {return_code}")
-            self.assertEqual(stdout, "", f"Expected empty stdout but got '{stdout}'")
-            self.assertEqual(stderr, "", f"Expected empty stderr but got '{stderr}'")
-            self.mock_os_system.assert_called_once_with("vim")
+            with patch('subprocess.Popen') as mock_popen:
+                # Set up the mock to return a process-like object
+                mock_process = MagicMock()
+                mock_process.wait.return_value = 0
+                mock_popen.return_value = mock_process
+                
+                # Also patch signal module since we're using it for interactive commands
+                with patch('signal.signal') as mock_signal:
+                    return_code, stdout, stderr = self.executor.execute_shell_command("vim")
+                    
+                    # Verify the return values
+                    self.assertEqual(return_code, 0, f"Expected return code 0 but got {return_code}")
+                    self.assertEqual(stdout, "", f"Expected empty stdout but got '{stdout}'")
+                    self.assertEqual(stderr, "", f"Expected empty stderr but got '{stderr}'")
+                    
+                    # Verify Popen was called with the right arguments
+                    mock_popen.assert_called_once()
+                    args, kwargs = mock_popen.call_args
+                    self.assertEqual(kwargs['shell'], True)
+                    self.assertEqual(args[0], "vim")
         print("test_interactive_command passed!")
 
 # Command Tests
