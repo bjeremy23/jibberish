@@ -277,7 +277,7 @@ def ask_ai(command):
     else:
         return "Failed to connect to OpenAI API after multiple attempts."
 
-def ask_question(command):
+def ask_question(command, temp=0.5):
     """
     Have a small contextual chat with the AI
     """
@@ -299,14 +299,14 @@ def ask_question(command):
                 response = api.client.chat.completions.create(
                     model=api.model,
                     messages=chat_context + messages,
-                    temperature=0.5
+                    temperature=temp
                 )
             else:
                 # Legacy OpenAI API (pre-v1.0.0)
                 response = api.client.ChatCompletion.create(
                     engine=api.model,  # For Azure legacy API, use engine instead of model
                     messages=chat_context + messages,
-                    temperature=0.5
+                    temperature=temp
                 )
             break
         except Exception as e:
