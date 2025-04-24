@@ -59,6 +59,7 @@ builtins.JIBBERISH_STANDALONE_MODE = len(sys.argv) > 1 and sys.argv[1] in ['-v',
 import chat
 import click
 import history
+import readline
 from contextlib import redirect_stdout
 from executor import (
     execute_command,
@@ -200,6 +201,11 @@ def cli(version, question, command):
         
         # If a plugin returned a new command to process, update the command
         if not handled and new_command is not None:
+            # Add the generated command to history as well (for AI-generated commands)
+            # This ensures both the original request and the generated command are in history
+            if command.startswith('#'):
+                readline.add_history(new_command)
+            
             command = new_command
             
             # Process the new command
