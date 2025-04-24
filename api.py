@@ -1,8 +1,8 @@
 import os, openai
 
 # Define version information
-__version__ = "25.04.1"
-VERSION_NAME = "Angora Release"
+__version__ = "25.04.2"
+VERSION_NAME = "Bengal Release"
 
 # openai
 with open(os.path.expanduser("~/.jbrsh")) as env:
