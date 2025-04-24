@@ -273,8 +273,8 @@ def execute_shell_command(command):
                     if stderr_line is None:
                         stderr_done = True
                     else:
-                        click.echo(click.style(stderr_line, fg="red"), nl=False)
-                        sys.stdout.flush()
+                        # Just collect stderr lines without printing immediately
+                        # (we'll print them later to avoid duplication)
                         collected_stderr.append(stderr_line)
                 except Empty:
                     pass

@@ -120,7 +120,6 @@ def ask_why_failed(command, output):
                 response = api.client.chat.completions.create(
                     model=api.model,  # For Azure this will be the deployment name
                     messages=global_context + messages,
-                    max_tokens=300,
                     temperature=0.5
                 )
             else:
@@ -128,7 +127,6 @@ def ask_why_failed(command, output):
                 response = api.client.ChatCompletion.create(
                     engine=api.model,  # For Azure legacy API, use engine instead of model
                     messages=global_context + messages,
-                    max_tokens=300,
                     temperature=0.5
                 )
             break
@@ -186,7 +184,6 @@ def ask_ai(command):
                 response = api.client.chat.completions.create(
                     model=api.model,
                     messages=messages,
-                    max_tokens=300,
                     temperature=0.5
                 )
             else:
@@ -194,7 +191,6 @@ def ask_ai(command):
                 response = api.client.ChatCompletion.create(
                     engine=api.model,  # For Azure legacy API, use engine instead of model
                     messages=messages,
-                    max_tokens=300,
                     temperature=0.5
                 )
             break
@@ -303,7 +299,6 @@ def ask_question(command):
                 response = api.client.chat.completions.create(
                     model=api.model,
                     messages=chat_context + messages,
-                    max_tokens=300,
                     temperature=0.5
                 )
             else:
@@ -311,7 +306,6 @@ def ask_question(command):
                 response = api.client.ChatCompletion.create(
                     engine=api.model,  # For Azure legacy API, use engine instead of model
                     messages=chat_context + messages,
-                    max_tokens=300,
                     temperature=0.5
                 )
             break
