@@ -157,14 +157,24 @@ def execute_shell_command(command):
             # Remove the & at the end - we'll handle backgrounding ourselves
             actual_command = command.rstrip('&').strip()
             
-            # Import the job control module to register the background process
+                        # Import the job control module to register the background process
             try:
                 from plugins.job_control_command import register_background_job
                 
+                # Create output files in temporary directory for this background process
+                import tempfile
+                stdout_file = tempfile.NamedTemporaryFile(delete=False, prefix="jbrsh_bg_stdout_", suffix=".log")
+                stderr_file = tempfile.NamedTemporaryFile(delete=False, prefix="jbrsh_bg_stderr_", suffix=".log")
+                stdout_path = stdout_file.name
+                stderr_path = stderr_file.name
+                stdout_file.close()
+                stderr_file.close()
+                
                 # Launch the process without & and use proper flags to run in background
                 # Use nohup to ensure the process continues even if the terminal closes
+                # Redirect output to our temporary files instead of /dev/null
                 process = subprocess.Popen(
-                    f"nohup {actual_command} > /dev/null 2>&1 & echo $!",
+                    f"nohup {actual_command} > {stdout_path} 2> {stderr_path} & echo $!",
                     shell=True,
                     executable='/bin/bash',
                     stdout=subprocess.PIPE,
@@ -178,8 +188,8 @@ def execute_shell_command(command):
                     # Extract the PID from the output
                     pid = int(output.strip())
                     
-                    # Register the job with our job control system
-                    job_id = register_background_job(pid, actual_command)
+                    # Register the job with our job control system, passing the output file paths
+                    job_id = register_background_job(pid, actual_command, stdout_path, stderr_path)
                     click.echo(click.style(f"[{job_id}] Running in background: {actual_command} (PID: {pid})", fg="blue"))
                 except (ValueError, TypeError):
                     click.echo(click.style(f"Running in background: {actual_command} (unable to track PID)", fg="blue"))

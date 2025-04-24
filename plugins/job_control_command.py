@@ -6,6 +6,8 @@ import signal
 import psutil
 import click
 import subprocess
+import threading
+import time
 from plugin_system import BuiltinCommand, BuiltinCommandRegistry
 
 # Global dictionary to track background jobs
@@ -13,20 +15,141 @@ from plugin_system import BuiltinCommand, BuiltinCommandRegistry
 background_jobs = {}
 job_counter = 1
 
-def register_background_job(pid, command):
+# Flag to track if the monitor thread is running
+job_monitor_thread = None
+job_monitor_running = False
+
+# Lock to protect background_jobs access from multiple threads
+jobs_lock = threading.RLock()
+
+def job_monitor_function():
+    """Background thread function to monitor jobs"""
+    global job_monitor_running
+    
+    try:
+        while job_monitor_running:
+            # Check for job completions every 1 second
+            with jobs_lock:
+                update_job_status(check_output=True)
+            time.sleep(1)
+    except Exception as e:
+        # Log any errors but don't crash
+        print(f"Error in job monitor thread: {e}")
+    finally:
+        job_monitor_running = False
+
+def start_job_monitor():
+    """Start the background job monitor if it's not already running"""
+    global job_monitor_thread, job_monitor_running
+    
+    if job_monitor_thread is None or not job_monitor_thread.is_alive():
+        job_monitor_running = True
+        job_monitor_thread = threading.Thread(target=job_monitor_function, daemon=True)
+        job_monitor_thread.start()
+
+def register_background_job(pid, command, stdout_path=None, stderr_path=None):
     """Register a new background job"""
     global job_counter
-    job_id = job_counter
-    background_jobs[job_id] = {
-        "pid": pid,
-        "command": command,
-        "running": True
-    }
-    job_counter += 1
-    return job_id
+    
+    with jobs_lock:
+        job_id = job_counter
+        background_jobs[job_id] = {
+            "pid": pid,
+            "command": command,
+            "running": True,
+            "stdout_path": stdout_path,
+            "stderr_path": stderr_path,
+            "notified_completion": False,
+            # Add tracking for streamed output
+            "last_stdout_pos": 0,  # Track position in the stdout file
+            "last_stderr_pos": 0,  # Track position in the stderr file
+            "stream_output": True,  # Whether to stream output in real-time
+            "stream_started": False,  # Whether we've started streaming this job
+            "last_output_time": time.time()  # Track when we last showed output
+        }
+        job_counter += 1
+        
+        # Make sure the job monitor is running
+        start_job_monitor()
+        
+        return job_id
 
-def update_job_status():
+def check_and_stream_output(job_id, job):
+    """Check for and display any new output from a running background job"""
+    has_new_output = False
+    stdout_path = job.get("stdout_path")
+    stderr_path = job.get("stderr_path")
+    
+    # Create a header for the job if this is the first output
+    if not job.get("stream_started", False) and (job.get("stream_output", True)):
+        # Print an initial header for this job's output stream
+        click.echo("")
+        click.echo(click.style(f"▶ Background job [{job_id}]: {job['command']}", fg="blue", bold=True))
+        click.echo(click.style(f"  Output stream will update automatically... (PID: {job['pid']})", fg="blue"))
+        job["stream_started"] = True
+    
+    # Check for new stdout
+    if stdout_path and os.path.exists(stdout_path):
+        try:
+            current_size = os.path.getsize(stdout_path)
+            last_pos = job.get("last_stdout_pos", 0)
+            
+            # If the file has grown since we last checked
+            if current_size > last_pos:
+                with open(stdout_path, 'r') as f:
+                    f.seek(last_pos)
+                    new_output = f.read()
+                    if new_output:
+                        # Output a line marker for streamed output
+                        if job["stream_started"]:
+                            click.echo(click.style(f"▶ [{job_id}] New output:", fg="blue"))
+                        click.echo(new_output, nl=False)
+                        has_new_output = True
+                        job["last_output_time"] = time.time()
+                
+                # Update the position for next time
+                job["last_stdout_pos"] = current_size
+        except Exception as e:
+            click.echo(click.style(f"Error reading stdout: {str(e)}", fg="red"))
+    
+    # Check for new stderr
+    if stderr_path and os.path.exists(stderr_path):
+        try:
+            current_size = os.path.getsize(stderr_path)
+            last_pos = job.get("last_stderr_pos", 0)
+            
+            # If the file has grown since we last checked
+            if current_size > last_pos:
+                with open(stderr_path, 'r') as f:
+                    f.seek(last_pos)
+                    new_error = f.read()
+                    if new_error:
+                        # Output a line marker for streamed error output
+                        if job["stream_started"]:
+                            click.echo(click.style(f"▶ [{job_id}] New error output:", fg="red"))
+                        click.echo(click.style(new_error, fg="red"), nl=False)
+                        has_new_output = True
+                        job["last_output_time"] = time.time()
+                
+                # Update the position for next time
+                job["last_stderr_pos"] = current_size
+        except Exception as e:
+            click.echo(click.style(f"Error reading stderr: {str(e)}", fg="red"))
+    
+    return has_new_output
+
+def update_job_status(check_output=True):
     """Update status of all registered jobs"""
+    completed_jobs = []
+    
+    # First check running jobs for new output before handling completions
+    if check_output:
+        for job_id in background_jobs:
+            job = background_jobs[job_id]
+            if job["running"] and job.get("stream_output", True):
+                check_and_stream_output(job_id, job)
+    
+    # Now check for job completions
     for job_id in background_jobs:
         job = background_jobs[job_id]
         if job["running"]:
@@ -34,16 +157,69 @@ def update_job_status():
                 process = psutil.Process(job["pid"])
                 # Get process status for debugging
                 status = process.status()
-                click.echo(click.style(f"Job {job_id} (PID {job['pid']}): {job['command']} - Status: {status}", fg="blue"))
                 
                 # Only mark as not running if it's truly terminated
                 # Running, sleeping, and disk wait are all considered "running" for our purposes
                 if status in [psutil.STATUS_ZOMBIE, psutil.STATUS_DEAD]:
                     job["running"] = False
-                    click.echo(click.style(f"Marked job {job_id} as done", fg="yellow"))
-            except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
-                click.echo(click.style(f"Job {job_id}: Process error - {str(e)}", fg="red"))
+                    job["notified_completion"] = True
+                    completed_jobs.append(job_id)
+                    click.echo(click.style(f"\n[{job_id}] Done: {job['command']}", fg="green"))
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                # Process no longer exists, so mark it as completed
                 job["running"] = False
+                if not job.get("notified_completion", False):
+                    completed_jobs.append(job_id)
+                    job["notified_completion"] = True
+                    # Print a blank line to separate from any existing output
+                    click.echo("")
+                    # Show a prominent divider to make it clear this is a job completion notification
+                    click.echo(click.style("="*60, fg="green"))
+                    click.echo(click.style(f"[{job_id}] Completed: {job['command']}", fg="green", bold=True))
+    
+    # Display output of newly completed jobs if requested
+    if check_output and completed_jobs:
+        for job_id in completed_jobs:
+            job = background_jobs[job_id]
+            
+            # Check if we have output files for this job
+            stdout_path = job.get("stdout_path")
+            stderr_path = job.get("stderr_path")
+            
+            # Create a "foreground" effect for the completed job
+            click.echo(click.style(f"Job output:", fg="green"))
+            
+            # Always show a command prompt style line to make it clear this was from a background job
+            click.echo(click.style(f"$ {job['command']}", fg="yellow", bold=True))
+            
+            # Check if there's output to display
+            has_output = False
+            
+            if stdout_path and os.path.exists(stdout_path):
+                # Check if there's output to display
+                if os.path.getsize(stdout_path) > 0:
+                    try:
+                        with open(stdout_path, 'r') as f:
+                            output = f.read()
+                            click.echo(output)
+                            has_output = True
+                    except Exception as e:
+                        click.echo(click.style(f"Error reading output: {str(e)}", fg="red"))
+            
+            if stderr_path and os.path.exists(stderr_path):
+                # Check if there's error output to display
+                if os.path.getsize(stderr_path) > 0:
+                    try:
+                        with open(stderr_path, 'r') as f:
+                            error_output = f.read()
+                            click.echo(click.style(error_output, fg="red"))
+                            has_output = True
+                    except Exception as e:
+                        click.echo(click.style(f"Error reading error output: {str(e)}", fg="red"))
+            
+            if not has_output:
+                click.echo(click.style("(No output)", fg="cyan"))
+            # Add a newline for better separation
 
 class JobControlPlugin(BuiltinCommand):
     """Plugin for job control commands (jobs, fg, bg)"""
