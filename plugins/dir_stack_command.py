@@ -84,20 +84,54 @@ class DirStackCommand(BuiltinCommand):
         """Push current directory to stack and change to new directory"""
         current_directory = os.getcwd()
         
-        # Expand tilde to home directory
-        expanded_dir = os.path.expanduser(directory)
-        
-        # Check if the directory exists before changing to it
-        if os.path.isdir(expanded_dir):
-            # Insert at the beginning of the stack (most recent)
-            dir_stack.insert(0, current_directory)
-            os.chdir(expanded_dir)
-
-            # Join the directories
-            dirs = ' '.join(map(str, dir_stack))
-            click.echo(f"{os.getcwd()} {dirs}")
+        # Check if the path contains command substitution $(...) or backticks
+        if ('$(' in directory and ')' in directory) or ('`' in directory):
+            # Execute the command using shell to evaluate the substitution
+            import subprocess
+            try:
+                # Evaluate the command to get the actual directory path
+                process = subprocess.run(
+                    f"echo {directory}",
+                    shell=True,
+                    executable='/bin/bash',
+                    capture_output=True,
+                    text=True,
+                    check=True
+                )
+                # Get the evaluated path from the command output
+                evaluated_path = process.stdout.strip()
+                click.echo(f"Resolved path: {evaluated_path}")
+                
+                # Change to the evaluated directory
+                if os.path.isdir(evaluated_path):
+                    # Insert at the beginning of the stack (most recent)
+                    dir_stack.insert(0, current_directory)
+                    os.chdir(evaluated_path)
+                    
+                    # Join the directories
+                    dirs = ' '.join(map(str, dir_stack))
+                    click.echo(f"{os.getcwd()} {dirs}")
+                else:
+                    click.echo(click.style(f"Directory not found after command evaluation: {evaluated_path}", fg="red"))
+            except subprocess.CalledProcessError as e:
+                click.echo(click.style(f"Error evaluating command: {e}", fg="red"))
+            except Exception as e:
+                click.echo(click.style(f"Error: {str(e)}", fg="red"))
         else:
-            click.echo(click.style(f"Directory not found: {expanded_dir}", fg="red"))
+            # Normal path handling with tilde expansion
+            expanded_dir = os.path.expanduser(directory)
+            
+            # Check if the directory exists before changing to it
+            if os.path.isdir(expanded_dir):
+                # Insert at the beginning of the stack (most recent)
+                dir_stack.insert(0, current_directory)
+                os.chdir(expanded_dir)
+    
+                # Join the directories
+                dirs = ' '.join(map(str, dir_stack))
+                click.echo(f"{os.getcwd()} {dirs}")
+            else:
+                click.echo(click.style(f"Directory not found: {expanded_dir}", fg="red"))
     
     def _popd(self):
         """Pop directory from stack and change to that directory"""

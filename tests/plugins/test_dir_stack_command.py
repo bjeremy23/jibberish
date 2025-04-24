@@ -28,6 +28,10 @@ class TestDirStackCommand(unittest.TestCase):
         self.temp_dir2 = tempfile.mkdtemp()
         self.temp_dir3 = tempfile.mkdtemp()
         
+        # Create subdirectories for testing command substitution
+        self.subdir1_path = os.path.join(self.temp_dir1, "test_subdir1")
+        os.makedirs(self.subdir1_path, exist_ok=True)
+        
         # Mock click.echo to capture output
         self.click_echo_patcher = patch('click.echo', side_effect=mock_click_echo)
         self.mock_click_echo = self.click_echo_patcher.start()
@@ -250,6 +254,29 @@ class TestDirStackCommand(unittest.TestCase):
         self.assertIn("empty", output.stdout_content.lower(), 
                     "Output should indicate empty stack")
 
+    def test_execute_pushd_cmd_substitution(self):
+        """Test pushd with command substitution."""
+        # We'll mock subprocess.run to simulate command substitution
+        mock_process = MagicMock()
+        mock_process.stdout = self.subdir1_path
+        
+        with patch('subprocess.run', return_value=mock_process) as mock_run:
+            with patch('click.echo') as mock_echo:
+                result = self.dir_stack_cmd.execute('pushd "$(find . -type d -name test_subdir1)"')
+            
+            # Verify subprocess.run was called with the correct arguments
+            mock_run.assert_called_once()
+            call_args = mock_run.call_args[0][0]
+            self.assertIn('echo', call_args)
+            self.assertIn('$(find . -type d -name test_subdir1)', call_args)
+            self.assertTrue(result, "pushd command should return True")
+            
+            # Verify the "Resolved path:" message was echoed
+            resolved_path_called = any("Resolved path:" in str(call[0][0]) 
+                                     for call in mock_echo.call_args_list if call[0])
+            self.assertTrue(resolved_path_called, "Should output 'Resolved path:' message")
+
 if __name__ == '__main__':
     # Run the test
     unittest.main()
+    

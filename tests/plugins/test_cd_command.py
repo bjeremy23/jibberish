@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python
 """
 Unittest-based test script for testing the cd_command plugin of Jibberish shell.
@@ -25,6 +26,10 @@ class TestCDCommand(unittest.TestCase):
         
         # Create a temporary directory for testing
         self.temp_dir = tempfile.mkdtemp()
+        
+        # Create a subdirectory for testing command substitution
+        self.subdir_path = os.path.join(self.temp_dir, "test_subdir")
+        os.makedirs(self.subdir_path, exist_ok=True)
         
         # Mock click.echo to capture output
         self.click_echo_patcher = patch('click.echo', side_effect=mock_click_echo)
@@ -123,6 +128,29 @@ class TestCDCommand(unittest.TestCase):
         finally:
             # Clean up
             os.unlink(temp_file.name)
+    
+    def test_execute_cd_cmd_substitution(self):
+        """Test cd with command substitution."""
+        # We'll mock subprocess.run to simulate command substitution
+        mock_process = MagicMock()
+        mock_process.stdout = self.subdir_path
+        
+        with patch('subprocess.run', return_value=mock_process) as mock_run:
+            with patch('click.echo') as mock_echo:
+                result = self.cd_cmd.execute('cd "$(find . -type d -name test_subdir)"')
+            
+            # Verify subprocess.run was called with the correct arguments
+            mock_run.assert_called_once()
+            call_args = mock_run.call_args[0][0]
+            self.assertIn('echo', call_args)
+            self.assertIn('$(find . -type d -name test_subdir)', call_args)
+            self.assertTrue(result, "CD command should return True")
+            
+            # Verify the "Resolved path:" message was echoed
+            resolved_path_called = any("Resolved path:" in str(call[0][0]) 
+                                     for call in mock_echo.call_args_list if call[0])
+            self.assertTrue(resolved_path_called, "Should output 'Resolved path:' message")
+
 
 if __name__ == '__main__':
     # Run the test
