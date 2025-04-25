@@ -25,6 +25,9 @@ PROMPT_AI_COMMANDS=true
 # Prompt for more AI assisted information on returned errors
 IGNORE_ERRORS=true
 
+# Maximum number of history entries to keep (default is 2000 if not specified)
+MAX_HISTORY_LINES=2000
+
 # Master switch to enable/disable colored output (default: true)
 FORCE_COLOR_OUTPUT=true
 

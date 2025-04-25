@@ -180,7 +180,84 @@ try:
 except FileNotFoundError:
     pass
 
+# Function to get the maximum history lines from environment variable
+def get_max_history_lines():
+    """
+    Get the maximum number of history lines to keep from the MAX_HISTORY_LINES environment variable.
+    If not set, defaults to 2000 lines.
+    
+    Returns:
+        int: Maximum number of history lines to keep
+    """
+    try:
+        return int(os.environ.get('MAX_HISTORY_LINES', 2000))
+    except (ValueError, TypeError):
+        # If the environment variable is set but not a valid integer,
+        # log a warning and return the default value
+        print(f"Warning: MAX_HISTORY_LINES environment variable is not a valid integer. Using default of 2000.")
+        return 2000
+
+# Save the original add_history function
+original_add_history = readline.add_history
+
+# Function to limit history size by removing oldest entries
+def limit_history_size(max_lines=None):
+    """
+    Limit the history file size to the specified number of lines.
+    Removes oldest entries when the history exceeds max_lines.
+    
+    Args:
+        max_lines (int, optional): Maximum number of history lines to keep.
+                                  If None, gets value from MAX_HISTORY_LINES environment variable.
+    """
+    # If max_lines is not provided, get it from environment
+    if max_lines is None:
+        max_lines = get_max_history_lines()
+        
+    history_length = readline.get_current_history_length()
+    
+    # If history exceeds the maximum allowed lines
+    if history_length > max_lines:
+        # Calculate how many items to remove
+        items_to_remove = history_length - max_lines
+        
+        # Create a temporary list with the most recent max_lines items
+        temp_history = []
+        for i in range(items_to_remove + 1, history_length + 1):
+            temp_history.append(readline.get_history_item(i))
+        
+        # Clear the history
+        readline.clear_history()
+        
+        # Add back only the most recent max_lines items
+        for item in temp_history:
+            # Use the original add_history to avoid recursion
+            original_add_history(item)
+
+# Override readline.add_history to enforce our limit every time a command is added
+def custom_add_history(string):
+    """
+    Custom wrapper for readline.add_history that enforces our history size limit
+    every time a new command is added.
+    
+    Args:
+        string (str): Command string to add to history
+    """
+    # First call the original function to add the item
+    original_add_history(string)
+    
+    # Then enforce our history limit
+    limit_history_size()
+
+# Replace the original function with our custom one
+readline.add_history = custom_add_history
+
+# Limit history when loading, using value from environment
+limit_history_size()
+
 import atexit
+# Register both functions to run at exit: first limit history size, then write to file
+atexit.register(limit_history_size)  # Will use value from environment
 atexit.register(readline.write_history_file, histfile)
 
 # Function to list command history
@@ -194,6 +271,9 @@ def list_history(return_output=False):
     Returns:
         str or None: If return_output is True, returns history as a string; otherwise None
     """
+    # First, limit the history size based on the environment variable
+    limit_history_size()
+    
     history_length = readline.get_current_history_length()
     output = []
     

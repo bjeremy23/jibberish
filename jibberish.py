@@ -212,6 +212,8 @@ def cli(version, question, command):
             # This ensures both the original request and the generated command are in history
             if command.startswith('#'):
                 readline.add_history(new_command)
+                # Apply history limit after adding a new command
+                history.limit_history_size()
             
             command = new_command
             
