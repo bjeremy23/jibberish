@@ -3,9 +3,6 @@ import sys
 import subprocess
 import click
 import chat
-import history
-import threading
-import io
 from built_ins import is_built_in
 
 def split_commands_respect_quotes(command_chain):
@@ -185,6 +182,9 @@ def expand_aliases(command):
     return command
 
 def run_in_background(command):
+    """
+    Run a command in the background
+    """
     # Remove the & at the end - we'll handle backgrounding ourselves
     actual_command = command.rstrip('&').strip()
     
@@ -228,11 +228,11 @@ def run_in_background(command):
         # Let the process run independently
         return 0, "", ""
     except ImportError:
-            # Fall back to the old behavior if job_control isn't available
-            click.echo(click.style(f"Running in background: {actual_command}", fg="blue"))
-            bg_command = f"nohup {actual_command} > /dev/null 2>&1 &"
-            return_code = os.system(bg_command)
-            return return_code, "", ""
+        # Fall back to the old behavior if job_control isn't available
+        click.echo(click.style(f"Running in background: {actual_command}", fg="blue"))
+        bg_command = f"nohup {actual_command} > /dev/null 2>&1 &"
+        return_code = os.system(bg_command)
+        return return_code, "", ""
     except Exception as e:
         click.echo(click.style(f"Error running command in background: {e}", fg="red"))
         return -1, "", str(e)
@@ -244,7 +244,6 @@ def run_in_interactive(command):
     # Use subprocess for interactive applications instead of os.system
     # This gives us more control over the process execution
     import signal
-    import time
     
     # Store original SIGINT handler
     original_sigint = signal.getsignal(signal.SIGINT)
@@ -458,9 +457,9 @@ def execute_command(command):
     # if the command is in the warn_list and the command does not contain '-f', 
     # ask the user if they want to execute the command
     if warn:
-        choice = input(click.style(f"Are you sure you want to execute this command? [y/n]: ", fg="blue"))
+        choice = input(click.style("Are you sure you want to execute this command? [y/n]: ", fg="blue"))
         if choice.lower() != "y":
-            click.echo(click.style(f"Command not executed", fg="red"))
+            click.echo(click.style("Command not executed", fg="red"))
             return
     
     # Check if this is an SSH-related command
@@ -488,13 +487,13 @@ def execute_command(command):
                 ignore_errors = os.environ.get("IGNORE_ERRORS", "").lower()
                 if ignore_errors not in ["true", "yes", "1"]:
                     # have the user choose to explain why the command failed
-                    choice = input(click.style(f"\nMore information about error? [y/n]: ", fg="blue"))
+                    choice = input(click.style("\nMore information about error? [y/n]: ", fg="blue"))
                     if choice.lower() == "y":
                         why_failed = chat.ask_why_failed(command, error)
                         if why_failed is not None:
                             click.echo(click.style(f"{why_failed}", fg="red"))
                         else:
-                            click.echo(click.style(f"No explanation provided.", fg="red"))
+                            click.echo(click.style("No explanation provided.", fg="red"))
     except KeyboardInterrupt:
         # Handle keyboard interrupt in this function as well
         click.echo(click.style("\nCommand execution interrupted by user (Ctrl+C)", fg="yellow"))

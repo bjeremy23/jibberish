@@ -1,7 +1,3 @@
-import os
-import subprocess
-import click
-
 # Import the plugin system
 from plugin_system import BuiltinCommandRegistry, load_plugins
 

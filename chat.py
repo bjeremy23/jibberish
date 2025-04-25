@@ -1,13 +1,28 @@
-import api, time, click, re, json
+import api
+import time 
+import click 
+import re
+import json
+import os
 
-# contains a history of questions '?' asked to the ai sothere is some context to the chat
-chat_file_path = "/tmp/jibberish.txt"
-# number of questions in the context 
+partner = "Marvin the Paranoid Android"
+
+# There are two different histories; one for '#' (ask_ai) and one for '?' (ask_question)
+
+# '?' 
+# we have a total of 10 questions and we want to keep the last 3 questions in the history
+# These are global variables to keep track of the number of questions
+total_noof_questions=10
 noof_questions=3
 
-# Maximum number of user/assistant pairs to maintain in base_messages
+# Global list to store chat history for each instance of the shell
+chat_history = []
+
+# '#'
+# we have a maximum of 4 pairs of messages (user/assistant) in the command history 
 MAX_HISTORY_PAIRS = 4
 
+# Global context for the AI
 global_context = [
     {
         "role": "system",
@@ -23,6 +38,7 @@ ssh_context = [
     }
 ]
 
+# Context for the chat with Marvin
 chat_context = [
     {
         "role": "system",
@@ -74,35 +90,50 @@ def change_partner(name):
     partner = name
     chat_context[0]["content"] = "You are " + partner
 
-with open(chat_file_path, "w") as f:
-    pass
+# Use os module for file operations
 
-def save_chat_to_file(chat):
-    """
-    Save the chat to a file
-    """
-    with open(chat_file_path, "a") as f:
-        f.write(json.dumps(chat))
+# No need to initialize a file anymore - we're using a global list
 
-def load_chat_from_file():
+def save_chat(chat):
     """
-    Load the chat from a file
+    Save the chat by updating the global chat history
     """
-    with open(chat_file_path, "r") as f:
-        import json
-        try:
-            chat = json.loads(f.read())
-            # return the most recent questions for context
-            return chat[-noof_questions:]
-        except json.JSONDecodeError:
-            return []
+    global chat_history
+    
+    # Add current conversation
+    chat_history.append(chat)
+    
+    # Keep only the most recent conversations
+    chat_history = chat_history[-total_noof_questions:]
+
+def load_chat_history():
+    """
+    Load chat from the global history, returning only the most recent noof_questions entries (user/assistant pairs)
+    """
+    global chat_history
+    
+    # If there's no history yet, return empty list
+    if not chat_history:
+        return []
+        
+    # If we have history, return the last conversation's entries limited by noof_questions
+    if chat_history and isinstance(chat_history[-1], list):
+        last_conversation = chat_history[-1]
+        # We want the last noof_questions pairs (each pair is 2 entries)
+        message_pairs = len(last_conversation) // 2
+        pairs_to_keep = min(noof_questions, message_pairs)
+        # Calculate how many entries to skip from the beginning
+        entries_to_skip = len(last_conversation) - (pairs_to_keep * 2)
+        return last_conversation[entries_to_skip:]
+    
+    return []
 
 
 def ask_why_failed(command, output):
     """
     Send a request to explain why the command failed
     """
-    messages = load_chat_from_file()
+    messages = load_chat_history()
     messages.append(
         {
             "role": "user",
@@ -142,7 +173,7 @@ def ask_why_failed(command, output):
                 "content": f"{r}"
             }
         )
-        save_chat_to_file(messages)
+        save_chat(messages)
         return r
     else:
         return "Failed to connect to OpenAI API after multiple attempts."
@@ -281,14 +312,13 @@ def ask_question(command, temp=0.5):
     """
     Have a small contextual chat with the AI
     """
-    messages = load_chat_from_file()
+    messages = load_chat_history()
     messages.append(
         {
             "role": "user",
             "content": f"{command}"
         }
     )
-
     response = None
     retries = 3
     for _ in range(retries):
@@ -321,7 +351,7 @@ def ask_question(command, temp=0.5):
                 "content": f"{r}"
             }
         )
-        save_chat_to_file(messages)
+        save_chat(messages)
         return r
     else:
         return "Failed to connect to OpenAI API after multiple attempts."

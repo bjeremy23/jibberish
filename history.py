@@ -1,6 +1,15 @@
-import readline, click, os, glob
+import readline
+import click
+import os
+import glob
 
 def complete_path(text, state):
+    """
+    Custom path completer for readline.
+    This function provides tab completion for file paths and commands.
+    It handles both file paths and command names.
+    """
+
     if text.startswith('~'):
         # Expand '~' to the user's home directory and remove the '~' from the beginning of the text 
         text = os.path.expanduser(text)
@@ -194,7 +203,7 @@ def get_max_history_lines():
     except (ValueError, TypeError):
         # If the environment variable is set but not a valid integer,
         # log a warning and return the default value
-        print(f"Warning: MAX_HISTORY_LINES environment variable is not a valid integer. Using default of 2000.")
+        print("Warning: MAX_HISTORY_LINES environment variable is not a valid integer. Using default of 2000.")
         return 2000
 
 # Save the original add_history function

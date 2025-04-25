@@ -3,7 +3,6 @@ AI command generation plugin.
 """
 import click
 import chat
-import importlib
 import os
 from plugin_system import BuiltinCommand, BuiltinCommandRegistry
 

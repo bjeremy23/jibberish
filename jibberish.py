@@ -3,6 +3,7 @@
 import sys
 import io
 import os
+import time
 
 # Get command-line arguments
 args = sys.argv[1:] if len(sys.argv) > 1 else []
@@ -115,6 +116,11 @@ def ai_command_standalone(query):
     return True
 
 class CustomContext(click.Context):
+    """
+    Custom context to override the default help formatter
+    and set a maximum content width for the help text.
+    """
+
     def make_formatter(self):
         from click import formatting
         return formatting.HelpFormatter(width=120)

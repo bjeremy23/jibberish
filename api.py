@@ -1,4 +1,5 @@
-import os, openai
+import os
+import openai
 
 # Define version information
 __version__ = "25.04.3"
