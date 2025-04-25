@@ -219,7 +219,8 @@ def update_job_status(check_output=True):
             
             if not has_output:
                 click.echo(click.style("(No output)", fg="cyan"))
-            # Add a newline for better separation
+                
+            click.echo(click.style("Press the <ENTER> key", fg="cyan"))
 
 class JobControlPlugin(BuiltinCommand):
     """Plugin for job control commands (jobs, fg, bg)"""
