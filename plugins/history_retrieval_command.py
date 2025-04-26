@@ -40,16 +40,6 @@ class HistoryRetrievalPlugin(BuiltinCommand):
                 click.echo(click.style(f"Error processing AI command: {str(e)}", fg="red"))
                 return True
                 
-        # Check if the retrieved command starts with a comment (but not an AI command)
-        elif retrieved_command.startswith("# "):
-            # This is likely a comment and a command pair from AI generation
-            # We should only return the actual command part, not the comment
-            lines = retrieved_command.strip().split("\n")
-            if len(lines) > 1:
-                # Skip the comment line(s) and return the actual command
-                actual_command = lines[-1]  # Get the last line which should be the command
-                return False, actual_command
-        
         # Otherwise, return False to let the main loop process the retrieved command
         # This is a special case where we actually want to return False even though
         # we handled the request because we want the main loop to process the retrieved command
