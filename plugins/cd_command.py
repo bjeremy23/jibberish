@@ -53,19 +53,41 @@ class ChangeDirectoryCommand(BuiltinCommand):
                 except Exception as e:
                     click.echo(click.style(f"Error: {str(e)}", fg="red"))
             else:
-                # Normal path handling
+                # Normal path handling with wildcard expansion
                 path = os.path.expanduser(path_part)
-                if os.path.isfile(path):
-                    click.echo(click.style(f"Error: '{path}' is a file, not a directory", fg="red"))
-                else:
-                    try:
-                        os.chdir(path)
-                    except FileNotFoundError:
+                
+                # Check if the path contains wildcards (* or ?)
+                if '*' in path or '?' in path:
+                    import glob
+                    # Get all matching directories
+                    matches = [p for p in glob.glob(path) if os.path.isdir(p)]
+                    
+                    if not matches:
                         click.echo(click.style(f"Error: No such directory: '{path}'", fg="red"))
-                    except PermissionError:
-                        click.echo(click.style(f"Error: Permission denied: '{path}'", fg="red"))
-                    except Exception as e:
-                        click.echo(click.style(f"Error: {str(e)}", fg="red"))
+                    elif len(matches) > 1:
+                        click.echo(click.style(f"Error: Ambiguous path, multiple matches found:", fg="yellow"))
+                        for match in matches:
+                            click.echo(f"  {match}")
+                    else:
+                        # Exactly one match found
+                        try:
+                            os.chdir(matches[0])
+                            click.echo(f"Changed to directory: {matches[0]}")
+                        except Exception as e:
+                            click.echo(click.style(f"Error: {str(e)}", fg="red"))
+                else:
+                    # No wildcards, standard directory handling
+                    if os.path.isfile(path):
+                        click.echo(click.style(f"Error: '{path}' is a file, not a directory", fg="red"))
+                    else:
+                        try:
+                            os.chdir(path)
+                        except FileNotFoundError:
+                            click.echo(click.style(f"Error: No such directory: '{path}'", fg="red"))
+                        except PermissionError:
+                            click.echo(click.style(f"Error: Permission denied: '{path}'", fg="red"))
+                        except Exception as e:
+                            click.echo(click.style(f"Error: {str(e)}", fg="red"))
         
         return True
 
