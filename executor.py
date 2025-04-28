@@ -5,6 +5,10 @@ import click
 import chat
 from built_ins import is_built_in
 
+# Forward declaration for circular reference
+def execute_command(command):
+    pass
+
 def split_commands_respect_quotes(command_chain):
     """
     Split command chain on '&&' while respecting quotes.
@@ -32,6 +36,43 @@ def split_commands_respect_quotes(command_chain):
             commands.append(current_cmd.strip())
             current_cmd = ""
             i += 1  # Skip the second &
+        else:
+            current_cmd += char
+        
+        i += 1
+    
+    # Add the last command
+    if current_cmd.strip():
+        commands.append(current_cmd.strip())
+    
+    return commands
+
+def split_commands_respect_semicolons(command_chain):
+    """
+    Split command chain on ';' while respecting quotes.
+    This ensures that ';' inside quotes won't be treated as command separators.
+    """
+    commands = []
+    current_cmd = ""
+    in_single_quote = False
+    in_double_quote = False
+    i = 0
+    
+    while i < len(command_chain):
+        char = command_chain[i]
+        
+        # Handle quotes
+        if char == "'" and not in_double_quote:
+            in_single_quote = not in_single_quote
+            current_cmd += char
+        elif char == '"' and not in_single_quote:
+            in_double_quote = not in_double_quote
+            current_cmd += char
+        # Handle semicolon separator
+        elif char == ';' and not in_single_quote and not in_double_quote:
+            # Found ';' outside quotes - split the command
+            commands.append(current_cmd.strip())
+            current_cmd = ""
         else:
             current_cmd += char
         
@@ -502,33 +543,63 @@ def execute_command(command):
 
 def execute_chained_commands(command_chain):
     """
-    Execute multiple commands separated by &&
+    Execute multiple commands separated by && or ;
     """
     # First transform any multiline commands into proper format
     command_chain = transform_multiline(command_chain)
     
-    # Split commands respecting quotes
-    commands = split_commands_respect_quotes(command_chain)
-    
-    for cmd in commands:
-        cmd = cmd.strip()
-        if not cmd:
-            continue
-    
-        # Check if this is a built-in command
-        handled, new_command = is_built_in(cmd)
+    # Process semicolons first, then &&
+    # Check if there are semicolons in the command
+    if ';' in command_chain:
+        # Split command by semicolons first
+        semicolon_parts = split_commands_respect_semicolons(command_chain)
         
-        if handled:
-            # Built-in command was executed, continue to next command
-            pass  # Don't return, let the next command execute
-        elif new_command is not None:
-            # A new command was returned (e.g., from history or AI), execute it
-            if '&&' in new_command:
-                # If the new command itself contains chains, process them
-                execute_chained_commands(new_command)
+        # Process each part separately
+        for part in semicolon_parts:
+            part = part.strip()
+            if not part:
+                continue
+                
+            # If a part contains &&, process as chained commands
+            if '&&' in part:
+                execute_chained_commands(part)
             else:
-                # Execute the new command
-                execute_command(new_command)
-        else:
-            # Execute external command
-            execute_command(cmd)
+                # Execute as a single command
+                handled, new_command = is_built_in(part)
+                
+                if handled:
+                    # Built-in command was executed, continue to next command
+                    pass  # Don't return, let the next command execute
+                elif new_command is not None:
+                    # A new command was returned (e.g., from history or AI), execute it
+                    execute_command(new_command)
+                else:
+                    # Execute external command
+                    execute_command(part)
+    else:
+        # No semicolons, just handle && chains
+        # Split commands respecting quotes
+        commands = split_commands_respect_quotes(command_chain)
+        
+        for cmd in commands:
+            cmd = cmd.strip()
+            if not cmd:
+                continue
+        
+            # Check if this is a built-in command
+            handled, new_command = is_built_in(cmd)
+            
+            if handled:
+                # Built-in command was executed, continue to next command
+                pass  # Don't return, let the next command execute
+            elif new_command is not None:
+                # A new command was returned (e.g., from history or AI), execute it
+                if '&&' in new_command or ';' in new_command:
+                    # If the new command itself contains chains, process them
+                    execute_chained_commands(new_command)
+                else:
+                    # Execute the new command
+                    execute_command(new_command)
+            else:
+                # Execute external command
+                execute_command(cmd)
