@@ -11,8 +11,8 @@ class ChangeDirectoryCommand(BuiltinCommand):
     
     def can_handle(self, command):
         """Check if this plugin can handle the command"""
-        # Only handle cd commands that don't contain && (those should go to execute_chained_commands)
-        return command.startswith("cd") and "&&" not in command
+        # Only handle cd commands that don't contain && or ; (those should go to execute_chained_commands)
+        return command.startswith("cd") and "&&" not in command and ";" not in command
     
     def execute(self, command):
         """Change the current directory"""
