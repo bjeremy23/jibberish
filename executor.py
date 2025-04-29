@@ -526,11 +526,15 @@ def execute_command(command):
             # since they often output informational messages to stderr
             if is_ssh_command and returncode == 0:
                 click.echo(error)
-            # Explicitly handle "command not found" errors
-            elif "command not found" in error or "No such file or directory" in error:
-                # Extract the command name from the error message if possible
+            # Handle different types of errors appropriately
+            elif "command not found" in error:
+                # This is specifically when the command itself doesn't exist
                 cmd_name = command.strip().split()[0] if command.strip() else "Command"
                 click.echo(click.style(f"{cmd_name}: command not found", fg="red"))
+            elif "No such file or directory" in error:
+                # When the file/directory path doesn't exist, echo the original error
+                # This preserves the error message for cases like "ls /nonexistent/path"
+                click.echo(click.style(error.rstrip(), fg="red"))
             # For other commands with stderr output, show as error and offer to explain
             else:
                 click.echo(click.style(error, fg="red"), nl=False)
