@@ -516,13 +516,23 @@ def execute_command(command):
                 click.echo(click.style("\nCommand interrupted by user (Ctrl+C)", fg="yellow"))
             else:
                 click.echo(click.style(f"{error}", fg="red"))
+        elif returncode != 0 and not error:
+            # Handle case where return code is non-zero but there's no error message
+            # This often happens with "command not found" situations
+            cmd_name = command.strip().split()[0] if command.strip() else "Command" 
+            click.echo(click.style(f"{cmd_name}: command not found", fg="red"))
         elif error:
             # For SSH commands with successful return code, treat stderr as normal output 
             # since they often output informational messages to stderr
             if is_ssh_command and returncode == 0:
                 click.echo(error)
+            # Explicitly handle "command not found" errors
+            elif "command not found" in error or "No such file or directory" in error:
+                # Extract the command name from the error message if possible
+                cmd_name = command.strip().split()[0] if command.strip() else "Command"
+                click.echo(click.style(f"{cmd_name}: command not found", fg="red"))
             # For other commands with stderr output, show as error and offer to explain
-            elif "command not found" not in error:
+            else:
                 click.echo(click.style(error, fg="red"), nl=False)
                 # if IGNORE_ERROR is set, ignore the error
                 ignore_errors = os.environ.get("IGNORE_ERRORS", "").lower()
