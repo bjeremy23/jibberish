@@ -41,24 +41,70 @@ if ai_choice == "azure":
         # Try importing AzureOpenAI class (available in v1.0.0+)
         from openai import AzureOpenAI
         try:
-            # Use new client for Azure (v1.0.0+)
-            client = AzureOpenAI(
-                api_key=os.environ['AZURE_OPENAI_API_KEY'],
-                api_version=os.environ['AZURE_OPENAI_API_VERSION'],
-                azure_endpoint=os.environ['AZURE_OPENAI_ENDPOINT']
-            )
+            # Determine the authentication method based on available credentials
+            auth_method = None
+            token_provider = None
+            if os.environ.get('AZURE_CLIENT_ID'):
+                try:
+                    from azure.identity import ManagedIdentityCredential, get_bearer_token_provider
+                    credential = ManagedIdentityCredential(client_id=os.environ['AZURE_CLIENT_ID'])
+                    auth_method = "managed_identity"
+                    token_provider = get_bearer_token_provider(credential, "https://cognitiveservices.azure.com/.default")
+                    print("Using Azure Managed Identity authentication")
+                except (ImportError, Exception) as e:
+                    print(f"Could not use Managed Identity: {e}")
+                    auth_method = None
+            elif os.environ.get('AZURE_USER_ID'):
+                try:
+                    from azure.identity import AzureCliCredential, get_bearer_token_provider
+                    credential = AzureCliCredential()
+                    auth_method = "user_credential"
+                    token_provider = get_bearer_token_provider(credential, "https://cognitiveservices.azure.com/.default")
+                    print("Using Azure CLI credential authentication")
+                except (ImportError, Exception) as e:
+                    print(f"Could not use Azure CLI credentials: {e}.  Please ensure you are logged in to Azure CLI prior to running Jibberish.")
+                    auth_method = None
+            elif os.environ.get('AZURE_OPENAI_API_KEY'):
+                auth_method = "key"
+                print("Using API key authentication")
+            else:
+                auth_method = None
+                raise ValueError("No valid authentication method available. Please provide AZURE_CLIENT_ID, AZURE_USER_ID, or AZURE_OPENAI_API_KEY.")
+            
+            # Create the appropriate client based on authentication method
+            if auth_method in ["managed_identity", "user_credential"]:
+                client = AzureOpenAI(
+                    api_version=os.environ['AZURE_OPENAI_API_VERSION'],
+                    azure_endpoint=os.environ['AZURE_OPENAI_ENDPOINT'],
+                    azure_ad_token_provider=token_provider
+                )
+            else:  # key-based auth
+                client = AzureOpenAI(
+                    api_key=os.environ['AZURE_OPENAI_API_KEY'],
+                    api_version=os.environ['AZURE_OPENAI_API_VERSION'],
+                    azure_endpoint=os.environ['AZURE_OPENAI_ENDPOINT']
+                )
+            
             # For Azure, we use the deployment name as the model name
             model = os.environ['AZURE_OPENAI_DEPLOYMENT_NAME']
-            print("Using AzureOpenAI client (v1.0.0+)")
+            print(f"Using AzureOpenAI client (v1.0.0+) with {auth_method} authentication for model {model}")
         except (AttributeError) as e:
             print(f"Error initializing AzureOpenAI client: {e}")
-            # Fallback to standard client
-            client = openai.OpenAI(api_key=os.environ['AZURE_OPENAI_API_KEY'])
-            model = os.environ['AZURE_OPENAI_DEPLOYMENT_NAME']
+            # Fallback to standard client with key-based auth only
+            if os.environ.get('AZURE_OPENAI_API_KEY'):
+                client = openai.OpenAI(api_key=os.environ['AZURE_OPENAI_API_KEY'])
+                model = os.environ['AZURE_OPENAI_DEPLOYMENT_NAME']
+            else:
+                raise ValueError("Cannot use managed identity or user credentials with legacy OpenAI client. Please provide AZURE_OPENAI_API_KEY.")
     except ImportError:
         # Use legacy Azure configuration (pre-v1.0.0)
         print("Using legacy OpenAI Azure configuration (pre-v1.0.0)")
         openai.api_type = "azure"
+        
+        # Can only use key-based auth with legacy client
+        if not os.environ.get('AZURE_OPENAI_API_KEY'):
+            raise ValueError("Legacy OpenAI client requires AZURE_OPENAI_API_KEY. Managed identity and user credentials are not supported.")
+        
         openai.api_key = os.environ['AZURE_OPENAI_API_KEY']
         openai.api_base = os.environ['AZURE_OPENAI_ENDPOINT']
         openai.api_version = os.environ['AZURE_OPENAI_API_VERSION']
