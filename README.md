@@ -91,29 +91,29 @@ To use the Jibberish shell with Azure OpenAI, you'll need to set up the followin
 **Note**: Keep your API key secure and never share it publicly.
 
 #### Using Entra ID authentication instead of key-based authentication
-Alternatively, to avoid the use of an API key, Jibberish supports authentication via Azure AD (Entra ID) methods and RBAC role assignment.  Both Managed Identity and Azure CLI interactive login are supported.
+
+To avoid the use of an API key, Jibberish supports authentication via Azure AD (Entra ID) methods and RBAC role assignment.  Both Managed Identity and Azure CLI interactive login are supported.
 
 ##### Managed Identity of System-Assigned Identity
 When running Jibberish in an Azure virtual machine, it is recommended to use the system-assigned identity or user-assigned managed identity of the VM resource to authenticate usage of Azure OpenAI.  The steps to utilize a managed identity are:
 
-1. Ensure your Managed Identity in Azure is assigned RBAC roles on the Azure OpenAI resource.
+1. **Ensure your Managed Identity in Azure is assigned RBAC roles on the Azure OpenAI resource**
    - Assign the Managed Identity/System Identity the "Cognitive Services OpenAI User" role on the Open AI instance
      
-2. Configure the ~/.jbrsh file
+2. **Configure the ~/.jbrsh file**
    - Remove/comment the variable ```AZURE_OPENAI_API_KEY```
    - Add the variable ```AZURE_CLIENT_ID``` with the value of the client_id of the managed identity
    ```
    #AZURE_OPENAI_API_KEY="your-api-key-here"
    AZURE_CLIENT_ID="your-managed-identity-client-id-here"
    ```
-
 ##### Azure CLI interactive login
 Jibberish supports interactive Azure CLI login for authentication.
 
-1. Ensure your user ID is assigned RBAC roles on the Azure OpenAI resource.
+1. **Ensure your user ID is assigned RBAC roles on the Azure OpenAI resource**
    - Assign your user identity the "Cognitive Services OpenAI User" role on the Open AI instance
      
-2. Configure the ~/.jbrsh file
+2. **Configure the ~/.jbrsh file**
    - Remove/comment the variable ```AZURE_OPENAI_API_KEY```
    - Add the variable ```AZURE_USER_NAME``` with the value of the user name you are using for login
    ```
