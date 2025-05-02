@@ -88,6 +88,10 @@ def transform_multiline(command_chain):
     """
     Transform multiline commands into proper single-line commands when appropriate
     """
+    # Guard against potentially problematic inputs
+    if not isinstance(command_chain, str):
+        return str(command_chain)
+        
     # Split the command chain into lines
     lines = command_chain.strip().split('\n')
     if len(lines) < 2:
@@ -555,12 +559,31 @@ def execute_command(command):
     except Exception as e:
         click.echo(click.style(f"Error: {e}", fg="red"))
 
-def execute_chained_commands(command_chain):
+def execute_chained_commands(command_chain, recursion_depth=0):
     """
     Execute multiple commands separated by && or ;
+    
+    Args:
+        command_chain (str): The command or chain of commands to execute
+        recursion_depth (int): Current recursion depth to prevent infinite recursion
     """
+    # Prevent infinite recursion
+    max_recursion_depth = 10
+    if recursion_depth >= max_recursion_depth:
+        click.echo(click.style(f"Error: Maximum command chain depth ({max_recursion_depth}) exceeded. This could be due to a circular reference or extremely complex command.", fg="red"))
+        return
+    
+    # Guard against non-string inputs that could cause recursion
+    if not isinstance(command_chain, str):
+        click.echo(click.style(f"Error: Invalid command type: {type(command_chain)}", fg="red"))
+        return
+        
     # First transform any multiline commands into proper format
-    command_chain = transform_multiline(command_chain)
+    try:
+        command_chain = transform_multiline(command_chain)
+    except RecursionError:
+        click.echo(click.style("Error: Command is too complex or recursive", fg="red"))
+        return
     
     # Process semicolons first, then &&
     # Check if there are semicolons in the command
@@ -576,7 +599,7 @@ def execute_chained_commands(command_chain):
                 
             # If a part contains &&, process as chained commands
             if '&&' in part:
-                execute_chained_commands(part)
+                execute_chained_commands(part, recursion_depth + 1)
             else:
                 # Execute as a single command
                 handled, new_command = is_built_in(part)
@@ -586,34 +609,45 @@ def execute_chained_commands(command_chain):
                     pass  # Don't return, let the next command execute
                 elif new_command is not None:
                     # A new command was returned (e.g., from history or AI), execute it
+                    # Don't recursively process here to avoid recursion issues
                     execute_command(new_command)
                 else:
                     # Execute external command
                     execute_command(part)
     else:
-        # No semicolons, just handle && chains
-        # Split commands respecting quotes
-        commands = split_commands_respect_quotes(command_chain)
-        
-        for cmd in commands:
-            cmd = cmd.strip()
-            if not cmd:
-                continue
-        
-            # Check if this is a built-in command
-            handled, new_command = is_built_in(cmd)
+        # No semicolons, check if there are && chains (not pipes)
+        if '&&' in command_chain and '|' not in command_chain:
+            # Split commands respecting quotes
+            commands = split_commands_respect_quotes(command_chain)
+            
+            for cmd in commands:
+                cmd = cmd.strip()
+                if not cmd:
+                    continue
+            
+                # Check if this is a built-in command
+                handled, new_command = is_built_in(cmd)
+                
+                if handled:
+                    # Built-in command was executed, continue to next command
+                    pass  # Don't return, let the next command execute
+                elif new_command is not None:
+                    # A new command was returned (e.g., from history or AI), execute it
+                    execute_command(new_command)
+                else:
+                    # Execute external command
+                    execute_command(cmd)
+        else:
+            # No complex chaining, just execute the command directly
+            # This handles pipes (|) and simple commands
+            handled, new_command = is_built_in(command_chain)
             
             if handled:
-                # Built-in command was executed, continue to next command
-                pass  # Don't return, let the next command execute
+                # Built-in command was executed, nothing else to do
+                pass
             elif new_command is not None:
                 # A new command was returned (e.g., from history or AI), execute it
-                if '&&' in new_command or ';' in new_command:
-                    # If the new command itself contains chains, process them
-                    execute_chained_commands(new_command)
-                else:
-                    # Execute the new command
-                    execute_command(new_command)
+                execute_command(new_command)
             else:
                 # Execute external command
-                execute_command(cmd)
+                execute_command(command_chain)

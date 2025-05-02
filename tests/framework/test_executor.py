@@ -283,14 +283,14 @@ class TestChainedCommands(unittest.TestCase):
     def test_single_command(self):
         """Test execute_chained_commands with a single command."""
         print("Running test_single_command")
-        self.executor.execute_chained_commands("ls -la")
+        self.executor.execute_chained_commands("ls -la", 0)
         self.mock_cmd.assert_called_once_with("ls -la")
         print("test_single_command passed!")
     
     def test_multiple_commands(self):
         """Test execute_chained_commands with multiple commands."""
         print("Running test_multiple_commands")
-        self.executor.execute_chained_commands("cd /tmp && ls -la")
+        self.executor.execute_chained_commands("cd /tmp && ls -la", 0)
         self.assertEqual(self.mock_cmd.call_count, 2, f"Expected 2 calls but got {self.mock_cmd.call_count}")
         # Check that each command was executed
         self.mock_cmd.assert_any_call("cd /tmp")

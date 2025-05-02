@@ -225,7 +225,7 @@ def cli(version, question, command):
             
             # Process the new command
             if '&&' in command or ';' in command:
-                execute_chained_commands(command)
+                execute_chained_commands(command, 0)
             else:
                 # Check if the new command is a built-in
                 new_handled, another_command = is_built_in(command)
@@ -242,7 +242,7 @@ def cli(version, question, command):
             pass
         # Check if the command contains && or ; for command chaining
         elif '&&' in command or ';' in command:
-            execute_chained_commands(command)
+            execute_chained_commands(command, 0)
         else:
             # we will execute the command in the case of a non-built-in command or
             execute_command(command)
