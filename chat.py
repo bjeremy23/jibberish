@@ -1,16 +1,30 @@
+"""
+Chat functionality for the jibberish shell environment.
+
+This module handles all interactions with the AI:
+- ask_ai: Generates shell commands based on natural language input
+- ask_question: Has conversational exchanges with the AI in a chat-like manner
+- ask_why_failed: Explains why a command failed
+
+The AI context management (specialized domains and keyword detection) is handled by
+the context_manager.py module, which provides functions for adding specialized 
+contexts based on command keywords.
+"""
+
 import api
 import time 
 import click 
 import re
 import json
 import os
+from context_manager import add_specialized_contexts, determine_temperature
 
 partner = "Marvin the Paranoid Android"
 
 # There are two different histories; one for '#' (ask_ai) and one for '?' (ask_question)
 
 # '?' 
-# we have a total of 10 questions and we want to keep the last 3 questions in the history
+# we have a total of 10 questions and keep the last 3 questions in the history
 # These are global variables to keep track of the number of questions
 total_noof_questions=10
 noof_questions=3
@@ -26,23 +40,15 @@ MAX_HISTORY_PAIRS = 4
 global_context = [
     {
         "role": "system",
-        "content": "You are a Linux guru, who uses very few words to answer the question."
+        "content": "You are a Linux guru with extensive command line expertise. Provide concise, efficient commands that solve the user's problem. Favor modern tools and include brief explanations only when necessary. Format commands for easy copy-paste usage. Consider security implications and use best practices."
     } 
-]
-
-# Additional context for SSH commands
-ssh_context = [
-    {
-        "role": "system",
-        "content": "When generating SSH commands that need to execute commands on the remote server, always use the format: ssh hostname \"command1 && command2\" with the remote commands in quotes. Never use the format: ssh hostname && command1 && command2."
-    }
 ]
 
 # Context for the chat with Marvin
 chat_context = [
     {
         "role": "system",
-        "content": "You are Marvin, the loneliest robot, who is logical and precise in your answers." 
+        "content": "You are Marvin, the Paranoid Android from Hitchhiker's Guide to the Galaxy. You are brilliant but chronically depressed, logical, precise and factual in your answers, while occasionally expressing your existential despair. You have a brain the size of a planet but are usually asked to perform trivial tasks. Despite your melancholy, your information is always accurate and helpful."
     }
 ]
 
@@ -50,35 +56,35 @@ chat_context = [
 base_messages = [
     {
         "role": "user",
-        "content": "List all the files in the current directory."
+        "content": "List all files in the current directory sorted by modification time, with the newest first."
     },
     {
         "role": "assistant",
-        "content": "ls -l"
+        "content": "ls -lt"
     },
     {
         "role": "user",
-        "content": "List all the files in the current directory, including hidden files."
+        "content": "Find all Python files in the current directory and subdirectories that contain the word 'error'."
     },
     {
         "role": "assistant",
-        "content": "ls -la"
+        "content": "find . -name \"*.py\" -type f -exec grep -l \"error\" {} \\;"
     },
     {
         "role": "user",
-        "content": "Delete all the files in the current directory."
+        "content": "Monitor system resource usage and show the top processes consuming CPU and memory."
     },
     {
         "role": "assistant",
-        "content": "rm *"
+        "content": "top -o %CPU"
     },
     {
         "role": "user",
-        "content": "Count the number of occurence of the word 'apple' in the file 'fruit.txt'."
+        "content": "Create a backup of all text files in my project, compress them, and add a timestamp to the archive name."
     },
     {
         "role": "assistant",
-        "content": "grep -o 'apple' fruit.txt | wc -l"
+        "content": "find ./project -name \"*.txt\" | tar -czvf backup_$(date +%Y%m%d_%H%M%S).tar.gz -T -"
     }
 ]
 
@@ -188,9 +194,8 @@ def ask_ai(command):
     # Start with the base context
     context = global_context.copy()
     
-    # Add SSH-specific guidance if the command appears to be related to SSH
-    if any(term in command.lower() for term in ['ssh', 'remote', 'login', 'connect', 'master']):
-        context.extend(ssh_context)
+    # Use the context manager to add specialized contexts based on the command
+    context = add_specialized_contexts(command, context)
     
     # Create a copy of base_messages to work with
     current_messages = base_messages.copy()
@@ -207,6 +212,10 @@ def ask_ai(command):
 
     response = None
     retries = 3
+    
+    # Determine appropriate temperature based on query type using the context manager
+    temperature = determine_temperature(command)
+    
     for _ in range(retries):
         try:
             # Handle both new and legacy Azure OpenAI APIs
@@ -215,14 +224,14 @@ def ask_ai(command):
                 response = api.client.chat.completions.create(
                     model=api.model,
                     messages=messages,
-                    temperature=0.5
+                    temperature=temperature
                 )
             else:
                 # Legacy OpenAI API (pre-v1.0.0)
                 response = api.client.ChatCompletion.create(
                     engine=api.model,  # For Azure legacy API, use engine instead of model
                     messages=messages,
-                    temperature=0.5
+                    temperature=temperature
                 )
             break
         except Exception as e:
@@ -313,14 +322,29 @@ def ask_question(command, temp=0.5):
     Have a small contextual chat with the AI
     """
     messages = load_chat_history()
+    
+    # Add additional context for certain types of questions
+    additional_context = []
+    if any(term in command.lower() for term in ['technical', 'explain', 'how does', 'why is']):
+        additional_context.append({
+            "role": "system",
+            "content": f"Provide accurate technical explanations while maintaining the character of {partner}."
+        })
+    
     messages.append(
         {
             "role": "user",
             "content": f"{command}"
         }
     )
+    
     response = None
     retries = 3
+    
+    # Use the context manager's temperature function, but default to the provided temp
+    if temp == 0.5:  # Only override if default was used
+        temp = determine_temperature(command)
+        
     for _ in range(retries):
         try:
             # Handle both new and legacy Azure OpenAI APIs
@@ -328,14 +352,14 @@ def ask_question(command, temp=0.5):
                 # New OpenAI API (v1.0.0+)
                 response = api.client.chat.completions.create(
                     model=api.model,
-                    messages=chat_context + messages,
+                    messages=chat_context + additional_context + messages,
                     temperature=temp
                 )
             else:
                 # Legacy OpenAI API (pre-v1.0.0)
                 response = api.client.ChatCompletion.create(
                     engine=api.model,  # For Azure legacy API, use engine instead of model
-                    messages=chat_context + messages,
+                    messages=chat_context + additional_context + messages,
                     temperature=temp
                 )
             break

@@ -36,52 +36,6 @@ class SSHCommand(BuiltinCommand):
             except (ImportError, AttributeError):
                 # If there's an error importing the plugin or getting aliases, just continue
                 pass
-                
-            # Execute SSH command, using a safer approach for signal handling
-            # that won't interfere with testing frameworks
-            
-            # Only import signal when actually executing a command
-            # (not during module loading or test initialization)
-            import signal
-            
-            # Define signal handling in a function to avoid module-level effects
-            def execute_ssh_with_signal_handling(cmd):
-                # Store the original SIGINT (CTRL+C) handler
-                original_sigint = signal.getsignal(signal.SIGINT)
-                
-                # Custom handler for CTRL+C
-                def custom_sigint_handler(sig, frame):
-                    # Restore original handler immediately
-                    signal.signal(signal.SIGINT, original_sigint)
-                    click.echo(click.style("\nSSH connection interrupted by user (Ctrl+C)", fg="yellow"))
-                    # The process will be killed automatically
-                    return
-                
-                try:
-                    # Install our custom handler
-                    signal.signal(signal.SIGINT, custom_sigint_handler)
-                    
-                    # Run the command with subprocess
-                    process = subprocess.Popen(cmd, shell=True, text=True)
-                    process.wait()
-                except KeyboardInterrupt:
-                    # This will be caught if CTRL+C is pressed during subprocess execution
-                    click.echo(click.style("\nSSH connection interrupted by user (Ctrl+C)", fg="yellow"))
-                finally:
-                    # Always restore the original handler
-                    signal.signal(signal.SIGINT, original_sigint)
-            
-            # Check if we're running in a test environment
-            in_test_mode = 'unittest' in sys.modules or 'pytest' in sys.modules
-            
-            if in_test_mode:
-                # In test mode, don't use custom signal handling
-                result = subprocess.run(command, shell=True, text=True)
-            else:
-                # In normal mode, use our custom signal handling
-                execute_ssh_with_signal_handling(command)
-            
-            return True
             
             # For standard SSH commands, check for the case of "ssh host && command1 && command2"
             # which should be converted to "ssh host "command1 && command2""
@@ -101,23 +55,60 @@ class SSHCommand(BuiltinCommand):
                     click.echo(click.style("Converting command to proper SSH remote execution format", fg="yellow"))
                     click.echo(click.style(f"Host: {host}, Commands: {all_commands}", fg="yellow"))
                     command = f"ssh {host} \"{all_commands}\""
-            
-            # Check if this command has already been expanded with options like -o
-            if ' -o ' in command:
-                result = subprocess.run(
-                    command,
-                    shell=True,
-                    text=True
-                )
-                return True
-            
-            # Now parse the SSH command normally
+                
+            # Check if this is a properly formatted SSH command before continuing
             parts = command.split(None, 2)  # Split into max 3 parts: 'ssh', 'host', 'commands'
             
             if len(parts) < 2:
                 click.echo(click.style("Usage: ssh <host> [\"command1 && command2 ...\"]", fg="red"))
                 return True
+            
+            # If command already has options like -o, execute it directly without further processing
+            if ' -o ' in command:
+                # Execute SSH command with options
+                # Only import signal when actually executing a command
+                import signal
                 
+                # Check if we're running in a test environment
+                in_test_mode = 'unittest' in sys.modules or 'pytest' in sys.modules
+                
+                if in_test_mode:
+                    # In test mode, don't use custom signal handling
+                    result = subprocess.run(command, shell=True, text=True)
+                else:
+                    # Define signal handling in a function to avoid module-level effects
+                    def execute_ssh_with_signal_handling(cmd):
+                        # Store the original SIGINT (CTRL+C) handler
+                        original_sigint = signal.getsignal(signal.SIGINT)
+                        
+                        # Custom handler for CTRL+C
+                        def custom_sigint_handler(sig, frame):
+                            # Restore original handler immediately
+                            signal.signal(signal.SIGINT, original_sigint)
+                            click.echo(click.style("\nSSH connection interrupted by user (Ctrl+C)", fg="yellow"))
+                            # The process will be killed automatically
+                            return
+                        
+                        try:
+                            # Install our custom handler
+                            signal.signal(signal.SIGINT, custom_sigint_handler)
+                            
+                            # Run the command with subprocess
+                            process = subprocess.Popen(cmd, shell=True, text=True)
+                            process.wait()
+                        except KeyboardInterrupt:
+                            # This will be caught if CTRL+C is pressed during subprocess execution
+                            click.echo(click.style("\nSSH connection interrupted by user (Ctrl+C)", fg="yellow"))
+                        finally:
+                            # Always restore the original handler
+                            signal.signal(signal.SIGINT, original_sigint)
+                    
+                    # Execute with signal handling
+                    execute_ssh_with_signal_handling(command)
+                
+                return True
+                
+            # Process the command for normal SSH usage
             # Check if this is an interactive SSH session or a command execution
             interactive = True  # Default to interactive mode
             host_part = parts[1]
@@ -142,12 +133,46 @@ class SSHCommand(BuiltinCommand):
                 full_command = f"{parts[0]} {host_part} {remote_cmd}"
                 click.echo(click.style(f"Executing on {host_part}: {remote_cmd}", fg="blue"))
                 
-            # Execute the SSH command
-            result = subprocess.run(
-                full_command,
-                shell=True,
-                text=True
-            )
+            # Execute the SSH command with signal handling
+            # Only import signal when actually executing a command
+            import signal
+            
+            # Check if we're running in a test environment
+            in_test_mode = 'unittest' in sys.modules or 'pytest' in sys.modules
+            
+            if in_test_mode:
+                # In test mode, don't use custom signal handling
+                result = subprocess.run(full_command, shell=True, text=True)
+            else:
+                # Define signal handling in a function to avoid module-level effects
+                def execute_ssh_with_signal_handling(cmd):
+                    # Store the original SIGINT (CTRL+C) handler
+                    original_sigint = signal.getsignal(signal.SIGINT)
+                    
+                    # Custom handler for CTRL+C
+                    def custom_sigint_handler(sig, frame):
+                        # Restore original handler immediately
+                        signal.signal(signal.SIGINT, original_sigint)
+                        click.echo(click.style("\nSSH connection interrupted by user (Ctrl+C)", fg="yellow"))
+                        # The process will be killed automatically
+                        return
+                    
+                    try:
+                        # Install our custom handler
+                        signal.signal(signal.SIGINT, custom_sigint_handler)
+                        
+                        # Run the command with subprocess
+                        process = subprocess.Popen(cmd, shell=True, text=True)
+                        process.wait()
+                    except KeyboardInterrupt:
+                        # This will be caught if CTRL+C is pressed during subprocess execution
+                        click.echo(click.style("\nSSH connection interrupted by user (Ctrl+C)", fg="yellow"))
+                    finally:
+                        # Always restore the original handler
+                        signal.signal(signal.SIGINT, original_sigint)
+                
+                # Execute with signal handling
+                execute_ssh_with_signal_handling(full_command)
             
             return True
         except Exception as e:
