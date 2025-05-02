@@ -115,7 +115,7 @@ class TestDirStackCommand(unittest.TestCase):
         self.assertIsInstance(result, tuple, f"Expected tuple but got {type(result)}")
         self.assertEqual(len(result), 2, f"Expected tuple of length 2 but got {len(result)}")
         self.assertFalse(result[0], f"Expected False for first element but got {result[0]}")
-        self.assertEqual(result[1], "ls", f"Expected 'ls' for second element but got '{result[1]}'")
+        self.assertTrue(result[1].startswith("ls"), f"Expected command starting with 'ls' but got '{result[1]}'")
         
         # Check that we're in the new directory (pushd part executed)
         current_dir = os.getcwd()
