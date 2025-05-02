@@ -286,3 +286,46 @@ python3 -m unittest discover -s tests
 python3 -m unittest tests/plugins/test_cd_command.py
 ```
 
+#### Of course... you could just ask Jibberish to do it
+```bash
+/home/brownjer/bin/jibberish#  #run all the python tests under the tests directory
+pytest tests/
+Execute this command? [y/n]: y
+Executing: pytest tests/
+============================= test session starts ==============================
+platform linux -- Python 3.10.12, pytest-8.3.5, pluggy-1.5.0
+rootdir: /home/brownjer/bin/jibberish
+plugins: cov-4.1.0, anyio-4.8.0
+collected 113 items
+
+tests/framework/test_chat_history.py ....                                [  3%]
+tests/framework/test_context_manager.py ..                               [  5%]
+tests/framework/test_executor.py .............                           [ 16%]
+tests/framework/test_history.py ...........                              [ 26%]
+tests/framework/test_history_limit.py .....                              [ 30%]
+tests/plugins/test_ai_command.py .....                                   [ 35%]
+tests/plugins/test_alias_command.py ...........                          [ 45%]
+tests/plugins/test_alias_expansion.py ....                               [ 48%]
+tests/plugins/test_cd_command.py ......                                  [ 53%]
+tests/plugins/test_change_partner_command.py ...                         [ 56%]
+tests/plugins/test_dir_stack_command.py ..........                       [ 65%]
+tests/plugins/test_export_command.py ......                              [ 70%]
+tests/plugins/test_history_command.py ....                               [ 74%]
+tests/plugins/test_history_retrieval_command.py .....                    [ 78%]
+tests/plugins/test_job_control_command.py ▶ Background job [1]: tail -f file1.txt
+  Output stream will update automatically... (PID: 12345)
+
+.============================================================
+[1] Completed: tail -f file1.txt
+Job output:
+$ tail -f file1.txt
+(No output)
+Press the <ENTER> key
+.........                     [ 87%]
+tests/plugins/test_question_command.py ....                              [ 91%]
+tests/plugins/test_ssh_command.py .....                                  [ 95%]
+tests/plugins/test_version_command.py ...                                [ 98%]
+tests/test_context_manager.py ..                                         [100%]
+
+============================= 113 passed in 2.60s ==============================
+```
