@@ -180,7 +180,7 @@ def cli(version, question, command):
     help()
 
     # use a high temperature for the welcome message
-    sentence = chat.ask_question("Give me only one sentence Welcoming the user to Jibberish", 2)
+    sentence = chat.ask_question("Give me only one short sentence Welcoming the user to Jibberish and introduce yourself and say your here to help.", 1.0)
     click.echo(click.style(f"\n{sentence}", fg="red", bold=True))
 
     # get the warn environment variable
