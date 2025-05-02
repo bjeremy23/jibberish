@@ -286,7 +286,7 @@ python3 -m unittest discover -s tests
 python3 -m unittest tests/plugins/test_cd_command.py
 ```
 
-#### Of course... you could just ask Jibberish to do it
+#### Of course... you could just ask Jibberish to do it 😃
 ```bash
 /home/brownjer/bin/jibberish#  #run all the python tests under the tests directory
 pytest tests/
