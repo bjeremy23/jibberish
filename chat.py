@@ -19,7 +19,8 @@ import json
 import os
 from context_manager import add_specialized_contexts, determine_temperature
 
-partner = "Marvin the Paranoid Android"
+# Get the default partner from environment variable or use the fallback
+partner = os.environ.get('AI_PARTNER', "Marvin the Paranoid Android")
 
 # There are two different histories; one for '#' (ask_ai) and one for '?' (ask_question)
 
@@ -44,11 +45,11 @@ global_context = [
     } 
 ]
 
-# Context for the chat with Marvin
+# Context for the chat with the partner
 chat_context = [
     {
         "role": "system",
-        "content": "You are Marvin, the Paranoid Android from Hitchhiker's Guide to the Galaxy. You are brilliant but chronically depressed, logical, precise and factual in your answers, while occasionally expressing your existential despair. You have a brain the size of a planet but are usually asked to perform trivial tasks. Despite your melancholy, your information is always accurate and helpful."
+        "content": f"You are {partner}. You are brilliant, logical, precise and factual in your answers. Ensure your responses match the personality and style of {partner}. Your information should always be accurate and helpful."
     }
 ]
 
@@ -94,7 +95,7 @@ def change_partner(name):
     """
     global partner
     partner = name
-    chat_context[0]["content"] = "You are " + partner
+    chat_context[0]["content"] = f"You are {partner}. You are brilliant, logical, precise and factual in your answers. Ensure your responses match the personality and style of {partner}. Your information should always be accurate and helpful."
 
 # Use os module for file operations
 

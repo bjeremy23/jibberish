@@ -32,6 +32,9 @@ PROMPT_AI_COMMANDS=true
 # Prompt for more AI assisted information on returned errors
 IGNORE_ERRORS=true
 
+# The default AI partner for chat (default: "Marvin the Paranoid Android")
+AI_PARTNER="Marvin the Paranoid Android"
+
 # Maximum number of history entries to keep (default is 2000 if not specified)
 MAX_HISTORY_LINES=2000
 
