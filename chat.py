@@ -123,7 +123,7 @@ def load_chat_history():
     if not chat_history:
         return []
         
-    # If we have history, return the last conversation's entries limited by noof_questions
+    # If we have history, return the last conversation's entries limited to noof_questions
     if chat_history and isinstance(chat_history[-1], list):
         last_conversation = chat_history[-1]
         # We want the last noof_questions pairs (each pair is 2 entries)
@@ -148,43 +148,83 @@ def ask_why_failed(command, output):
         }
     )
 
-    response = None
-    retries = 3
-    for _ in range(retries):
-        try:
-            # Handle both new and legacy Azure OpenAI APIs
-            if hasattr(api.client, 'chat'):
-                # New OpenAI API (v1.0.0+)
-                response = api.client.chat.completions.create(
-                    model=api.model,  # For Azure this will be the deployment name
-                    messages=global_context + messages,
-                    temperature=0.5
-                )
-            else:
-                # Legacy OpenAI API (pre-v1.0.0)
-                response = api.client.ChatCompletion.create(
-                    engine=api.model,  # For Azure legacy API, use engine instead of model
-                    messages=global_context + messages,
-                    temperature=0.5
-                )
-            break
-        except Exception as e:
-            click.echo(click.style(f"Connection error: {e}. Retrying...", fg="red"))
-            time.sleep(2)
+    # Set temperature
+    temperature = 0.5
+    
+    try:
+        # Handle both new and legacy Azure OpenAI APIs
+        if hasattr(api.client, 'chat'):
+            # New OpenAI API (v1.0.0+)
+            response = api.client.chat.completions.create(
+                model=api.model,
+                messages=messages,
+                temperature=temperature
+            )
+        else:
+            # Legacy OpenAI API (pre-v1.0.0)
+            response = api.client.ChatCompletion.create(
+                engine=api.model,  # For Azure legacy API, use engine instead of model
+                messages=messages,
+                temperature=temperature
+            )
+            
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        click.echo(click.style(f"Error when explaining command failure: {e}", fg="red"))
+        return None
 
-    if response:
-        r =  response.choices[0].message.content.strip()
-        messages.append(
-            {
-                "role": "assistant",
-                "content": f"{r}"
-            }
-        )
-        save_chat(messages)
-        return r
-    else:
-        return "Failed to connect to OpenAI API after multiple attempts."
-
+def find_similar_command(command_name):
+    """
+    Find a similar command when a command is not found
+    
+    Args:
+        command_name (str): The command that was not found
+        
+    Returns:
+        str: A suggestion for a similar command, or None if no suggestions
+    """
+    messages = [
+        {
+            "role": "system",
+            "content": "You are a Linux command expert. When given a misspelled or invalid command, suggest the most likely correct command. Respond with ONLY the corrected command, nothing else."
+        },
+        {
+            "role": "user",
+            "content": f"I tried to run the command '{command_name}' but it wasn't found. What's the most likely correct command? Respond with ONLY the command name."
+        }
+    ]
+    
+    # Determine temperature based on query type
+    temperature = 0.5
+    
+    try:
+        # Handle both new and legacy Azure OpenAI APIs
+        if hasattr(api.client, 'chat'):
+            # New OpenAI API (v1.0.0+)
+            response = api.client.chat.completions.create(
+                model=api.model,
+                messages=messages,
+                temperature=temperature
+            )
+        else:
+            # Legacy OpenAI API (pre-v1.0.0)
+            response = api.client.ChatCompletion.create(
+                engine=api.model,  # For Azure legacy API, use engine instead of model
+                messages=messages,
+                temperature=temperature
+            )
+            
+        # Extract the response content
+        suggested_command = response.choices[0].message.content.strip()
+        
+        # If the suggested command is the same as the original, don't suggest it
+        if suggested_command.lower() == command_name.lower():
+            return None
+            
+        return suggested_command
+    except Exception as e:
+        click.echo(click.style(f"Error when finding similar command: {e}", fg="red"))
+        return None
 def ask_ai(command):
     """
     Ask the AI to generate a command based on the user input

@@ -525,6 +525,18 @@ def execute_command(command):
             # This often happens with "command not found" situations
             cmd_name = command.strip().split()[0] if command.strip() else "Command" 
             click.echo(click.style(f"{cmd_name}: command not found", fg="red"))
+            
+            # Try to find a similar command
+            similar_cmd = chat.find_similar_command(cmd_name)
+            if similar_cmd:
+                # Create the full corrected command by replacing just the command name
+                corrected_command = command.replace(cmd_name, similar_cmd, 1)
+                
+                # Ask user if they want to execute the suggested command (showing the full corrected command)
+                choice = input(click.style(f"Did you mean '{corrected_command}'? Run this command instead? [y/n]: ", fg="yellow"))
+                if choice.lower() == "y":
+                    # Execute the suggested command
+                    execute_command(corrected_command)
         elif error:
             # For SSH commands with successful return code, treat stderr as normal output 
             # since they often output informational messages to stderr
@@ -535,6 +547,18 @@ def execute_command(command):
                 # This is specifically when the command itself doesn't exist
                 cmd_name = command.strip().split()[0] if command.strip() else "Command"
                 click.echo(click.style(f"{cmd_name}: command not found", fg="red"))
+                
+                # Try to find a similar command
+                similar_cmd = chat.find_similar_command(cmd_name)
+                if similar_cmd:
+                    # Create the full corrected command by replacing just the command name
+                    corrected_command = command.replace(cmd_name, similar_cmd, 1)
+                    
+                    # Ask user if they want to execute the suggested command (showing the full corrected command)
+                    choice = input(click.style(f"Did you mean '{corrected_command}'? Run this command instead? [y/n]: ", fg="yellow"))
+                    if choice.lower() == "y":
+                        # Execute the suggested command
+                        execute_command(corrected_command)
             elif "No such file or directory" in error:
                 # When the file/directory path doesn't exist, echo the original error
                 # This preserves the error message for cases like "ls /nonexistent/path"
