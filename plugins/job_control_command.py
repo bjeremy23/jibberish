@@ -225,6 +225,11 @@ def update_job_status(check_output=True):
 class JobControlPlugin(BuiltinCommand):
     """Plugin for job control commands (jobs, fg, bg)"""
     
+    # Plugin attributes
+    plugin_name = "job_control_command"  # Name of the plugin
+    is_required = True  # Job control is an optional plugin
+    is_enabled = True  # Enabled by default, can be overridden by environment variable
+    
     def can_handle(self, command):
         """Check if this plugin can handle the command"""
         cmd = command.strip().split()[0] if command.strip().split() else ""

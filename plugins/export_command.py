@@ -9,6 +9,11 @@ from plugin_system import BuiltinCommand, BuiltinCommandRegistry
 class ExportCommand(BuiltinCommand):
     """Plugin for the 'export' command to set environment variables"""
     
+    # Plugin attributes
+    plugin_name = "export_command"  # Name of the plugin
+    is_required = True  # Export command is a required plugin
+    is_enabled = True  # Always enabled since it's required
+    
     def can_handle(self, command):
         """Check if this plugin can handle the command"""
         return command == "export" or command.startswith("export ")

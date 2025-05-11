@@ -9,6 +9,11 @@ from plugin_system import BuiltinCommand, BuiltinCommandRegistry
 class ChangePartnerPlugin(BuiltinCommand):
     """Plugin for changing chat partners with ':)' prefix"""
     
+    # Plugin attributes
+    plugin_name = "change_partner_command"  # Name of the plugin
+    is_required = True  # Change partner command is optional
+    is_enabled = True  # Enabled by default, can be overridden by environment variable
+    
     def can_handle(self, command):
         """Check if this plugin can handle the command"""
         return command.startswith(":)")

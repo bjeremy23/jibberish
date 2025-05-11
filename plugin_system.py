@@ -13,6 +13,30 @@ from abc import ABC, abstractmethod
 class BuiltinCommand(ABC):
     """Base class for all built-in command plugins"""
     
+    # Default attributes that should be overridden by subclasses
+    plugin_name = "unnamed_plugin"  # Name of the plugin
+    is_required = True  # Whether the plugin is required or optional
+    is_enabled = True  # For optional plugins, whether it's enabled (default: True)
+    
+    def __init__(self):
+        """Initialize the plugin and check if it should be enabled"""
+        # For optional plugins, check the environment variable
+
+        # pint the is_required and is_enabled
+       
+
+        if not self.is_required:
+            # Get the environment variable name for this plugin
+            env_var_name = f"PLUGIN_{self.plugin_name.upper()}_ENABLED"
+            # Check if the environment variable is set
+            
+            env_var_value = os.environ.get(env_var_name, "n").lower()
+            
+            # Update is_enabled based on environment variable
+            self.is_enabled = env_var_value in ["y", "yes", "true", "1"]
+
+    
+
     @abstractmethod
     def can_handle(self, command):
         """
@@ -59,8 +83,13 @@ class BuiltinCommandRegistry:
         if not isinstance(plugin, BuiltinCommand):
             raise TypeError("Plugin must be an instance of BuiltinCommand")
         
-        cls._plugins.append(plugin)
-        click.echo(click.style(f"Registered plugin: {plugin.__class__.__name__}", fg="green"))
+        # Only register if the plugin is required or explicitly enabled
+        if plugin.is_required or plugin.is_enabled:
+            cls._plugins.append(plugin)
+            status = "required" if plugin.is_required else "optional (enabled)"
+            click.echo(click.style(f"Registered plugin: {plugin.plugin_name} - {status}", fg="green"))
+        else:
+            click.echo(click.style(f"Skipping disabled optional plugin: {plugin.plugin_name}", fg="yellow"))
     
     @classmethod
     def find_handler(cls, command):

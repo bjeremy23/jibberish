@@ -48,6 +48,11 @@ load_aliases()
 class AliasCommand(BuiltinCommand):
     """Plugin for managing command aliases using the 'alias' command"""
     
+    # Plugin attributes
+    plugin_name = "alias_command"  # Name of the plugin
+    is_required = True  # Alias command is optional
+    is_enabled = True  # Enabled by default, can be overridden by environment variable
+    
     def can_handle(self, command):
         """Check if this plugin can handle the command"""
         command = command.strip()
@@ -142,6 +147,11 @@ class AliasCommand(BuiltinCommand):
 
 class UnaliasCommand(BuiltinCommand):
     """Plugin for removing aliases using the 'unalias' command"""
+    
+    # Plugin attributes
+    plugin_name = "unalias_command"  # Name of the plugin
+    is_required = True  # Unalias command is optional
+    is_enabled = True  # Enabled by default, can be overridden by environment variable
     
     def can_handle(self, command):
         """Check if this plugin can handle the command"""

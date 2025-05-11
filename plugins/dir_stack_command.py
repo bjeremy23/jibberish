@@ -14,6 +14,11 @@ dir_stack = []
 class DirStackCommand(BuiltinCommand):
     """Plugin for directory stack commands (pushd/popd)"""
     
+    # Plugin attributes
+    plugin_name = "dir_stack_command"  # Name of the plugin
+    is_required = True  # Directory stack commands are optional
+    is_enabled = True  # Enabled by default, can be overridden by environment variable
+    
     def can_handle(self, command):
         """Check if this plugin can handle the command"""
         return command.startswith("pushd") or command.startswith("popd") or command.startswith("dirs")

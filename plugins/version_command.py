@@ -9,6 +9,11 @@ from plugin_system import BuiltinCommand, BuiltinCommandRegistry
 class VersionPlugin(BuiltinCommand):
     """Command plugin for displaying version information."""
     
+    # Plugin attributes
+    plugin_name = "version_command"  # Name of the plugin
+    is_required = True  # Version command is an optional plugin
+    is_enabled = True  # Enabled by default, can be overridden by environment variable
+    
     def can_handle(self, command):
         """Check if this plugin can handle the command"""
         command = command.strip()

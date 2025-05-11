@@ -123,7 +123,7 @@ class CustomContext(click.Context):
 
     def make_formatter(self):
         from click import formatting
-        return formatting.HelpFormatter(width=120)
+        return formatting.HelpFormatter(width=180)
 
 @click.command(context_settings=dict(
     help_option_names=['-h', '--help'],

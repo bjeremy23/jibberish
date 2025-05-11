@@ -9,6 +9,11 @@ from plugin_system import BuiltinCommand, BuiltinCommandRegistry
 class QuestionPlugin(BuiltinCommand):
     """Plugin for answering general questions with '?' prefix"""
     
+    # Plugin attributes
+    plugin_name = "question_command"  # Name of the plugin
+    is_required = True  # Question command is a required plugin
+    is_enabled = True  # Always enabled since it's required
+    
     def can_handle(self, command):
         """Check if this plugin can handle the command"""
         return command.startswith("?")

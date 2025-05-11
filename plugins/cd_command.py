@@ -9,6 +9,11 @@ from plugin_system import BuiltinCommand, BuiltinCommandRegistry
 class ChangeDirectoryCommand(BuiltinCommand):
     """Plugin for the 'cd' command to change directories"""
     
+    # Plugin attributes
+    plugin_name = "cd_command"  # Name of the plugin
+    is_required = True  # CD command is a required plugin
+    is_enabled = True  # Always enabled since it's required
+    
     def can_handle(self, command):
         """Check if this plugin can handle the command"""
         # Only handle cd commands that don't contain && or ; (those should go to execute_chained_commands)

@@ -10,6 +10,11 @@ from plugin_system import BuiltinCommand, BuiltinCommandRegistry
 class AICommandPlugin(BuiltinCommand):
     """Plugin for AI command generation with '#' prefix"""
     
+    # Plugin attributes
+    plugin_name = "ai_command"  # Name of the plugin
+    is_required = True  # AI command is a required plugin
+    is_enabled = True  # Always enabled since it's required
+    
     def can_handle(self, command):
         """Check if this plugin can handle the command"""
         return command.startswith("#")

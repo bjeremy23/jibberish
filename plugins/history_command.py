@@ -8,6 +8,11 @@ from plugin_system import BuiltinCommand, BuiltinCommandRegistry
 class HistoryCommand(BuiltinCommand):
     """Plugin for the 'history' and 'h' commands to display command history"""
     
+    # Plugin attributes
+    plugin_name = "history_command"  # Name of the plugin
+    is_required = True  # History command is a required plugin
+    is_enabled = True  # Always enabled since it's required
+    
     def can_handle(self, command):
         """Check if this plugin can handle the command"""
         # Strip command and check if it starts with history or h

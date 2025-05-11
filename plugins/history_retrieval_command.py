@@ -9,6 +9,11 @@ from plugin_system import BuiltinCommand, BuiltinCommandRegistry
 class HistoryRetrievalPlugin(BuiltinCommand):
     """Plugin for retrieving commands from history with '!' prefix"""
     
+    # Plugin attributes
+    plugin_name = "history_retrieval_command"  # Name of the plugin
+    is_required = True  # History retrieval is a required plugin
+    is_enabled = True  # Always enabled since it's required
+    
     def can_handle(self, command):
         """Check if this plugin can handle the command"""
         return command.startswith("!")

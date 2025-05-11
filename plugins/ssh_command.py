@@ -10,6 +10,11 @@ from plugin_system import BuiltinCommand, BuiltinCommandRegistry
 class SSHCommand(BuiltinCommand):
     """Plugin for SSH command with enhanced handling of remote execution"""
     
+    # Plugin attributes
+    plugin_name = "ssh_command"  # Name of the plugin
+    is_required = True  # SSH command is an optional plugin
+    is_enabled = True  # Enabled by default, can be overridden by environment variable
+    
     def can_handle(self, command):
         """Check if this plugin can handle the command"""
         return command.startswith("ssh ")

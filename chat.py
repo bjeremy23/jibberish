@@ -176,10 +176,8 @@ def ask_why_failed(command, output):
 def find_similar_command(command_name):
     """
     Find a similar command when a command is not found
-    
     Args:
         command_name (str): The command that was not found
-        
     Returns:
         str: A suggestion for a similar command, or None if no suggestions
     """
@@ -225,6 +223,7 @@ def find_similar_command(command_name):
     except Exception as e:
         click.echo(click.style(f"Error when finding similar command: {e}", fg="red"))
         return None
+    
 def ask_ai(command):
     """
     Ask the AI to generate a command based on the user input
