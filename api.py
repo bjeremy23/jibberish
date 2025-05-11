@@ -2,8 +2,8 @@ import os
 import openai
 
 # Define version information
-__version__ = "25.04.6"
-VERSION_NAME = "Foldex Release"
+__version__ = "25.05.2"
+VERSION_NAME = "GermanRex Release"
 
 # openai
 with open(os.path.expanduser("~/.jbrsh")) as env:
