@@ -302,7 +302,6 @@ def run_in_interactive(command):
         command_interrupted = True
         # Restore original SIGINT handler
         signal.signal(signal.SIGINT, original_sigint)
-        click.echo(click.style("\nInteractive command interrupted by user (Ctrl+C)", fg="yellow"))
         return
     
     try:
