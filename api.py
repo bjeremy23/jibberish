@@ -115,6 +115,6 @@ else:
     client = openai.OpenAI(
         api_key=os.environ['OPEN_API_KEY']
     )
-    model = "gpt-4"
+    model =  os.environ['OPEN_API_MODEL']
 
 
