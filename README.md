@@ -94,7 +94,7 @@ Jibberish handles both interactive commands and background processes:
 
 #### Error Handling and Explanation
 
-When commands produce errors, Jibberish provides helpful feedback and offers explanations:
+When commands produce errors, If the option is enabled in the .jbrsh env file, Jibberish provides helpful feedback and offers explanations:
 
 ```bash
 # Using curl with incorrect proxy syntax
