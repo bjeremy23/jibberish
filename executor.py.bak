@@ -11,7 +11,7 @@ def execute_command(command):
 
 def split_commands_respect_quotes(command_chain):
     """
-    # Helper function to detect if an error message is actually a usage/help statement
+    Split command chain on '&&' while respecting quotes.
     This ensures that '&&' inside quotes won't be treated as command separators.
     """
     commands = []
@@ -552,44 +552,43 @@ def execute_command(command):
                 click.echo(click.style("\nCommand interrupted by user (Ctrl+C)", fg="yellow"))
             else:
                 click.echo(click.style(f"{error}", fg="red"))
-        elif returncode != 0 and not error and not (command_interrupted and skip_errors_on_interrupt):  
-            # Handle case where return code is non-zero but there's no error message
-            # This often happens with "command not found" situations
-            # Skip this error if the command was interrupted and SKIP_ERRORS_ON_INTERRUPT is true
+        elif returncode != 0 and not error and not (command_interrupted and skip_errors_on_interrupt):        # Handle case where return code is non-zero but there's no error message
+        # This often happens with "command not found" situations
+        # Skip this error if the command was interrupted and SKIP_ERRORS_ON_INTERRUPT is true
+        
+        # First check if we can find the command in PATH to determine if it's a real command
+        # or truly a "command not found" situation
+        cmd_name = command.strip().split()[0] if command.strip() else "Command"
+        
+        # Special case for commands that emit to stderr instead of stdout for usage/help
+        output_has_usage = output and is_help_or_usage(output)
+        
+        # If we already detected usage output, don't show command not found
+        if output_has_usage:
+            click.echo(output)
+        else:
+            # Use which to check if the command exists
+            import shutil
+            command_exists = shutil.which(cmd_name) is not None
             
-            # First check if we can find the command in PATH to determine if it's a real command
-            # or truly a "command not found" situation
-            cmd_name = command.strip().split()[0] if command.strip() else "Command"
-            
-            # Special case for commands that emit to stderr instead of stdout for usage/help
-            output_has_usage = output and is_help_or_usage(output)
-            
-            # If we already detected usage output, don't show command not found
-            if output_has_usage:
-                click.echo(output)
+            # If the command exists, it's probably a usage error, not a "command not found"
+            if command_exists:
+                # Don't show "command not found" for existing commands
+                pass
             else:
-                # Use which to check if the command exists
-                import shutil
-                command_exists = shutil.which(cmd_name) is not None
+                click.echo(click.style(f"{cmd_name}: command not found", fg="red"))
                 
-                # If the command exists, it's probably a usage error, not a "command not found"
-                if command_exists:
-                    # Don't show "command not found" for existing commands
-                    pass
-                else:
-                    click.echo(click.style(f"{cmd_name}: command not found", fg="red"))
+                # Try to find a similar command
+                similar_cmd = chat.find_similar_command(cmd_name)
+                if similar_cmd:
+                    # Create the full corrected command by replacing just the command name
+                    corrected_command = command.replace(cmd_name, similar_cmd, 1)
                     
-                    # Try to find a similar command
-                    similar_cmd = chat.find_similar_command(cmd_name)
-                    if similar_cmd:
-                        # Create the full corrected command by replacing just the command name
-                        corrected_command = command.replace(cmd_name, similar_cmd, 1)
-                        
-                        # Ask user if they want to execute the suggested command (showing the full corrected command)
-                        choice = input(click.style(f"Did you mean '{corrected_command}'? Run this command instead? [y/n]: ", fg="yellow"))
-                        if choice.lower() == "y":
-                            # Execute the suggested command
-                            execute_command(corrected_command)
+                    # Ask user if they want to execute the suggested command (showing the full corrected command)
+                    choice = input(click.style(f"Did you mean '{corrected_command}'? Run this command instead? [y/n]: ", fg="yellow"))
+                    if choice.lower() == "y":
+                        # Execute the suggested command
+                        execute_command(corrected_command)
         elif error:
             # For SSH commands with successful return code, treat stderr as normal output 
             # since they often output informational messages to stderr
