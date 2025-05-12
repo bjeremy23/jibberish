@@ -2,22 +2,28 @@
 
 AI_CHOICE=<"azure", "openai">
 
-#only this is needed for open ai
-OPEN_API_KEY=<your openai api key> 
-OPEN_API_MODEL=<model name> # model i.e. gpt-4, gpt-4.1
+##############################
+# OPENAI DEPLOYMENTS
+##############################
+#OPEN_API_KEY=<your openai api key> 
 
-#only this is needed for azure open ai
-# provide the client id for the managed identity to use that auth method
-#AZURE_CLIENT_ID=<your azure client id>
-# or provide your Azure user name (ex. user@a4opacketcore.microsoft.com) to use user-based auth
-#AZURE_USER_NAME=<your azure user name>
-# or provide your Azure OpenAI key to use key-based auth
-AZURE_OPENAI_API_KEY= <your azure openai api key>
-
-AZURE_OPENAI_ENDPOINT=<your azure openai endpoint>
-AZURE_OPENAI_API_VERSION=<your azure openai api version> 
 # model i.e. gpt-4, gpt-4.1
-AZURE_OPENAI_DEPLOYMENT_NAME=<your azure openai deployment name>
+#OPEN_API_MODEL=<model name>
+
+##############################
+# AZURE OPENAI DEPLOYMENTS
+##############################
+#AZURE_OPENAI_ENDPOINT=<your azure openai endpoint>
+#AZURE_OPENAI_API_VERSION=<your azure openai api version> 
+# model i.e. gpt-4, gpt-4.1
+#AZURE_OPENAI_DEPLOYMENT_NAME=<your azure openai deployment name>
+
+# If AZURE openai w/managed identity
+#AZURE_CLIENT_ID=<your azure client id>
+
+# or if Azure openai w/api key
+#AZURE_OPENAI_API_KEY= <your azure openai api key>
+
 
 # the warn list is a list of commands that will prompt the user before executing
 # setting the WARN_LIST="all" will make the script warn you about all commands
@@ -26,13 +32,16 @@ WARN_LIST="rm, rmdir, mv, cp, ln, chmod, chown, chgrp, kill, pkill, killall, shu
 # the interactive list is a list of commands that will be run in interactive mode
 INTERACTIVE_LIST="python, python3, gvim, vi, vim, nano, emacs, less, more, top, htop, tail -f, watch, ssh, scp, rsync, ftp, curl, wget, exec, bash" 
 
-# Prompt before proceeding with any AI generated command
+# true = Prompt before executing with any AI generated command
+# false = Execute AI generated commands immediately
 PROMPT_AI_COMMANDS=true
 
-# Prompt for more AI assisted information on returned errors
+# true = Prompt for more AI assisted information on returned errors
+# false = Display stdout or stderr only
 IGNORE_ERRORS=true
 
 # The default AI partner for chat (default: "Marvin the Paranoid Android")
+# In the shell, change with ':) <partner>' command
 AI_PARTNER="Marvin the Paranoid Android"
 
 # Maximum number of history entries to keep (default is 2000 if not specified)
