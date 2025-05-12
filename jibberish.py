@@ -75,7 +75,6 @@ def help():
     click.echo(click.style("Commands:", fg="blue"))
     click.echo(click.style("  <command>         - Execute the command", fg="blue"))
     click.echo(click.style("  #<command desc>   - Ask the AI to generate a command based on the user input", fg="blue"))
-    click.echo(click.style("  ## <command desc> - Ask the AI to generate a commented command based on the user input", fg="blue"))
     click.echo(click.style("  ?<question>       - ask a general question", fg="blue")) 
     click.echo(click.style("  exit, quit, q     - Exit the shell", fg="blue"))
     click.echo(click.style("  help              - help menu", fg="blue"))
