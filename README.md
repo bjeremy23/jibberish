@@ -4,10 +4,117 @@
 ### Commands:
 - `<command>`                 - Execute a shell command
 - `#<command description>`    - Ask the AI to generate shell commands based on the user input
-- `##<command description>`   - Ask the AI to generate commented shell commands based on the user input
 - `?<question>`               - Ask a general question
 - `exit`, `quit`, `q`         - Exit the shell          
 - `help`                      - Help menu
+
+### Examples
+
+The following examples demonstrate some of Jibberish's powerful capabilities:
+
+#### Natural Language Command Generation
+
+Instead of remembering complex syntax, describe what you want to do:
+
+```bash
+# Find large log files using natural language
+/home/jbrsh# #find log files larger than 100MB and sort by size
+
+# Jibberish generates:
+find /var/log -type f -size +100M -exec ls -lh {} \; | sort -k5,5hr
+```
+
+#### Complex Commands with Environment Variables
+
+Jibberish can leverage environment variables defined in your `~/.jbrsh` file to streamline complex commands:
+
+```bash
+# SSH to $MASTER and find the VPP pod in fed-test namespace to show thread usage
+/home/jbrsh# ssh $MASTER "kubectl -n fed-test get pods | grep vpp | awk '{print \$1}' | xargs -I{} kubectl -n fed-test exec {} -- vppctl show thread usage"
+```
+
+This single command:
+1. Connects to the server defined in your `$MASTER` environment variable 
+2. Finds the VPP pod in the fed-test namespace
+3. Executes the 'vppctl show thread usage' command within that pod
+
+#### Get Answers in your workflow
+
+Jibberish lets you ask questions directly within your working context using the `?` prefix, without disrupting your workflow:
+
+``` bash
+/home/jbrsh# ? find the latest version of trivy
+
+You can always check the most current release on their [GitHub releases page](https://github.com/aquasecurity/trivy/releases), because, of course, nothing ever stays the same for long.
+```
+
+This feature allows you to:
+- Get immediate answers without leaving the command line
+- Maintain your working directory context
+- Access up-to-date information on tools, packages, and technologies
+- Receive responses that include both facts and markdown formatting for better readability
+
+#### Command Correction
+
+If you make a typo or error in your command, Jibberish will intelligently suggest corrections:
+
+```bash
+# Typing a command with an error
+/home/jbrsh# la -la
+
+# Jibberish suggests:
+la: command not found
+Did you mean 'ls -la'? Run this command instead? [y/n]: y
+
+```
+
+#### Command Chaining with AI Assistance
+
+You can mix regular commands with AI-assisted commands:
+
+```bash
+# Chain commands with && or ;
+/home/jbrsh# #show system memory usage && df -h
+
+# Jibberish executes:
+free -h && df -h
+```
+
+#### Interactive and Background Processes
+
+Jibberish handles both interactive commands and background processes:
+
+```bash
+# Background process
+/home/jbrsh# nohup python -m http.server 8080 &
+
+# Interactive command
+/home/jbrsh# top
+```
+
+#### Error Handling and Explanation
+
+When commands produce errors, Jibberish provides helpful feedback and offers explanations:
+
+```bash
+# Using curl with incorrect proxy syntax
+/home/jbrsh# curl -x GET www.yahoo.com
+
+# Jibberish shows the error:
+curl: (5) Could not resolve proxy: GET
+
+# Jibberish offers additional help:
+More information about error? [y/n]: y
+
+The error occurs because the -x flag in curl expects a proxy URL, not an HTTP method.
+To use HTTP GET method with curl, simply use:
+curl www.yahoo.com
+
+Or to explicitly specify the GET method:
+curl -X GET www.yahoo.com
+```
+
+For more advanced usage and detailed documentation on specific features, refer to the guides linked below.
 
 ### Standalone Mode
 
@@ -55,10 +162,10 @@ This documentation covers:
 - Required vs optional plugins
 - How to enable or disable optional plugins
 - Creating your own plugins
- 
+
+
 ### Testing
 
 The Jibberish shell includes a comprehensive test suite to ensure all components work as expected.
 
 For detailed instructions on running tests, see [README/README-tests.md](README/README-tests.md).
-```

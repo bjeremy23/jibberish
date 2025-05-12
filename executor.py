@@ -11,7 +11,7 @@ def execute_command(command):
 
 def split_commands_respect_quotes(command_chain):
     """
-    # Helper function to detect if an error message is actually a usage/help statement
+    Split command chain on '&&' while respecting quotes.
     This ensures that '&&' inside quotes won't be treated as command separators.
     """
     commands = []
@@ -293,15 +293,10 @@ def run_in_interactive(command):
     # Store original SIGINT handler
     original_sigint = signal.getsignal(signal.SIGINT)
     
-    # Variable to track if the command was interrupted
-    command_interrupted = False
-    
     def custom_sigint_handler(sig, frame):
-        nonlocal command_interrupted
-        # Set the flag to indicate the command was interrupted
-        command_interrupted = True
         # Restore original SIGINT handler
         signal.signal(signal.SIGINT, original_sigint)
+        click.echo(click.style("\nInteractive command interrupted by user (Ctrl+C)", fg="yellow"))
         return
     
     try:
@@ -321,10 +316,7 @@ def run_in_interactive(command):
         # Restore the original signal handler
         signal.signal(signal.SIGINT, original_sigint)
         
-        if command_interrupted:
-            return -1, "", "Aborted by user"
-        else:
-            return return_code, "", ""
+        return return_code, "", ""
     except KeyboardInterrupt:
         # This will be caught if CTRL+C is pressed while not in subprocess
         click.echo(click.style("\nInteractive command interrupted by user (Ctrl+C)", fg="yellow"))
@@ -517,30 +509,14 @@ def execute_command(command):
     
     # Check if this is an SSH-related command
     ssh_commands = ["ssh", "ssh-keygen", "ssh-copy-id", "ssh-add", "scp", "sftp", "rsync"]
-    cmd_name = command.strip().split()[0] if command.strip() else ""
-    is_ssh_command = any(cmd_name == cmd or cmd_name.endswith('/' + cmd) for cmd in ssh_commands)
-    
-    # Helper function to detect if an error message is actually a usage/help statement
-    def is_help_or_usage(msg):
-        if not msg:
-            return False
-        
-        # Check for common patterns in help/usage messages
-        if (msg.strip().startswith("usage:") or 
-            msg.strip().startswith("Usage:") or 
-            "usage:" in msg.lower() or 
-            "help:" in msg.lower() or 
-            "-h, --help" in msg or
-            (msg.count("-") > 5 and ("options:" in msg.lower() or "commands:" in msg.lower())) or
-            (msg.count("\n") > 3 and len(set(c for c in msg if c in "-[]<>|")) > 3)):  # Complex format with brackets, pipes, etc.
-            return True
-        return False
+    is_ssh_command = any(command.strip().startswith(cmd) for cmd in ssh_commands)
         
     # execute the command. if it is not successful print the error message
     try:
         returncode, output, error = execute_shell_command(command)
-        # Check if the command was interrupted
-        command_interrupted = (returncode == -1 and error == "Aborted by user")
+        
+        # Check if we need to display error information based on IGNORE_ERRORS setting
+        ignore_errors = os.environ.get("IGNORE_ERRORS", "").lower() in ["true", "yes", "1"]
         
         if returncode == -1:
             # Check specifically for keyboard interrupt
@@ -548,56 +524,18 @@ def execute_command(command):
                 click.echo(click.style("\nCommand interrupted by user (Ctrl+C)", fg="yellow"))
             else:
                 click.echo(click.style(f"{error}", fg="red"))
-        elif returncode != 0 and not error and not command_interrupted:  
-            # Handle case where return code is non-zero but there's no error message
-            # This often happens with "command not found" situations
-            
-            # First check if we can find the command in PATH to determine if it's a real command
-            # or truly a "command not found" situation
-            cmd_name = command.strip().split()[0] if command.strip() else "Command"
-            
-            # Special case for commands that emit to stderr instead of stdout for usage/help
-            output_has_usage = output and is_help_or_usage(output)
-            
-            # If we already detected usage output, don't show command not found
-            if output_has_usage:
-                click.echo(output)
-            else:
-                # Use which to check if the command exists
-                import shutil
-                command_exists = shutil.which(cmd_name) is not None
-                
-                # If the command exists, it's probably a usage error, not a "command not found"
-                if command_exists:
-                    # Don't show "command not found" for existing commands
-                    pass
-                else:
-                    click.echo(click.style(f"{cmd_name}: command not found", fg="red"))
-                    
-                    # Try to find a similar command
-                    similar_cmd = chat.find_similar_command(cmd_name)
-                    if similar_cmd:
-                        # Create the full corrected command by replacing just the command name
-                        corrected_command = command.replace(cmd_name, similar_cmd, 1)
-                        
-                        # Ask user if they want to execute the suggested command (showing the full corrected command)
-                        choice = input(click.style(f"Did you mean '{corrected_command}'? Run this command instead? [y/n]: ", fg="yellow"))
-                        if choice.lower() == "y":
-                            # Execute the suggested command
-                            execute_command(corrected_command)
         elif error:
+            # The command produced error output, handle specific error types
+            
             # For SSH commands with successful return code, treat stderr as normal output 
             # since they often output informational messages to stderr
             if is_ssh_command and returncode == 0:
                 click.echo(error)
-            # Check if error message contains a usage or help text
-            elif is_help_or_usage(error):
-                # This is likely a usage statement or help text, not a real error
-                click.echo(error)
-            # Handle different types of errors appropriately
-            elif "command not found" in error and not command_interrupted:
+                return
+                
+            # Check for different types of errors (process each error only once)
+            if "command not found" in error:
                 # This is specifically when the command itself doesn't exist
-                # Skip this error if the command was interrupted
                 cmd_name = command.strip().split()[0] if command.strip() else "Command"
                 click.echo(click.style(f"{cmd_name}: command not found", fg="red"))
                 
@@ -616,13 +554,12 @@ def execute_command(command):
                 # When the file/directory path doesn't exist, echo the original error
                 # This preserves the error message for cases like "ls /nonexistent/path"
                 click.echo(click.style(error.rstrip(), fg="red"))
-            # For other commands with stderr output, show as error and offer to explain
             else:
-                click.echo(click.style(error, fg="red"), nl=False)
-                # if IGNORE_ERROR is set, ignore the error
-                ignore_errors = os.environ.get("IGNORE_ERRORS", "").lower()
-                if ignore_errors not in ["true", "yes", "1"]:
-                    # have the user choose to explain why the command failed
+                # For all other errors, echo the error message and offer to explain
+                click.echo(click.style(error.rstrip(), fg="red"))
+                
+                # Prompt for more information if IGNORE_ERRORS is not set to true and the command failed
+                if not ignore_errors and returncode != 0:
                     choice = input(click.style("\nMore information about error? [y/n]: ", fg="blue"))
                     if choice.lower() == "y":
                         why_failed = chat.ask_why_failed(command, error)
@@ -630,6 +567,21 @@ def execute_command(command):
                             click.echo(click.style(f"{why_failed}", fg="red"))
                         else:
                             click.echo(click.style("No explanation provided.", fg="red"))
+        elif returncode != 0:
+            # Handle case where return code is non-zero but there's no error message
+            # This can happen with some command types
+            cmd_name = command.strip().split()[0] if command.strip() else "Command" 
+            click.echo(click.style(f"{cmd_name}: command failed with no error output", fg="red"))
+            
+            # Prompt for more information if IGNORE_ERRORS is not set to true
+            if not ignore_errors:
+                choice = input(click.style("\nMore information about this error? [y/n]: ", fg="blue"))
+                if choice.lower() == "y":
+                    why_failed = chat.ask_why_failed(command, "Command failed with non-zero exit code but no error output")
+                    if why_failed is not None:
+                        click.echo(click.style(f"{why_failed}", fg="red"))
+                    else:
+                        click.echo(click.style("No explanation provided.", fg="red"))
     except KeyboardInterrupt:
         # Handle keyboard interrupt in this function as well
         click.echo(click.style("\nCommand execution interrupted by user (Ctrl+C)", fg="yellow"))
