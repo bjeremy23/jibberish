@@ -43,12 +43,12 @@ The standalone mode is designed to be clean and concise, outputting only the rel
 - This file contains environment variables used within the shell
 - You will need to fill out ENV variables to connect to your AI service
 
-For detailed instructions on setting up your API credentials, see [README-setup.md](README-setup.md).
+For detailed instructions on setting up your API credentials, see [README/README-setup.md](README/README-setup.md).
 
 ### Plugins
 The Jibberish shell includes several plugins that extend its functionality. 
 
-For a complete list of available plugins and detailed documentation on how to use them, see [README-plugins.md](README-plugins.md).
+For a complete list of available plugins and detailed documentation on how to use them, see [README/README-plugins.md](README/README-plugins.md).
 
 This documentation covers:
 - Available plugins and their usage examples
@@ -60,5 +60,5 @@ This documentation covers:
 
 The Jibberish shell includes a comprehensive test suite to ensure all components work as expected.
 
-For detailed instructions on running tests, see [README-tests.md](README-tests.md).
+For detailed instructions on running tests, see [README/README-tests.md](README/README-tests.md).
 ```
