@@ -293,7 +293,13 @@ def run_in_interactive(command):
     # Store original SIGINT handler
     original_sigint = signal.getsignal(signal.SIGINT)
     
+    # Variable to track if the command was interrupted
+    command_interrupted = False
+    
     def custom_sigint_handler(sig, frame):
+        nonlocal command_interrupted
+        # Set the flag to indicate the command was interrupted
+        command_interrupted = True
         # Restore original SIGINT handler
         signal.signal(signal.SIGINT, original_sigint)
         click.echo(click.style("\nInteractive command interrupted by user (Ctrl+C)", fg="yellow"))
@@ -316,7 +322,10 @@ def run_in_interactive(command):
         # Restore the original signal handler
         signal.signal(signal.SIGINT, original_sigint)
         
-        return return_code, "", ""
+        if command_interrupted:
+            return -1, "", "Aborted by user"
+        else:
+            return return_code, "", ""
     except KeyboardInterrupt:
         # This will be caught if CTRL+C is pressed while not in subprocess
         click.echo(click.style("\nInteractive command interrupted by user (Ctrl+C)", fg="yellow"))
@@ -514,15 +523,22 @@ def execute_command(command):
     # execute the command. if it is not successful print the error message
     try:
         returncode, output, error = execute_shell_command(command)
+        # Check if the command was interrupted
+        command_interrupted = (returncode == -1 and error == "Aborted by user")
+        
+        # Check if we should skip errors on interrupt
+        skip_errors_on_interrupt = os.environ.get("SKIP_ERRORS_ON_INTERRUPT", "").lower() in ["true", "yes", "1"]
+        
         if returncode == -1:
             # Check specifically for keyboard interrupt
             if error == "Aborted by user":
                 click.echo(click.style("\nCommand interrupted by user (Ctrl+C)", fg="yellow"))
             else:
                 click.echo(click.style(f"{error}", fg="red"))
-        elif returncode != 0 and not error:
+        elif returncode != 0 and not error and not (command_interrupted and skip_errors_on_interrupt):
             # Handle case where return code is non-zero but there's no error message
             # This often happens with "command not found" situations
+            # Skip this error if the command was interrupted and SKIP_ERRORS_ON_INTERRUPT is true
             cmd_name = command.strip().split()[0] if command.strip() else "Command" 
             click.echo(click.style(f"{cmd_name}: command not found", fg="red"))
             
@@ -543,8 +559,9 @@ def execute_command(command):
             if is_ssh_command and returncode == 0:
                 click.echo(error)
             # Handle different types of errors appropriately
-            elif "command not found" in error:
+            elif "command not found" in error and not (command_interrupted and skip_errors_on_interrupt):
                 # This is specifically when the command itself doesn't exist
+                # Skip this error if the command was interrupted and SKIP_ERRORS_ON_INTERRUPT is true
                 cmd_name = command.strip().split()[0] if command.strip() else "Command"
                 click.echo(click.style(f"{cmd_name}: command not found", fg="red"))
                 
