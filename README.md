@@ -104,7 +104,7 @@ When commands produce errors, If the option is enabled in the .jbrsh env file, J
 curl: (5) Could not resolve proxy: GET
 
 # Jibberish offers additional help:
-More information about error? [y/n]: y
+More information about the error? [y/n]: y
 
 The error occurs because the -x flag in curl expects a proxy URL, not an HTTP method.
 To use HTTP GET method with curl, simply use:
