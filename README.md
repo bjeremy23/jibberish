@@ -78,6 +78,29 @@ You can mix regular commands with AI-assisted commands:
 
 # Jibberish executes:
 free -h && df -h
+
+```
+
+#### Error Handling and Explanation
+
+When commands produce errors, If the option is enabled in the .jbrsh env file, Jibberish provides helpful feedback and offers explanations:
+
+```bash
+# Using curl with incorrect proxy syntax
+/home/jbrsh# curl -x GET www.yahoo.com
+
+# Jibberish shows the error:
+curl: (5) Could not resolve proxy: GET
+
+# Jibberish offers additional help:
+More information about the error? [y/n]: y
+
+The error occurs because the -x flag in curl expects a proxy URL, not an HTTP method.
+To use HTTP GET method with curl, simply use:
+curl www.yahoo.com
+
+Or to explicitly specify the GET method:
+curl -X GET www.yahoo.com
 ```
 
 #### Interactive and Background Processes
