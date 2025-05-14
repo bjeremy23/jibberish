@@ -29,3 +29,6 @@ Thumbs.db
 
 # temporary  files created by NFS
 .nfs*
+
+# temp file from ./setup.sh
+.azure_install_attempt
