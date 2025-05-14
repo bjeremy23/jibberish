@@ -5,24 +5,24 @@ AI_CHOICE=<"azure", "openai">
 ##############################
 # OPENAI DEPLOYMENTS
 ##############################
-#OPEN_API_KEY=<your openai api key> 
+OPEN_API_KEY=<your openai api key> 
 
 # model i.e. gpt-4, gpt-4.1
-#OPEN_API_MODEL=<model name>
+OPEN_API_MODEL=<model name>
 
 ##############################
 # AZURE OPENAI DEPLOYMENTS
 ##############################
-#AZURE_OPENAI_ENDPOINT=<your azure openai endpoint>
-#AZURE_OPENAI_API_VERSION=<your azure openai api version> 
+AZURE_OPENAI_ENDPOINT=<your azure openai endpoint>
+AZURE_OPENAI_API_VERSION=<your azure openai api version> 
 # model i.e. gpt-4, gpt-4.1
-#AZURE_OPENAI_DEPLOYMENT_NAME=<your azure openai deployment name>
+AZURE_OPENAI_DEPLOYMENT_NAME=<your azure openai deployment name>
 
 # If AZURE openai w/managed identity
 #AZURE_CLIENT_ID=<your azure client id>
 
 # or if Azure openai w/api key
-#AZURE_OPENAI_API_KEY= <your azure openai api key>
+AZURE_OPENAI_API_KEY= <your azure openai api key>
 
 
 # the warn list is a list of commands that will prompt the user before executing
