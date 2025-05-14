@@ -30,7 +30,7 @@ AI_CHOICE=<"azure", "openai">
 WARN_LIST="rm, rmdir, mv, cp, ln, chmod, chown, chgrp, kill, pkill, killall, shutdown, reboot, halt, poweroff"
 
 # the interactive list is a list of commands that will be run in interactive mode
-INTERACTIVE_LIST="python, python3, gvim, vi, vim, nano, emacs, less, more, top, htop, tail -f, watch, ssh, scp, rsync, ftp, curl, wget, exec, bash" 
+INTERACTIVE_LIST="pass, python, python3, gvim, vi, vim, nano, emacs, less, more, top, htop, tail -f, watch, ssh, scp, rsync, ftp, curl, wget, exec, bash" 
 
 # true = Prompt before executing with any AI generated command
 # false = Execute AI generated commands immediately
