@@ -560,7 +560,7 @@ def execute_command(command):
                 
                 # Prompt for more information if IGNORE_ERRORS is not set to true and the command failed
                 if not ignore_errors and returncode != 0:
-                    choice = input(click.style("\nMore information about the error? [y/n]: ", fg="blue"))
+                    choice = input(click.style("\nMore information about error? [y/n]: ", fg="blue"))
                     if choice.lower() == "y":
                         why_failed = chat.ask_why_failed(command, error)
                         if why_failed is not None:

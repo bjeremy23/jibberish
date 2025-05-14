@@ -92,28 +92,6 @@ Jibberish handles both interactive commands and background processes:
 /home/jbrsh# top
 ```
 
-#### Error Handling and Explanation
-
-When commands produce errors, If the option is enabled in the .jbrsh env file, Jibberish provides helpful feedback and offers explanations:
-
-```bash
-# Using curl with incorrect proxy syntax
-/home/jbrsh# curl -x GET www.yahoo.com
-
-# Jibberish shows the error:
-curl: (5) Could not resolve proxy: GET
-
-# Jibberish offers additional help:
-More information about the error? [y/n]: y
-
-The error occurs because the -x flag in curl expects a proxy URL, not an HTTP method.
-To use HTTP GET method with curl, simply use:
-curl www.yahoo.com
-
-Or to explicitly specify the GET method:
-curl -X GET www.yahoo.com
-```
-
 For more advanced usage and detailed documentation on specific features, refer to the guides linked below.
 
 ### Standalone Mode
