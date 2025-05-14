@@ -1,0 +1,39 @@
+# filepath: /home/brownjer/bin/jibberish/pyproject.toml
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jibberish"
+version = "25.5.3"
+description = "An AI-powered Linux Shell that generates commands from natural language"
+readme = "README.md"
+authors = [
+    {name = "Jeremy Brown", email = "your.email@example.com"}
+]
+license = {text = "MIT"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "click>=8.0.0",
+    "openai>=1.0.0",
+    "psutil>=7.0.0",
+]
+requires-python = ">=3.6"
+
+[project.optional-dependencies]
+azure = ["azure-identity", "azure-ai-openai"]
+
+[project.scripts]
+jibberish = "jibberish:main"
+
+[tool.setuptools]
+packages = ["jibberish", "jibberish.plugins"]
+package-dir = {"jibberish" = "."}
+
+[tool.setuptools.package-data]
+jibberish = [".jbrsh", "README.md", "README/*.md"]

@@ -1,0 +1,7 @@
+# filepath: /home/brownjer/bin/jibberish/MANIFEST.in
+include README.md
+include LICENSE.txt
+include requirements.txt
+include .jbrsh
+recursive-include plugins *.py
+recursive-include README *.md

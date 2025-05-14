@@ -5,6 +5,10 @@
 INTERACTIVE=true
 INSTALL_AZURE=false
 AUTO_YES=false
+DEV_INSTALL=false
+PACKAGE_INSTALL=false
+USER_INSTALL=false
+REORGANIZE=false
 
 # Process command line options
 while [[ $# -gt 0 ]]; do
@@ -22,12 +26,32 @@ while [[ $# -gt 0 ]]; do
       AUTO_YES=true
       shift
       ;;
+    --dev)
+      DEV_INSTALL=true
+      shift
+      ;;
+    --package)
+      PACKAGE_INSTALL=true
+      shift
+      ;;
+    --user)
+      USER_INSTALL=true
+      shift
+      ;;
+    --reorganize)
+      REORGANIZE=true
+      shift
+      ;;
     --help|-h)
       echo "Usage: $0 [options]"
       echo "Options:"
       echo "  --non-interactive    Run without prompts (assumes yes for all questions)"
       echo "  --with-azure         Install Azure OpenAI dependencies"
       echo "  --yes, -y            Answer yes to all prompts"
+      echo "  --dev                Install in development mode (pip install -e)"
+      echo "  --package            Build a pip package (wheel)"
+      echo "  --user               Install for current user only (pip install --user)"
+      echo "  --reorganize         Reorganize files for proper Python packaging"
       echo "  --help, -h           Show this help message"
       exit 0
       ;;
@@ -62,6 +86,18 @@ if [ "$INSTALL_AZURE" = true ]; then
 fi
 if [ "$AUTO_YES" = true ]; then
     echo -e "${YELLOW}Auto-confirming all prompts${RESET}"
+fi
+if [ "$DEV_INSTALL" = true ]; then
+    echo -e "${YELLOW}Installing in development mode${RESET}"
+fi
+if [ "$PACKAGE_INSTALL" = true ]; then
+    echo -e "${YELLOW}Building pip package${RESET}"
+fi
+if [ "$USER_INSTALL" = true ]; then
+    echo -e "${YELLOW}Installing for current user only${RESET}"
+fi
+if [ "$REORGANIZE" = true ]; then
+    echo -e "${YELLOW}Will reorganize files for proper Python packaging${RESET}"
 fi
 echo
 
@@ -121,18 +157,88 @@ fi
 echo -e "${GREEN}Activating virtual environment...${RESET}"
 source venv/bin/activate
 
+# Run the rename script if requested
+if [ "$REORGANIZE" = true ]; then
+    echo -e "${GREEN}Reorganizing files for proper Python packaging...${RESET}"
+    if [ -f "rename_script.sh" ]; then
+        ./rename_script.sh
+    else
+        echo -e "${RED}Error: rename_script.sh not found!${RESET}"
+        exit 1
+    fi
+fi
+
 # Install dependencies
 echo -e "${GREEN}Installing dependencies...${RESET}"
-pip install --upgrade pip
+pip install --upgrade pip setuptools wheel build
 
-# Check if requirements.txt exists and use it if available
-if [ -f "requirements.txt" ]; then
-    echo -e "${GREEN}Installing dependencies from requirements.txt...${RESET}"
-    pip install -r requirements.txt
+# Update version information in package files
+echo -e "${GREEN}Updating version information...${RESET}"
+python update_toml_version.py
+
+# Install Jibberish
+if [ "$PACKAGE_INSTALL" = true ]; then
+    # Build the package
+    echo -e "${GREEN}Building pip package...${RESET}"
+    python -m build
+    echo -e "${GREEN}Package built successfully!${RESET}"
+    echo -e "${YELLOW}Wheel package available in ./dist/ directory${RESET}"
+    
+    # Optionally install from the built package
+    if [[ "$INTERACTIVE" = true && "$AUTO_YES" = false ]]; then
+        echo -e "${YELLOW}Do you want to install the built package?${RESET}"
+        read -p "Install package? [y/N]: " install_pkg
+    elif [ "$AUTO_YES" = true ]; then
+        install_pkg="y"
+    else
+        install_pkg="n"
+    fi
+    
+    if [[ $install_pkg == "y" || $install_pkg == "Y" ]]; then
+        echo -e "${GREEN}Installing Jibberish from wheel...${RESET}"
+        # Find the wheel file
+        wheel_file=$(ls -t dist/*.whl | head -1)
+        if [ -n "$wheel_file" ]; then
+            if [ "$USER_INSTALL" = true ]; then
+                pip install --user "$wheel_file"
+            else
+                pip install "$wheel_file"
+            fi
+            echo -e "${GREEN}Jibberish installed from wheel!${RESET}"
+        else
+            echo -e "${RED}Wheel file not found!${RESET}"
+        fi
+    fi
+elif [ "$DEV_INSTALL" = true ]; then
+    # Install in development mode
+    echo -e "${GREEN}Installing Jibberish in development mode...${RESET}"
+    if [ "$USER_INSTALL" = true ]; then
+        pip install --user -e .
+    else
+        pip install -e .
+    fi
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}Jibberish installed in development mode!${RESET}"
+    else
+        echo -e "${RED}Failed to install Jibberish in development mode!${RESET}"
+        exit 1
+    fi
 else
-    # Install core dependencies manually
-    echo -e "${GREEN}Installing core dependencies...${RESET}"
-    pip install click openai psutil
+    # Regular installation from setup.py
+    echo -e "${GREEN}Installing Jibberish...${RESET}"
+    if [ "$USER_INSTALL" = true ]; then
+        pip install --user .
+    else
+        pip install .
+    fi
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}Jibberish installed successfully!${RESET}"
+    else
+        echo -e "${RED}Failed to install Jibberish!${RESET}"
+        exit 1
+    fi
 fi
 
 # Azure OpenAI support (optional)
@@ -150,60 +256,29 @@ fi
 if [[ $install_azure == "y" || $install_azure == "Y" ]]; then
     echo -e "${GREEN}Installing Azure OpenAI dependencies...${RESET}"
     
-    # First, install azure-identity which is less likely to have issues
-    pip install azure-identity
-    
-    # Try different options for Azure OpenAI support
-    echo -e "${BLUE}Attempting to install Azure OpenAI package...${RESET}"
-    
-    # Try multiple package names with both pip and pip3 (in some environments they differ)
-    azure_installed=false
-    
-    # List of package options to try
-    azure_installed=false
-    
-    # Try azure-ai-openai
-    echo -e "${BLUE}Trying: pip install azure-ai-openai${RESET}"
-    if pip install azure-ai-openai 2>/dev/null; then
-        echo -e "${GREEN}Successfully installed azure-ai-openai!${RESET}"
-        azure_installed=true
-    # Try azure-openai
-    elif pip install azure-openai 2>/dev/null; then
-        echo -e "${GREEN}Successfully installed azure-openai!${RESET}"
-        azure_installed=true
-    # Try openai[azure]
-    elif pip install "openai[azure]" 2>/dev/null; then
-        echo -e "${GREEN}Successfully installed openai[azure]!${RESET}"
-        azure_installed=true
-    # Try pip3 as a fallback
-    elif command -v pip3 >/dev/null && pip3 install azure-ai-openai 2>/dev/null; then
-        echo -e "${GREEN}Successfully installed azure-ai-openai using pip3!${RESET}"
-        azure_installed=true
-    elif command -v pip3 >/dev/null && pip3 install azure-openai 2>/dev/null; then
-        echo -e "${GREEN}Successfully installed azure-openai using pip3!${RESET}"
-        azure_installed=true
-    elif command -v pip3 >/dev/null && pip3 install "openai[azure]" 2>/dev/null; then
-        echo -e "${GREEN}Successfully installed openai[azure] using pip3!${RESET}"
-        azure_installed=true
+    # Install Azure dependencies using the extras_require from setup.py
+    if [ "$USER_INSTALL" = true ]; then
+        pip install --user ".[azure]"
+    else
+        pip install ".[azure]"
     fi
     
-    if [ "$azure_installed" = false ]; then
-        echo -e "${RED}Warning: Could not install any Azure OpenAI package.${RESET}"
-        echo -e "${YELLOW}You may need to manually install the correct package based on your Python version.${RESET}"
-        echo -e "${YELLOW}Try one of these commands later:${RESET}"
-        echo -e "  ${BLUE}pip install azure-ai-openai${RESET}"
-        echo -e "  ${BLUE}pip install azure-openai${RESET}"
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}Successfully installed Azure OpenAI support!${RESET}"
+        # Create a note about the installation outcome
+        echo "# Azure OpenAI support installation attempted on $(date)" >> .azure_install_attempt
+        echo "# Installation was successful" >> .azure_install_attempt
+    else
+        echo -e "${RED}Warning: Could not install Azure OpenAI support.${RESET}"
+        echo -e "${YELLOW}You may need to manually install the correct packages:${RESET}"
+        echo -e "  ${BLUE}pip install azure-identity azure-ai-openai${RESET}"
+        echo -e "  ${BLUE}pip install azure-identity azure-openai${RESET}"
         echo -e "  ${BLUE}pip install \"openai[azure]\"${RESET}"
         echo
         echo -e "${YELLOW}Continuing with standard openai package...${RESET}"
         echo -e "${YELLOW}Note: Azure functionality may be limited.${RESET}"
-    fi
-    
-    # Create a note about the installation outcome
-    echo "# Azure OpenAI support installation attempted on $(date)" >> .azure_install_attempt
-    if [ "$azure_installed" = true ]; then
-        echo "# Installation was successful" >> .azure_install_attempt
-    else
+        # Create a note about the installation outcome
+        echo "# Azure OpenAI support installation attempted on $(date)" >> .azure_install_attempt
         echo "# Installation failed - manual installation required" >> .azure_install_attempt
     fi
 fi
@@ -305,10 +380,21 @@ echo
 
 # Instructions for using Jibberish
 echo -e "${BOLD}Using Jibberish:${RESET}"
-echo -e "1. Activate the virtual environment (if not already done):"
-echo -e "   ${BLUE}source venv/bin/activate${RESET}"
-echo -e "2. Run Jibberish:"
-echo -e "   ${BLUE}python jibberish.py${RESET}"
+
+if [ "$PACKAGE_INSTALL" = true ] || [ "$DEV_INSTALL" = true ] || [ "$USER_INSTALL" = true ]; then
+    # For pip-installed packages
+    echo -e "1. Activate the virtual environment (if not already done):"
+    echo -e "   ${BLUE}source venv/bin/activate${RESET}"
+    echo -e "2. Run Jibberish:"
+    echo -e "   ${BLUE}jibberish${RESET}"
+    echo -e "   (Or with options, e.g.: ${BLUE}jibberish --version${RESET})"
+else
+    # For local development
+    echo -e "1. Activate the virtual environment (if not already done):"
+    echo -e "   ${BLUE}source venv/bin/activate${RESET}"
+    echo -e "2. Run Jibberish:"
+    echo -e "   ${BLUE}python jibberish.py${RESET}"
+fi
 echo
 
 # Verify installation
@@ -321,16 +407,29 @@ elif [ "$AUTO_YES" = true ]; then
     verify_install="y"
 else
     echo -e "${YELLOW}Skipping verification in non-interactive mode.${RESET}"
-    echo -e "${YELLOW}You can verify later with: python jibberish.py --version${RESET}"
+    if [ "$PACKAGE_INSTALL" = true ] || [ "$DEV_INSTALL" = true ] || [ "$USER_INSTALL" = true ]; then
+        echo -e "${YELLOW}You can verify later with: jibberish --version${RESET}"
+    else
+        echo -e "${YELLOW}You can verify later with: python jibberish.py --version${RESET}"
+    fi
 fi
 
 if [[ $verify_install == "y" || $verify_install == "Y" ]]; then
-    echo -e "${GREEN}Running: python jibberish.py --version${RESET}"
-    python jibberish.py --version
+    if [ "$PACKAGE_INSTALL" = true ] || [ "$DEV_INSTALL" = true ] || [ "$USER_INSTALL" = true ]; then
+        echo -e "${GREEN}Running: jibberish --version${RESET}"
+        jibberish --version
+    else
+        echo -e "${GREEN}Running: python jibberish.py --version${RESET}"
+        python jibberish.py --version
+    fi
     
     # Also check if plugins load correctly
     echo -e "${GREEN}Checking plugin loading...${RESET}"
-    plugin_output=$(python -c "import os, sys; sys.path.insert(0, os.getcwd()); import plugin_system; print('Plugin system imported successfully')" 2>&1)
+    if [ "$PACKAGE_INSTALL" = true ] || [ "$DEV_INSTALL" = true ] || [ "$USER_INSTALL" = true ]; then
+        plugin_output=$(python -c "import jibberish.plugin_system; print('Plugin system imported successfully')" 2>&1)
+    else
+        plugin_output=$(python -c "import os, sys; sys.path.insert(0, os.getcwd()); import plugin_system; print('Plugin system imported successfully')" 2>&1)
+    fi
     
     if [[ $plugin_output == *"Plugin system imported successfully"* ]]; then
         echo -e "${GREEN}Plugin system loaded successfully!${RESET}"
