@@ -1,5 +1,6 @@
 include LICENSE.txt
 include README.md
 include requirements.txt
+recursive-include app *.py
 recursive-include app/plugins *
 recursive-include README *.md

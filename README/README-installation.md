@@ -14,6 +14,11 @@ pip install .
 
 # With Azure OpenAI support
 pip install "git+https://github.com/bjeremy23/jibberish.git#egg=jibberish[azure]"
+
+# If you encounter dependency issues with Azure packages,
+# install them separately:
+pip install git+https://github.com/bjeremy23/jibberish.git
+pip install azure-identity azureopenai==0.0.1
 ```
 
 ### Installation from local repository

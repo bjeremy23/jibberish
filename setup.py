@@ -29,7 +29,7 @@ setup(
     extras_require={
         "azure": [
             "azure-identity>=1.12.0",
-            "azure-ai-openai>=1.0.0", 
+            "azureopenai>=0.0.1", 
         ],
     },
     entry_points={
