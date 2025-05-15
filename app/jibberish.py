@@ -57,12 +57,18 @@ if is_standalone_mode:
 import builtins
 builtins.JIBBERISH_STANDALONE_MODE = len(sys.argv) > 1 and sys.argv[1] in ['-v', '--version', '-q', '--question', '-c', '--command', '-h', '--help']
 
-import chat
+# Add the parent directory to sys.path for imports
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
+# Now import app modules with absolute imports
+from app import chat
 import click
-import history
+from app import history
 import readline
 from contextlib import redirect_stdout
-from executor import (
+from app.executor import (
     execute_command,
     execute_chained_commands,
     is_built_in
@@ -82,7 +88,7 @@ def help():
 def version_standalone():
     """Run the version command in standalone mode"""
     # Import the version plugin
-    from plugins.version_command import VersionPlugin
+    from app.plugins.version_command import VersionPlugin
     version_plugin = VersionPlugin()
     version_plugin.execute("version")
     return True

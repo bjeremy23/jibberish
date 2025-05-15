@@ -12,11 +12,12 @@ from unittest.mock import patch, MagicMock
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 # Import the plugin to test
-from plugins import dir_stack_command
+from app.plugins import dir_stack_command
 from tests.utils.test_utils import CaptureOutput, mock_click_echo
+from tests import test_helper
 
 class TestDirStackCommand(unittest.TestCase):
-    """Tests for the DirStackCommand plugins."""
+    """Tests for the DirStackCommand app.plugins."""
     
     def setUp(self):
         """Set up the test environment before each test method."""

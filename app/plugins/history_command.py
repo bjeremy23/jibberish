@@ -1,8 +1,9 @@
 """
 History command plugin.
 """
-import history
-from plugin_system import BuiltinCommand, BuiltinCommandRegistry
+import click
+from app import history
+from ..plugin_system import BuiltinCommand, BuiltinCommandRegistry
 
 
 class HistoryCommand(BuiltinCommand):

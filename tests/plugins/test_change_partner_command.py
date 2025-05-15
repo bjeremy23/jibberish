@@ -11,8 +11,9 @@ from unittest.mock import patch, MagicMock
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 # Import the plugin to test
-from plugins import change_partner_command
+from app.plugins import change_partner_command
 from tests.utils.test_utils import CaptureOutput, mock_click_echo
+from tests import test_helper
 
 class TestChangePartnerCommand(unittest.TestCase):
     """Tests for the ChangePartnerCommand plugin."""
@@ -26,8 +27,8 @@ class TestChangePartnerCommand(unittest.TestCase):
         self.click_echo_patcher = patch('click.echo', side_effect=mock_click_echo)
         self.mock_click_echo = self.click_echo_patcher.start()
         
-        # Mock chat.change_partner function
-        self.change_partner_patcher = patch('plugins.change_partner_command.chat.change_partner')
+        # Mock test_helper.chat.change_partner function
+        self.change_partner_patcher = patch('app.chat.change_partner')
         self.mock_change_partner = self.change_partner_patcher.start()
     
     def tearDown(self):
@@ -38,11 +39,11 @@ class TestChangePartnerCommand(unittest.TestCase):
     
     def test_can_handle(self):
         """Test the can_handle method."""
-        # Should handle ':)' commands
+        # Should handle 'partner' commands
         self.assertTrue(self.change_partner_cmd.can_handle(":) Batman"), 
-                      "Should handle ':) Batman'")
+                      "Should handle 'partner Batman'")
         self.assertTrue(self.change_partner_cmd.can_handle(":) GPT-4"), 
-                      "Should handle ':) GPT-4'")
+                      "Should handle 'partner GPT-4'")
         
         # Should not handle other commands
         self.assertFalse(self.change_partner_cmd.can_handle("ls"), 
@@ -74,7 +75,7 @@ class TestChangePartnerCommand(unittest.TestCase):
             result = self.change_partner_cmd.execute(":)")
             self.assertTrue(result, f"Expected True but got {result}")
         
-        # Based on the implementation, chat.change_partner would be called with empty string
+        # Based on the implementation, test_helper.chat.change_partner would be called with empty string
         self.mock_change_partner.assert_called_once_with("")
         
         # Check that output contains the empty partner name

@@ -2,7 +2,7 @@ import os
 import openai
 
 # Import version information from centralized version module
-from version import __version__, VERSION_NAME
+from app.version import __version__, VERSION_NAME
 
 # openai
 with open(os.path.expanduser("~/.jbrsh")) as env:

@@ -213,33 +213,34 @@ if [ ! -f ~/.jbrsh ]; then
     echo -e "${GREEN}Creating ~/.jbrsh configuration file...${RESET}"
     cp .jbrsh ~/.jbrsh
     echo -e "${YELLOW}Please edit ~/.jbrsh to set your API keys and preferences.${RESET}"
+fi
 
 # Make sure the main script is executable
-if [ ! -x "jibberish.py" ]; then
+if [ ! -x "app/jibberish.py" ]; then
     echo -e "${GREEN}Making jibberish.py executable...${RESET}"
-    chmod +x jibberish.py
+    chmod +x app/jibberish.py
 fi
 
 # Verify plugins directory
-if [ ! -d "plugins" ]; then
-    echo -e "${RED}Warning: 'plugins' directory not found!${RESET}"
+if [ ! -d "app/plugins" ]; then
+    echo -e "${RED}Warning: 'app/plugins' directory not found!${RESET}"
     echo -e "Jibberish might not function correctly without plugins."
 else
     echo -e "${GREEN}Verifying plugins...${RESET}"
-    plugin_count=$(find plugins -name "*.py" | wc -l)
+    plugin_count=$(find app/plugins -name "*.py" | wc -l)
     echo -e "Found ${BLUE}$plugin_count${RESET} plugin files."
     
     # Make sure plugins/__init__.py exists
-    if [ ! -f "plugins/__init__.py" ]; then
-        echo -e "${YELLOW}Creating plugins/__init__.py...${RESET}"
-        echo "# Jibberish plugins package" > plugins/__init__.py
+    if [ ! -f "app/plugins/__init__.py" ]; then
+        echo -e "${YELLOW}Creating app/plugins/__init__.py...${RESET}"
+        echo "# Jibberish plugins package" > app/plugins/__init__.py
     fi
     
     # Check for plugin dependencies
     echo -e "${GREEN}Checking plugin dependencies...${RESET}"
     
     # Check for job_control_command.py which needs psutil
-    if [ -f "plugins/job_control_command.py" ]; then
+    if [ -f "app/plugins/job_control_command.py" ]; then
         echo -e "${BLUE}Found job_control_command.py which requires psutil...${RESET}"
         
         # Try multiple methods to install psutil, starting with pre-compiled wheels
@@ -283,7 +284,7 @@ echo -e "${BOLD}Using Jibberish:${RESET}"
 echo -e "1. Activate the virtual environment (if not already done):"
 echo -e "   ${BLUE}source venv/bin/activate${RESET}"
 echo -e "2. Run Jibberish:"
-echo -e "   ${BLUE}python jibberish.py${RESET}"
+echo -e "   ${BLUE}python app/jibberish.py${RESET}"
 echo
 
 # Verify installation
@@ -300,12 +301,12 @@ else
 fi
 
 if [[ $verify_install == "y" || $verify_install == "Y" ]]; then
-    echo -e "${GREEN}Running: python jibberish.py --version${RESET}"
-    python jibberish.py --version
+    echo -e "${GREEN}Running: python app/jibberish.py --version${RESET}"
+    python app/jibberish.py --version
     
     # Also check if plugins load correctly
     echo -e "${GREEN}Checking plugin loading...${RESET}"
-    plugin_output=$(python -c "import os, sys; sys.path.insert(0, os.getcwd()); import plugin_system; print('Plugin system imported successfully')" 2>&1)
+    plugin_output=$(python -c "import os, sys; sys.path.insert(0, os.getcwd()); from app import plugin_system; print('Plugin system imported successfully')" 2>&1)
     
     if [[ $plugin_output == *"Plugin system imported successfully"* ]]; then
         echo -e "${GREEN}Plugin system loaded successfully!${RESET}"

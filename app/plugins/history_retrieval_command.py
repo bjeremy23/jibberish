@@ -2,8 +2,8 @@
 History retrieval plugin.
 """
 import click
-import history
-from plugin_system import BuiltinCommand, BuiltinCommandRegistry
+from app import history
+from ..plugin_system import BuiltinCommand, BuiltinCommandRegistry
 
 
 class HistoryRetrievalPlugin(BuiltinCommand):
@@ -33,7 +33,7 @@ class HistoryRetrievalPlugin(BuiltinCommand):
             # We need to invoke the AI command plugin directly rather than returning the raw command
             
             # Import and use the AI command plugin directly from the registry
-            from plugin_system import BuiltinCommandRegistry
+            from app.plugin_system import BuiltinCommandRegistry
             try:
                 # Get all registered plugins from the registry
                 for plugin in BuiltinCommandRegistry._plugins:

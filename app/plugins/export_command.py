@@ -3,7 +3,7 @@ Export command plugin for setting environment variables.
 """
 import os
 import click
-from plugin_system import BuiltinCommand, BuiltinCommandRegistry
+from ..plugin_system import BuiltinCommand, BuiltinCommandRegistry
 
 
 class ExportCommand(BuiltinCommand):

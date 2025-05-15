@@ -11,8 +11,9 @@ from unittest.mock import patch, MagicMock
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 # Import the plugin to test
-from plugins import ai_command
+from app.plugins import ai_command
 from tests.utils.test_utils import CaptureOutput, mock_click_echo
+from tests import test_helper
 
 class TestAICommand(unittest.TestCase):
     """Tests for the AICommand plugin."""
@@ -27,7 +28,7 @@ class TestAICommand(unittest.TestCase):
         self.mock_click_echo = self.click_echo_patcher.start()
         
         # Mock the AI functions to avoid making actual API calls
-        self.chat_ask_ai_patcher = patch('plugins.ai_command.chat.ask_ai', 
+        self.chat_ask_ai_patcher = patch('app.chat.ask_ai', 
                                        return_value="ls -la")
         self.mock_ask_ai = self.chat_ask_ai_patcher.start()
         
@@ -36,7 +37,7 @@ class TestAICommand(unittest.TestCase):
         self.mock_input = self.input_patcher.start()
         
         # Mock execute_command function
-        self.execute_command_patcher = patch('executor.execute_command')
+        self.execute_command_patcher = patch('app.executor.execute_command')
         self.mock_execute_command = self.execute_command_patcher.start()
     
     def tearDown(self):
@@ -145,7 +146,6 @@ class TestAICommand(unittest.TestCase):
         self.assertGreater(len(call_args), 0, "Expected at least one argument")
         self.assertEqual(" find large files", call_args[0], 
                        "Expected query to be ' find large files' with leading space after removing # characters")
-
 if __name__ == '__main__':
     # Run the test
     unittest.main()

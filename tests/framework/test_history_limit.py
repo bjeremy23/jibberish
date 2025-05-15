@@ -10,9 +10,11 @@ import sys
 import io
 from unittest.mock import patch, MagicMock
 
+# Import the test_helper module for utility functions
 # Add parent directory to path so we can import the history module
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
-import history
+from tests import test_helper
+from app import history
 
 class TestHistoryLimit(unittest.TestCase):
     def setUp(self):

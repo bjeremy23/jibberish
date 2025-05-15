@@ -11,8 +11,9 @@ from unittest.mock import patch, MagicMock
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 # Import the plugin to test
-from plugins import history_retrieval_command
+from app.plugins import history_retrieval_command
 from tests.utils.test_utils import CaptureOutput, mock_click_echo
+from tests import test_helper
 
 class TestHistoryRetrievalCommand(unittest.TestCase):
     """Tests for the HistoryRetrievalPlugin plugin."""
@@ -28,7 +29,7 @@ class TestHistoryRetrievalCommand(unittest.TestCase):
         
         # Mock history module's get_history function
         # Return mock commands for different history retrievals
-        self.history_patcher = patch('history.get_history', side_effect=lambda cmd: 
+        self.history_patcher = patch('app.history.get_history', side_effect=lambda cmd: 
             "ls -la" if cmd == "!3" else 
             "cd /tmp" if cmd == "!cd" else
             None)
@@ -68,7 +69,7 @@ class TestHistoryRetrievalCommand(unittest.TestCase):
         # Get command by index
         result, command = self.history_retrieval_cmd.execute("!3")
         
-        # Check that history.get_history was called
+        # Check that test_helper.history.get_history was called
         self.mock_history.assert_called_once_with("!3")
         
         # Check the result
@@ -80,7 +81,7 @@ class TestHistoryRetrievalCommand(unittest.TestCase):
         # Get command by text
         result, command = self.history_retrieval_cmd.execute("!cd")
         
-        # Check that history.get_history was called
+        # Check that test_helper.history.get_history was called
         self.mock_history.assert_called_once_with("!cd")
         
         # Check the result
@@ -92,24 +93,24 @@ class TestHistoryRetrievalCommand(unittest.TestCase):
         # Try to get a nonexistent command
         result = self.history_retrieval_cmd.execute("!nonexistent")
         
-        # Check that history.get_history was called
+        # Check that test_helper.history.get_history was called
         self.mock_history.assert_called_once_with("!nonexistent")
         
         # When the command is not found, result should be True to indicate it was handled
         self.assertTrue(result, "Expected True to indicate the command was handled")
     
     def test_execute_ai_command_from_history(self):
-        """Test retrieving an AI command from history."""
+        """Test retrieving an AI command from test_helper.history."""
         # Mock get_history to return an AI command
         self.history_patcher.stop()
-        self.history_patcher = patch('history.get_history', 
+        self.history_patcher = patch('app.history.get_history', 
                                    side_effect=lambda cmd: "#find large files" if cmd == "!4" else None)
         self.mock_history = self.history_patcher.start()
         
         # Get AI command from history
         result = self.history_retrieval_cmd.execute("!4")
         
-        # Check that history.get_history was called
+        # Check that test_helper.history.get_history was called
         self.mock_history.assert_called_once_with("!4")
         
         # The AI command plugin should have handled it

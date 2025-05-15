@@ -11,9 +11,10 @@ from unittest.mock import patch, MagicMock, call
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 # Import the plugin to test
-from plugins import job_control_command
-from plugins.job_control_command import JobControlPlugin, register_background_job, update_job_status
+from app.plugins import job_control_command
+from app.plugins.job_control_command import JobControlPlugin, register_background_job, update_job_status
 from tests.utils.test_utils import CaptureOutput, mock_click_echo
+from tests import test_helper
 
 class TestJobControlPlugin(unittest.TestCase):
     """Tests for the JobControlPlugin plugin."""
@@ -36,7 +37,7 @@ class TestJobControlPlugin(unittest.TestCase):
         self.mock_click_style = self.click_style_patcher.start()
         
         # Mock psutil for process detection
-        self.psutil_patcher = patch('plugins.job_control_command.psutil')
+        self.psutil_patcher = patch('app.plugins.job_control_command.psutil')
         self.mock_psutil = self.psutil_patcher.start()
         
         # Mock os.system for executing commands

@@ -2,8 +2,14 @@ import os
 import sys
 import subprocess
 import click
-import chat
-from built_ins import is_built_in
+
+# Add the parent directory to sys.path for imports
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
+from app import chat
+from app.built_ins import is_built_in
 
 # Forward declaration for circular reference
 def execute_command(command):
@@ -150,7 +156,7 @@ def expand_aliases(command):
     """ Expand aliases if present"""
     try:
         # First try to import the alias plugin
-        from plugins.alias_command import get_aliases
+        from app.plugins.alias_command import get_aliases
         
         # Get all currently defined aliases
         aliases = get_aliases()
@@ -235,7 +241,7 @@ def run_in_background(command):
     
     # Import the job control module to register the background process
     try:
-        from plugins.job_control_command import register_background_job
+        from app.plugins.job_control_command import register_background_job
         
         # Create output files in temporary directory for this background process
         import tempfile

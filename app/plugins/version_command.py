@@ -2,8 +2,17 @@
 Plugin for displaying Jibberish version information.
 This is a fresh implementation to avoid any caching issues.
 """
-import click, api
-from plugin_system import BuiltinCommand, BuiltinCommandRegistry
+import os
+import sys
+import click
+
+# Add the parent directory to sys.path for imports
+parent_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
+from app import api
+from app.plugin_system import BuiltinCommand, BuiltinCommandRegistry
 
 # Use a uniquely named class to force reloading
 class VersionPlugin(BuiltinCommand):

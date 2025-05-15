@@ -11,13 +11,13 @@ the context_manager.py module, which provides functions for adding specialized
 contexts based on command keywords.
 """
 
-import api
+from app import api
 import time 
 import click 
 import re
 import json
 import os
-from context_manager import add_specialized_contexts, determine_temperature
+from app.context_manager import add_specialized_contexts, determine_temperature
 
 # Get the default partner from environment variable or use the fallback
 partner = os.environ.get('AI_PARTNER', "Marvin the Paranoid Android")

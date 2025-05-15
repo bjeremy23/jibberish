@@ -15,7 +15,8 @@ from unittest import mock
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 # Import the modules we need to test
-from executor import execute_shell_command
+from app.executor import execute_shell_command
+from tests import test_helper
 
 class MockProcess:
     """Mock subprocess process for testing"""
@@ -50,7 +51,7 @@ class TestAliasExpansion(unittest.TestCase):
 
         # Mock the path to the aliases file in the alias_command module
         self.aliases_file_patcher = mock.patch(
-            'plugins.alias_command.ALIASES_FILE',
+            'app.plugins.alias_command.ALIASES_FILE',
             self.temp_aliases_file.name
         )
         self.aliases_file_mock = self.aliases_file_patcher.start()
@@ -61,11 +62,15 @@ class TestAliasExpansion(unittest.TestCase):
         self.mock_popen.return_value = MockProcess(stdout="Test output", returncode=0)
         
         # Import the module inside the test to ensure our patches take effect
-        import plugins.alias_command
-        self.alias_module = plugins.alias_command
+        import app.plugins.alias_command
+        self.alias_module = app.plugins.alias_command
         
-        # Force reload of aliases from our test file
-        self.alias_module.load_aliases()
+        # Set aliases directly in the module dictionary
+        self.alias_module.aliases = {
+            "ls": "ls -CF",
+            "ll": "ls -la",
+            "grep": "grep --color=auto"
+        }
 
     def tearDown(self):
         """Clean up test environment."""

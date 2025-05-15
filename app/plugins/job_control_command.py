@@ -8,7 +8,7 @@ import click
 import subprocess
 import threading
 import time
-from plugin_system import BuiltinCommand, BuiltinCommandRegistry
+from ..plugin_system import BuiltinCommand, BuiltinCommandRegistry
 
 # Global dictionary to track background jobs
 # Format: {job_id: {"pid": pid, "command": command, "running": True/False}}

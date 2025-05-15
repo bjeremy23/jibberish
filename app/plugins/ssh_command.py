@@ -4,7 +4,7 @@ SSH command plugin.
 import subprocess
 import sys
 import click
-from plugin_system import BuiltinCommand, BuiltinCommandRegistry
+from ..plugin_system import BuiltinCommand, BuiltinCommandRegistry
 
 
 class SSHCommand(BuiltinCommand):

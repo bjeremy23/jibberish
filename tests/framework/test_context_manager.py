@@ -4,11 +4,11 @@ Tests for the context_manager module.
 import sys
 import os
 import unittest
-
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from context_manager import add_specialized_contexts, determine_temperature
+from app.context_manager import add_specialized_contexts, determine_temperature
+from tests import test_helper
 
 class TestContextManager(unittest.TestCase):
     """Test context manager functionality"""

@@ -11,8 +11,9 @@ from unittest.mock import patch, MagicMock
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 # Import the plugin to test
-from plugins import version_command
+from app.plugins import version_command
 from tests.utils.test_utils import CaptureOutput, mock_click_echo
+from tests import test_helper
 
 class TestVersionCommand(unittest.TestCase):
     """Tests for the VersionPlugin."""
@@ -27,7 +28,7 @@ class TestVersionCommand(unittest.TestCase):
         self.mock_click_echo = self.click_echo_patcher.start()
         
         # Mock the api module to avoid external dependencies
-        self.api_patcher = patch('plugins.version_command.api')
+        self.api_patcher = patch('app.plugins.version_command.api')
         self.mock_api = self.api_patcher.start()
         self.mock_api.__version__ = "25.04.0"
         self.mock_api.VERSION_NAME = "Initial Release"
@@ -76,7 +77,7 @@ class TestVersionCommand(unittest.TestCase):
         # by creating a fresh instance and checking if it can be registered properly
         
         # Mock the BuiltinCommandRegistry
-        with patch('plugins.version_command.BuiltinCommandRegistry') as mock_registry:
+        with patch('app.plugins.version_command.BuiltinCommandRegistry') as mock_registry:
             # Manually trigger the registration process that happens in the module
             plugin = version_command.VersionPlugin()
             version_command.BuiltinCommandRegistry.register(plugin)

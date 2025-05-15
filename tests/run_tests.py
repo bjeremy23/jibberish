@@ -10,6 +10,14 @@ import unittest
 import importlib.util
 import argparse
 
+# Add the jibberish directory to the path so we can import from tests
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)  # jibberish root directory
+sys.path.insert(0, parent_dir)
+
+# Now we can import test_helper
+from tests import test_helper
+
 def load_test_module(file_path):
     """Load a test module from file path."""
     module_name = os.path.basename(file_path).replace('.py', '')

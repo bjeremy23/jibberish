@@ -2,8 +2,8 @@
 AI question answering plugin.
 """
 import click
-import chat
-from plugin_system import BuiltinCommand, BuiltinCommandRegistry
+from app import chat
+from ..plugin_system import BuiltinCommand, BuiltinCommandRegistry
 
 
 class QuestionPlugin(BuiltinCommand):

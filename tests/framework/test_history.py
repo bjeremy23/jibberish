@@ -11,7 +11,8 @@ from unittest.mock import patch, MagicMock
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 # Import the module to test
-import history
+from tests import test_helper
+from app import history
 from tests.utils.test_utils import create_mock_environment, cleanup_mock_environment
 
 class TestHistory(unittest.TestCase):

@@ -3,6 +3,7 @@ import os
 import sys
 import unittest
 from unittest.mock import patch, MagicMock
+from tests import test_helper
 
 print("Starting test...")
 
@@ -21,7 +22,7 @@ print(f"Updated sys.path: {sys.path[0]}")
 # Import the module to test
 try:
     print("Importing chat module...")
-    import chat
+    from app import chat
     print("Chat module imported successfully")
 except Exception as e:
     print(f"Error importing chat module: {e}")
@@ -113,7 +114,7 @@ class ChatHistoryTest(unittest.TestCase):
             # Restore the original limit
             chat.total_noof_questions = original_limit
     
-    @patch('chat.api')
+    @patch('app.chat.api')
     def test_ai_command_history(self, mock_api):
         """Test that AI command history ('#') is stored in base_messages"""
         # Set up a clean base_messages for testing
@@ -136,7 +137,7 @@ class ChatHistoryTest(unittest.TestCase):
             mock_api.client.chat.completions.create.return_value = mock_response
             
             # Call ask_ai to generate and store a command
-            with patch('chat.hasattr', return_value=True):  # Force use of newer API
+            with patch('app.chat.hasattr', return_value=True):  # Force use of newer API
                 result = chat.ask_ai("List all files")
             
             # Verify the result

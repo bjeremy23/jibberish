@@ -11,8 +11,9 @@ from unittest.mock import patch, MagicMock
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 # Import the plugin to test
-from plugins import export_command
+from app.plugins import export_command
 from tests.utils.test_utils import CaptureOutput, mock_click_echo
+from tests import test_helper
 
 class TestExportCommand(unittest.TestCase):
     """Tests for the ExportCommand plugin."""

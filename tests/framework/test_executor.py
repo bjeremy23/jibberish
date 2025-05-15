@@ -7,6 +7,7 @@ import os
 import sys
 import unittest
 from unittest.mock import patch, MagicMock
+from tests import test_helper
 
 # Add the parent directory to the path so we can import modules
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
@@ -35,20 +36,19 @@ except ImportError as e:
 # Mark this module as a test module for run_tests.py
 IS_TEST_MODULE = True
 
+# Import executor module directly
+from app import executor
+
 # Store executor module reference
-_executor = None
+_executor = executor
 
 def get_executor():
-    """Safely import executor module only when needed."""
+    """Return the executor module."""
     global _executor
     if _executor is None:
-        try:
-            import executor
-            _executor = executor
-            print("Successfully imported executor module")
-        except ImportError as e:
-            print(f"ERROR: Failed to import executor: {e}")
-            raise
+        from app import executor
+        _executor = executor
+        print("Successfully imported executor module")
     return _executor
 
 # Basic Test
@@ -87,7 +87,7 @@ class TestTransformMultiline(unittest.TestCase):
         """Test transform_multiline with a single line command."""
         print("Running test_single_line_command")
         command = "ls -la"
-        result = self.executor.transform_multiline(command)
+        result = executor.transform_multiline(command)
         self.assertEqual(result, command, f"Expected '{command}' but got '{result}'")
         print("test_single_line_command passed!")
     
@@ -96,7 +96,7 @@ class TestTransformMultiline(unittest.TestCase):
         print("Running test_multiline_ssh_command")
         command = "ssh user@host\nls -la"
         expected = "ssh user@host \"ls -la\""
-        result = self.executor.transform_multiline(command)
+        result = executor.transform_multiline(command)
         self.assertEqual(result, expected, f"Expected '{expected}' but got '{result}'")
         print("test_multiline_ssh_command passed!")
     
@@ -104,7 +104,7 @@ class TestTransformMultiline(unittest.TestCase):
         """Test transform_multiline with empty lines."""
         print("Running test_empty_lines")
         command = "line1\n\nline3"
-        result = self.executor.transform_multiline(command)
+        result = executor.transform_multiline(command)
         self.assertEqual(result, "line1\nline3", f"Expected 'line1\nline3' but got '{result}'")
         print("test_empty_lines passed!")
 
@@ -147,7 +147,7 @@ class TestShellCommand(unittest.TestCase):
     def test_empty_command(self):
         """Test execute_shell_command with an empty command."""
         print("Running test_empty_command")
-        return_code, stdout, stderr = self.executor.execute_shell_command("")
+        return_code, stdout, stderr = executor.execute_shell_command("")
         self.assertEqual(return_code, 0, f"Expected return code 0 but got {return_code}")
         self.assertEqual(stdout, "", f"Expected empty stdout but got '{stdout}'")
         self.assertEqual(stderr, "", f"Expected empty stderr but got '{stderr}'")
@@ -168,7 +168,7 @@ class TestShellCommand(unittest.TestCase):
                 
                 # Also patch signal module since we're using it for interactive commands
                 with patch('signal.signal') as mock_signal:
-                    return_code, stdout, stderr = self.executor.execute_shell_command("vim")
+                    return_code, stdout, stderr = executor.execute_shell_command("vim")
                     
                     # Verify the return values
                     self.assertEqual(return_code, 0, f"Expected return code 0 but got {return_code}")
@@ -222,7 +222,7 @@ class TestCommand(unittest.TestCase):
         """Test execute_command with a normal command."""
         print("Running test_normal_command")
         with CaptureOutput() as output:
-            self.executor.execute_command("ls -la")
+            executor.execute_command("ls -la")
             self.mock_shell_cmd.assert_called_once_with("ls -la")
         print("test_normal_command passed!")
     
@@ -231,7 +231,7 @@ class TestCommand(unittest.TestCase):
         print("Running test_warn_list_command")
         # Set up a warn list environment variable
         with patch.dict(os.environ, {"WARN_LIST": "rm"}):
-            self.executor.execute_command("rm file.txt")
+            executor.execute_command("rm file.txt")
             self.mock_input.assert_called_once()
             self.mock_shell_cmd.assert_called_once_with("rm file.txt")
         print("test_warn_list_command passed!")
@@ -242,7 +242,7 @@ class TestCommand(unittest.TestCase):
         # Mock input to return "n" (rejection)
         self.mock_input.return_value = "n"
         with patch.dict(os.environ, {"WARN_LIST": "rm"}):
-            self.executor.execute_command("rm file.txt")
+            executor.execute_command("rm file.txt")
             self.mock_input.assert_called_once()
             self.mock_shell_cmd.assert_not_called()
         print("test_warn_list_rejection passed!")
@@ -268,7 +268,7 @@ class TestChainedCommands(unittest.TestCase):
         self.cmd_patcher = patch.object(self.executor, 'execute_command')
         self.mock_cmd = self.cmd_patcher.start()
         
-        # Mock built_ins.is_built_in
+        # Mock app.built_ins.is_built_in
         self.builtin_patcher = patch.object(self.executor, 'is_built_in', return_value=(False, None))
         self.mock_builtin = self.builtin_patcher.start()
     
@@ -283,14 +283,14 @@ class TestChainedCommands(unittest.TestCase):
     def test_single_command(self):
         """Test execute_chained_commands with a single command."""
         print("Running test_single_command")
-        self.executor.execute_chained_commands("ls -la", 0)
+        executor.execute_chained_commands("ls -la", 0)
         self.mock_cmd.assert_called_once_with("ls -la")
         print("test_single_command passed!")
     
     def test_multiple_commands(self):
         """Test execute_chained_commands with multiple commands."""
         print("Running test_multiple_commands")
-        self.executor.execute_chained_commands("cd /tmp && ls -la", 0)
+        executor.execute_chained_commands("cd /tmp && ls -la", 0)
         self.assertEqual(self.mock_cmd.call_count, 2, f"Expected 2 calls but got {self.mock_cmd.call_count}")
         # Check that each command was executed
         self.mock_cmd.assert_any_call("cd /tmp")
@@ -300,7 +300,7 @@ class TestChainedCommands(unittest.TestCase):
     def test_empty_commands(self):
         """Test execute_chained_commands with empty commands."""
         print("Running test_empty_commands")
-        self.executor.execute_chained_commands("ls && && cd /tmp")
+        executor.execute_chained_commands("ls && && cd /tmp")
         self.assertEqual(self.mock_cmd.call_count, 2, f"Expected 2 calls but got {self.mock_cmd.call_count}")
         # Check that each non-empty command was executed
         self.mock_cmd.assert_any_call("ls")
@@ -316,7 +316,7 @@ class TestChainedCommands(unittest.TestCase):
         
         # Test with single quotes containing &&
         single_quoted_cmd = "echo 'This && should be treated as one' && echo Second"
-        self.executor.execute_chained_commands(single_quoted_cmd)
+        executor.execute_chained_commands(single_quoted_cmd)
         self.assertEqual(self.mock_cmd.call_count, 2, f"Expected 2 calls but got {self.mock_cmd.call_count}")
         # Check that commands were properly split respecting quotes
         self.mock_cmd.assert_any_call("echo 'This && should be treated as one'")
@@ -327,7 +327,7 @@ class TestChainedCommands(unittest.TestCase):
         
         # Test with double quotes containing &&
         double_quoted_cmd = 'echo "First && not a separator" && echo Final'
-        self.executor.execute_chained_commands(double_quoted_cmd)
+        executor.execute_chained_commands(double_quoted_cmd)
         self.assertEqual(self.mock_cmd.call_count, 2, f"Expected 2 calls but got {self.mock_cmd.call_count}")
         # Check that commands were properly split respecting quotes
         self.mock_cmd.assert_any_call('echo "First && not a separator"')
@@ -338,7 +338,7 @@ class TestChainedCommands(unittest.TestCase):
         
         # Test with nested quotes
         nested_quotes_cmd = 'echo "Outer \'inner && still outer\' end" && echo Last'
-        self.executor.execute_chained_commands(nested_quotes_cmd)
+        executor.execute_chained_commands(nested_quotes_cmd)
         self.assertEqual(self.mock_cmd.call_count, 2, f"Expected 2 calls but got {self.mock_cmd.call_count}")
         # Check that commands were properly split respecting nested quotes
         self.mock_cmd.assert_any_call('echo "Outer \'inner && still outer\' end"')

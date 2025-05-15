@@ -3,9 +3,9 @@ Directory stack commands (pushd/popd) plugin.
 """
 import os
 import click
-from plugin_system import BuiltinCommand, BuiltinCommandRegistry
+from ..plugin_system import BuiltinCommand, BuiltinCommandRegistry
 # Import the aliases dictionary to check for aliases in command chains
-from plugins.alias_command import aliases
+from .alias_command import aliases
 
 # Directory stack (shared state at module level)
 dir_stack = []

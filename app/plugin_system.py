@@ -4,6 +4,11 @@ This module provides a registry and base classes for plugins.
 """
 import os
 import sys
+
+# Add the parent directory to sys.path for imports
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
 import importlib
 import pkgutil
 import click
@@ -132,14 +137,14 @@ def load_plugins():
                 f.write("# This file marks the plugins directory as a Python package\n")
         
         # Import the plugins package
-        plugins_package = importlib.import_module("plugins")
+        plugins_package = importlib.import_module(".plugins", package="app")
         
         # Load all modules in the plugins package
         for _, name, is_pkg in pkgutil.iter_modules([plugins_dir]):
             if not is_pkg:
                 try:  
                     # Simple import without trying to reload
-                    module_name = f"plugins.{name}"
+                    module_name = f"app.plugins.{name}"
                     module = importlib.import_module(module_name)
                     
                     click.echo(click.style(f"Loaded plugin module: {name}", fg="green"))

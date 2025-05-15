@@ -3,7 +3,7 @@ Change Directory (cd) command plugin.
 """
 import os
 import click
-from plugin_system import BuiltinCommand, BuiltinCommandRegistry
+from ..plugin_system import BuiltinCommand, BuiltinCommandRegistry
 
 
 class ChangeDirectoryCommand(BuiltinCommand):

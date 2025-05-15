@@ -1,10 +1,9 @@
 """
-Change chat partner plugin.
+Plugin to change AI partner in the current session.
 """
 import click
-import chat
-from plugin_system import BuiltinCommand, BuiltinCommandRegistry
-
+from app import chat
+from ..plugin_system import BuiltinCommand, BuiltinCommandRegistry
 
 class ChangePartnerPlugin(BuiltinCommand):
     """Plugin for changing chat partners with ':)' prefix"""

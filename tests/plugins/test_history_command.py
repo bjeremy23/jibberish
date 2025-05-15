@@ -11,8 +11,9 @@ from unittest.mock import patch, MagicMock
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 # Import the plugin to test
-from plugins import history_command
+from app.plugins import history_command
 from tests.utils.test_utils import CaptureOutput, mock_click_echo
+from tests import test_helper
 
 class TestHistoryCommand(unittest.TestCase):
     """Tests for the HistoryCommand plugin."""
@@ -27,7 +28,7 @@ class TestHistoryCommand(unittest.TestCase):
         self.mock_click_echo = self.click_echo_patcher.start()
         
         # Mock the history module's list_history function
-        self.list_history_patcher = patch('history.list_history')
+        self.list_history_patcher = patch('app.history.list_history')
         self.mock_list_history = self.list_history_patcher.start()
     
     def tearDown(self):

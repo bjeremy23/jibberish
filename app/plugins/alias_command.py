@@ -5,7 +5,7 @@ import os
 import re
 import json
 import click
-from plugin_system import BuiltinCommand, BuiltinCommandRegistry
+from ..plugin_system import BuiltinCommand, BuiltinCommandRegistry
 
 # File to store aliases
 ALIASES_FILE = os.path.expanduser("~/.jbrsh_aliases")

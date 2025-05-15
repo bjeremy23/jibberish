@@ -138,7 +138,7 @@ cd jibberish
 
 # To enter Jibberish
 source venv/bin/activate
-python3 ./jibberish.py
+python3 ./app/jibberish.py
 
 ```
 

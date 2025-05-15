@@ -11,8 +11,9 @@ from unittest.mock import patch, MagicMock
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 # Import the plugin to test
-from plugins import ssh_command
+from app.plugins import ssh_command
 from tests.utils.test_utils import CaptureOutput, mock_click_echo, mock_os_system
+from tests import test_helper
 
 class TestSSHCommand(unittest.TestCase):
     """Tests for the SSHCommand plugin."""
@@ -27,7 +28,7 @@ class TestSSHCommand(unittest.TestCase):
         self.mock_click_echo = self.click_echo_patcher.start()
         
         # Mock subprocess.run to prevent real SSH calls
-        self.subprocess_run_patcher = patch('plugins.ssh_command.subprocess.run')
+        self.subprocess_run_patcher = patch('app.plugins.ssh_command.subprocess.run')
         self.mock_subprocess_run = self.subprocess_run_patcher.start()
         # Create a mock CompletedProcess object to return
         self.mock_subprocess_run.return_value = MagicMock(returncode=0)
