@@ -21,6 +21,7 @@ setup(
     url="https://github.com/bjeremy23/jibberish",
     packages=find_packages(),
     include_package_data=True,
+    scripts=["scripts/jbrsh"],  # Include the wrapper script
     install_requires=[
         "click>=8.0.0",
         "openai>=1.0.0",
@@ -35,6 +36,10 @@ setup(
     entry_points={
         "console_scripts": [
             "jibberish=app.jibberish:main",
+            "jbrsh=app.jibberish:main",
+            "jbrsh-version=app.version_standalone:main",
+            "jbrsh-question=app.question_standalone:main",
+            "jbrsh-command=app.command_standalone:main",
         ],
     },
     classifiers=[

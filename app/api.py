@@ -6,33 +6,39 @@ from contextlib import redirect_stdout
 from app.version import __version__, VERSION_NAME
 from app.utils import silence_stdout, is_standalone_mode
 
-# Load environment variables in silent mode if standalone
-with silence_stdout():
-    # openai
-    with open(os.path.expanduser("~/.jbrsh")) as env:
-        for line in env:
-            line = line.strip()
-            # Skip empty lines or comments
-            if not line or line.startswith("//") or line.startswith("#"):
-                continue
-            # Only try to split if there's an equal sign
-            if "=" in line:
-                key, value = line.split("=", 1)  # Split only on the first =
-                key = key.strip()
-                
-                # Special handling for GIT_CONFIG_PARAMETERS which needs quoted value
-                if key == "GIT_CONFIG_PARAMETERS":
-                    # Extract the actual value while preserving inner quotes
-                    if value.startswith('"') and value.endswith('"'):
-                        value = value[1:-1]  # Remove outer double quotes only
-                    os.environ[key] = value
+# First set the JIBBERISH_STANDALONE_MODE environment variable if it's not already set
+# This ensures consistent behavior even when modules are imported directly
+if 'JIBBERISH_STANDALONE_MODE' not in os.environ:
+    os.environ['JIBBERISH_STANDALONE_MODE'] = '0'  # Default to non-standalone mode
+
+# Load environment variables - always load them, but only print in non-standalone mode
+with open(os.path.expanduser("~/.jbrsh")) as env:
+    for line in env:
+        line = line.strip()
+        # Skip empty lines or comments
+        if not line or line.startswith("//") or line.startswith("#"):
+            continue
+        # Only try to split if there's an equal sign
+        if "=" in line:
+            key, value = line.split("=", 1)  # Split only on the first =
+            key = key.strip()
+            
+            # Special handling for GIT_CONFIG_PARAMETERS which needs quoted value
+            if key == "GIT_CONFIG_PARAMETERS":
+                # Extract the actual value while preserving inner quotes
+                if value.startswith('"') and value.endswith('"'):
+                    value = value[1:-1]  # Remove outer double quotes only
+                os.environ[key] = value
+                if not is_standalone_mode():
                     print(f"Environment variable {key}={value}")
-                else:
-                    # Standard processing for other variables - remove quotes if present
-                    value = value.strip('"\'')
-                    os.environ[key] = value
+            else:
+                # Standard processing for other variables - remove quotes if present
+                value = value.strip('"\'')
+                os.environ[key] = value
+                if not is_standalone_mode():
                     print(f"Set {key} to {value}")
-        
+    
+    if not is_standalone_mode():
         print("Environment variables loaded from ~/.jbrsh\n")
 
 ai_choice = os.environ.get('AI_CHOICE', 'openai').lower()

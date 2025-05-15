@@ -13,6 +13,7 @@ if parent_dir not in sys.path:
 
 from app import api
 from app.plugin_system import BuiltinCommand, BuiltinCommandRegistry
+from app.utils import silence_stdout, is_standalone_mode
 
 # Use a uniquely named class to force reloading
 class VersionPlugin(BuiltinCommand):
@@ -30,13 +31,16 @@ class VersionPlugin(BuiltinCommand):
         
     def execute(self, command):
         """Execute the version command."""
-        # Display version details
-        click.echo(click.style(f"Jibberish v{api.__version__}", fg="green", bold=True))
-        click.echo(click.style(f"{api.VERSION_NAME}", fg="green"))
+        # In standalone mode, we only want to display the version number
+        # Skip all other output when running with -v option
+        # Display version details - don't silence this as it's the main output
+        print(click.style(f"Jibberish v{api.__version__}", fg="green", bold=True))
+        print(click.style(f"{api.VERSION_NAME}", fg="green"))
         
-        # Print additional information if desired
-        click.echo()
-        click.echo("For more information, visit: https://github.com/bjeremy23/jibberish")
+        # Print additional information if desired - only show in interactive mode
+        with silence_stdout():
+            click.echo()
+            click.echo("For more information, visit: https://github.com/bjeremy23/jibberish")
         return True
 
 

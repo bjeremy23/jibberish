@@ -12,9 +12,11 @@ args = sys.argv[1:] if len(sys.argv) > 1 else []
 standalone_options = ['-v', '--version', '-q', '--question', '-c', '--command']
 is_standalone_mode = args and args[0] in standalone_options
 
+# Set the environment variable for standalone mode early so other modules can detect it
 if is_standalone_mode:
-    # Set environment variable early so other modules can use it
     os.environ['JIBBERISH_STANDALONE_MODE'] = '1'
+    # Set another environment variable to completely suppress verbose output
+    os.environ['JIBBERISH_SILENT'] = '1'
 
 # Process the help flag specially if present (before any imports)
 if args and args[0] in ['-h', '--help']:
@@ -51,12 +53,6 @@ Options:
 """
     print(click_help_text)
     sys.exit(0)
-    
-# Redirect stdout before any other imports for regular standalone commands
-if is_standalone_mode:
-    # Redirect stdout before any other imports
-    original_stdout = sys.stdout
-    sys.stdout = io.StringIO()  # Redirect to a string buffer
 
 # Now do the rest of the imports
 import builtins
@@ -95,6 +91,12 @@ def version_standalone():
     """Run the version command in standalone mode"""
     # Import the version plugin
     from app.plugins.version_command import VersionPlugin
+    
+    # Restore stdout for displaying the version
+    if 'real_stdout' in globals():
+        sys.stdout = real_stdout
+    
+    # Now execute the version command
     version_plugin = VersionPlugin()
     version_plugin.execute("version")
     return True
@@ -103,6 +105,11 @@ def question_standalone(query):
     """Run the question command in standalone mode"""
     # Import the question plugin
     from app.plugins.question_command import QuestionPlugin
+    
+    # Restore stdout for displaying the answer
+    if 'real_stdout' in globals():
+        sys.stdout = real_stdout
+    
     question_cmd = QuestionPlugin()
     # Prepend the ? character
     formatted_query = f"?{query}"
@@ -113,6 +120,11 @@ def ai_command_standalone(query):
     """Run the AI command plugin in standalone mode"""
     # Import the AI command plugin
     from app.plugins.ai_command import AICommandPlugin
+    
+    # Restore stdout for displaying the command and output
+    if 'real_stdout' in globals():
+        sys.stdout = real_stdout
+    
     ai_cmd = AICommandPlugin()
     # Prepend the # character
     formatted_query = f"#{query}"
@@ -174,10 +186,6 @@ def cli(version, question, command):
     if is_standalone:
         os.environ['JIBBERISH_STANDALONE_MODE'] = '1'
     
-    # Restore stdout for any commands - we want to see the output from this point forward
-    if 'original_stdout' in globals():
-        sys.stdout = original_stdout
-        
     # For help option, Click will automatically display the help text and exit
     # so we don't need additional handling for it
     
@@ -281,6 +289,18 @@ def cli(version, question, command):
 
 def main():
     """Entry point for the package when installed via pip."""
+    # Special case for standalone version display (jbrsh -v from pip installation)
+    import os.path
+    script_name = os.path.basename(sys.argv[0])
+    
+    if script_name == "jbrsh-version":
+        # Import the standalone version display module
+        from app.version import __version__, VERSION_NAME
+        print(f"Jibberish v{__version__}")
+        print(f"{VERSION_NAME}")
+        return
+    
+    # Otherwise, run the normal CLI
     cli()
 
 if __name__ == "__main__":
