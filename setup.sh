@@ -210,34 +210,9 @@ fi
 
 # Create ~/.jbrsh if it doesn't exist
 if [ ! -f ~/.jbrsh ]; then
-    if [ -f ".jbrsh" ]; then
-        echo -e "${GREEN}Creating ~/.jbrsh configuration file...${RESET}"
-        cp .jbrsh ~/.jbrsh
-        echo -e "${YELLOW}Please edit ~/.jbrsh to set your API keys and preferences.${RESET}"
-    else
-        echo -e "${RED}Warning: .jbrsh template file not found!${RESET}"
-        echo -e "${YELLOW}Creating a minimal ~/.jbrsh file...${RESET}"
-        cat > ~/.jbrsh << EOL
-# Jibberish configuration file
-# Please update with your API keys and preferences
-
-AI_CHOICE="openai"
-
-# OpenAI API Key - Replace with your actual key
-OPEN_API_KEY=<your-api-key-here>
-OPEN_API_MODEL=gpt-4
-
-# Set to true to be prompted before executing AI-generated commands
-PROMPT_AI_COMMANDS=true
-
-# List of commands that will prompt before executing
-WARN_LIST="rm, rmdir, mv, cp, ln, chmod, chown, chgrp, kill, pkill, killall"
-EOL
-        echo -e "${YELLOW}Created a minimal ~/.jbrsh file. Please edit it to add your API keys.${RESET}"
-    fi
-else
-    echo -e "${YELLOW}~/.jbrsh configuration file already exists.${RESET}"
-fi
+    echo -e "${GREEN}Creating ~/.jbrsh configuration file...${RESET}"
+    cp .jbrsh ~/.jbrsh
+    echo -e "${YELLOW}Please edit ~/.jbrsh to set your API keys and preferences.${RESET}"
 
 # Make sure the main script is executable
 if [ ! -x "jibberish.py" ]; then

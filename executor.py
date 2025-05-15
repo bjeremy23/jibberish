@@ -529,9 +529,15 @@ def execute_command(command):
             
             # For SSH commands with successful return code, treat stderr as normal output 
             # since they often output informational messages to stderr
-            if is_ssh_command and returncode == 0:
-                click.echo(error)
-                return
+            if is_ssh_command:
+                if returncode == 0:
+                    click.echo(error)
+                    return
+                else:
+                    # For SSH commands with errors, display the original error message
+                    # rather than trying to interpret it
+                    click.echo(click.style(error.rstrip(), fg="red"))
+                    return  # Return after displaying the error
                 
             # Check for different types of errors (process each error only once)
             if "command not found" in error:
@@ -569,10 +575,17 @@ def execute_command(command):
                             click.echo(click.style("No explanation provided.", fg="red"))
         elif returncode != 0:
             # Handle case where return code is non-zero but there's no error message
-            # This can happen with some command types
-            cmd_name = command.strip().split()[0] if command.strip() else "Command" 
-            click.echo(click.style(f"{cmd_name}: command failed with no error output", fg="red"))
+            # This should only happen if we really have no error output at all
+            # For SSH/SCP commands, we should have already displayed the error and returned
             
+            # Double-check if this is an SSH-related command (shouldn't reach here if is_ssh_command was true)
+            if is_ssh_command:
+                # This is a failsafe in case the SSH error handling above missed something
+                # Simply return without showing the "command failed with no error output" message
+                return
+            
+            cmd_name = command.strip().split()[0] if command.strip() else "Command" 
+
             # Prompt for more information if IGNORE_ERRORS is not set to true
             if not ignore_errors:
                 choice = input(click.style("\nMore information about this error? [y/n]: ", fg="blue"))
