@@ -1,9 +1,8 @@
 import os
 import openai
 
-# Define version information
-__version__ = "25.05.2"
-VERSION_NAME = "GermanRex Release"
+# Import version information from centralized version module
+from version import __version__, VERSION_NAME
 
 # openai
 with open(os.path.expanduser("~/.jbrsh")) as env:
