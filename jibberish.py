@@ -183,13 +183,23 @@ def cli(version, question, command):
     click.echo(click.style(f"\n{sentence}", fg="red", bold=True))
 
     # get the warn environment variable
+    def clear_readline_buffer():
+        import readline
+        try:
+            # This works with GNU readline
+            readline.set_pre_input_hook(lambda: readline.insert_text(''))
+            readline.redisplay()
+        except Exception:
+            pass
+
     while True:
         try:
             # find the current directory
             current_directory = os.getcwd()
 
-            prompt_text = click.style(f"{current_directory}# ", fg="green")
+            prompt_text = f"{current_directory}# "
             command = input(prompt_text).strip()
+
             if command.lower() in ["exit", "quit", "q"]:
                 # prompt the user to confirm exit
                 choice = input(click.style("Are you sure you want to exit? [y/n]: ", fg="blue"))
@@ -245,6 +255,9 @@ def cli(version, question, command):
         else:
             # we will execute the command in the case of a non-built-in command or
             execute_command(command)
+
+        # Always clear the readline buffer before the next prompt
+        clear_readline_buffer()
 
 if __name__ == "__main__":
     cli()
