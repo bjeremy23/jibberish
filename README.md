@@ -117,7 +117,7 @@ Jibberish handles both interactive commands and background processes:
 
 For more advanced usage and detailed documentation on specific features, refer to the guides linked below.
 
-### Installation
+### Installation in a Virtual Environment
 
 Jibberish provides a simple setup script to install all dependencies and configure your environment. This script will:
 
@@ -126,6 +126,8 @@ Jibberish provides a simple setup script to install all dependencies and configu
 3. Configure the `.jbrsh` configuration file in your home directory
 4. Verify the installation
 
+#### Standard Installation
+
 ```bash
 # Clone the repository (if you haven't already)
 git clone https://github.com/bjeremy23/jibberish.git
@@ -133,9 +135,41 @@ cd jibberish
 
 # Run the setup script
 ./setup.sh
+
+# To enter Jibberish
+source venv/bin/activate
+python3 ./jibberish.py
+
 ```
 
-For detailed installation options, including pip packaging, development mode, and more advanced features, see [README/README-installation.md](README/README-installation.md).
+#### Installation Options
+
+The setup script supports several command-line options:
+
+```bash
+Usage: ./setup.sh [options]
+Options:
+  --non-interactive    Run without prompts (assumes yes for all questions)
+  --with-azure         Install Azure OpenAI dependencies
+  --yes, -y            Answer yes to all prompts
+  --help, -h           Show this help message
+```
+
+#### Examples
+
+```bash
+# Install with Azure OpenAI support
+./setup.sh --with-azure
+
+# Non-interactive installation for CI/CD environments
+./setup.sh --non-interactive
+
+# Automatically answer yes to all prompts
+./setup.sh --yes
+
+```
+
+After installation, you'll need to edit the `~/.jbrsh` file to add your API keys and customize settings. For detailed instructions on setting up your API credentials, see [README/README-setup.md](README/README-setup.md).
 
 ### Standalone Mode
 

@@ -246,9 +246,5 @@ def cli(version, question, command):
             # we will execute the command in the case of a non-built-in command or
             execute_command(command)
 
-def main():
-    """Entry point for the application when installed as a package."""
-    cli()
-
 if __name__ == "__main__":
-    main()
+    cli()

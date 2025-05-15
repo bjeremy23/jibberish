@@ -1,8 +1,9 @@
 import os
 import openai
 
-# Import version information from centralized version module
-from version import __version__, VERSION_NAME
+# Define version information
+__version__ = "25.05.2"
+VERSION_NAME = "GermanRex Release"
 
 # openai
 with open(os.path.expanduser("~/.jbrsh")) as env:
@@ -115,5 +116,4 @@ else:
         api_key=os.environ['OPEN_API_KEY']
     )
     model =  os.environ['OPEN_API_MODEL']
-
 
