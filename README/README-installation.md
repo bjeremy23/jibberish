@@ -14,6 +14,8 @@ pip install .
 
 # With Azure OpenAI support
 pip install "git+https://github.com/bjeremy23/jibberish.git#egg=jibberish[azure]"
+# Or use the newer syntax to avoid deprecation warnings (pip 25.2+)
+pip install "jibberish[azure] @ git+https://github.com/bjeremy23/jibberish.git"
 
 # If you encounter dependency issues with Azure packages,
 # install them separately:
