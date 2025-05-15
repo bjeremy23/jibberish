@@ -265,5 +265,9 @@ def cli(version, question, command):
         # Always clear the readline buffer before the next prompt
         clear_readline_buffer()
 
-if __name__ == "__main__":
+def main():
+    """Entry point for the package when installed via pip."""
     cli()
+
+if __name__ == "__main__":
+    main()

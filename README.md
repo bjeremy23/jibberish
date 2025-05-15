@@ -1,6 +1,8 @@
 # Jibberish
 ## Linux AI Shell
 
+For installation instructions, see [README-installation.md](README/README-installation.md).
+
 ### Commands:
 - `<command>`                 - Execute a shell command
 - `#<command description>`    - Ask the AI to generate shell commands based on the user input
@@ -10,7 +12,7 @@
 
 ### Examples
 
-The following examples demonstrate some of Jibberish's powerful capabilities:
+The following examples demonstrate some of Jibberish's capabilities:
 
 #### Natural Language Command Generation
 
@@ -117,59 +119,6 @@ Jibberish handles both interactive commands and background processes:
 
 For more advanced usage and detailed documentation on specific features, refer to the guides linked below.
 
-### Installation in a Virtual Environment
-
-Jibberish provides a simple setup script to install all dependencies and configure your environment. This script will:
-
-1. Create a Python virtual environment
-2. Install all required dependencies
-3. Configure the `.jbrsh` configuration file in your home directory
-4. Verify the installation
-
-#### Standard Installation
-
-```bash
-# Clone the repository (if you haven't already)
-git clone https://github.com/bjeremy23/jibberish.git
-cd jibberish
-
-# Run the setup script
-./setup.sh
-
-# To enter Jibberish
-source venv/bin/activate
-python3 ./app/jibberish.py
-
-```
-
-#### Installation Options
-
-The setup script supports several command-line options:
-
-```bash
-Usage: ./setup.sh [options]
-Options:
-  --non-interactive    Run without prompts (assumes yes for all questions)
-  --with-azure         Install Azure OpenAI dependencies
-  --yes, -y            Answer yes to all prompts
-  --help, -h           Show this help message
-```
-
-#### Examples
-
-```bash
-# Install with Azure OpenAI support
-./setup.sh --with-azure
-
-# Non-interactive installation for CI/CD environments
-./setup.sh --non-interactive
-
-# Automatically answer yes to all prompts
-./setup.sh --yes
-
-```
-
-After installation, you'll need to edit the `~/.jbrsh` file to add your API keys and customize settings. For detailed instructions on setting up your API credentials, see [README/README-setup.md](README/README-setup.md).
 
 ### Standalone Mode
 
@@ -200,12 +149,9 @@ python jibberish.py -h
 
 The standalone mode is designed to be clean and concise, outputting only the relevant information without any debug or environment loading messages.
 
-### ~/.jbrsh
-- Add this file to your home directory
-- This file contains environment variables used within the shell
-- You will need to fill out ENV variables to connect to your AI service
+### Configuration
 
-For detailed instructions on setting up your API credentials, see [README/README-setup.md](README/README-setup.md).
+For detailed instructions on setting up your API credentials and configuring Jibberish, see [README/README-ai-setup.md](README/README-ai-setup.md).
 
 ### Plugins
 The Jibberish shell includes several plugins that extend its functionality. 
