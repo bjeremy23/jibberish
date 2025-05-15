@@ -75,7 +75,6 @@ class AICommandPlugin(BuiltinCommand):
         
         # Execute the command
         if to_execute:
-            click.echo(click.style(f"Executing: {to_execute}", fg="green"))
             return False, to_execute
             
         return True
