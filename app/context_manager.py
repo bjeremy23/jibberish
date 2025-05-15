@@ -104,7 +104,6 @@ def add_specialized_contexts(command, base_context):
     for context_type, context_data in context_map.items():
         if any(keyword in command_lower for keyword in context_data['keywords']):
             base_context.extend(context_data['context'])
-            logging.debug(f"Added {context_type} context based on keyword match")
     
     return base_context
 

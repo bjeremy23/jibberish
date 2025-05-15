@@ -8,10 +8,12 @@ if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
 from app.plugin_system import BuiltinCommandRegistry, load_plugins
+from app.utils import silence_stdout, is_standalone_mode
 
 
 # Load all plugins when this module is imported
-load_plugins()
+with silence_stdout():
+    load_plugins()
 
 
 def is_built_in(command):

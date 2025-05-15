@@ -8,6 +8,14 @@ import time
 # Get command-line arguments
 args = sys.argv[1:] if len(sys.argv) > 1 else []
 
+# Check if we're in standalone mode - do this early before any imports
+standalone_options = ['-v', '--version', '-q', '--question', '-c', '--command']
+is_standalone_mode = args and args[0] in standalone_options
+
+if is_standalone_mode:
+    # Set environment variable early so other modules can use it
+    os.environ['JIBBERISH_STANDALONE_MODE'] = '1'
+
 # Process the help flag specially if present (before any imports)
 if args and args[0] in ['-h', '--help']:
     # For help command, we need to replace the actual Python code execution
@@ -44,9 +52,6 @@ Options:
     print(click_help_text)
     sys.exit(0)
     
-# Check if we're running in standalone mode with command line args
-is_standalone_mode = len(sys.argv) > 1 and sys.argv[1] in ['-v', '--version', '-q', '--question', '-c', '--command']
-
 # Redirect stdout before any other imports for regular standalone commands
 if is_standalone_mode:
     # Redirect stdout before any other imports
@@ -55,11 +60,7 @@ if is_standalone_mode:
 
 # Now do the rest of the imports
 import builtins
-builtins.JIBBERISH_STANDALONE_MODE = len(sys.argv) > 1 and sys.argv[1] in ['-v', '--version', '-q', '--question', '-c', '--command', '-h', '--help']
-
-# Set an environment variable for standalone mode to use in other modules
-if is_standalone_mode:
-    os.environ['JIBBERISH_STANDALONE_MODE'] = '1'
+builtins.JIBBERISH_STANDALONE_MODE = is_standalone_mode
 
 # Add the parent directory to sys.path for imports
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -77,6 +78,7 @@ from app.executor import (
     execute_chained_commands,
     is_built_in
 )
+from app.utils import silence_stdout, is_standalone_mode
 
 def help():
     """
@@ -165,6 +167,13 @@ def cli(version, question, command):
       python jibberish.py -q "What is Linux?"   # Ask a question
       python jibberish.py -c "list large files" # Generate and execute a command
     """
+    # Determine if we're in standalone mode based on command-line arguments
+    is_standalone = bool(version or question or command)
+    
+    # Set environment variable for standalone mode - do this early for other modules
+    if is_standalone:
+        os.environ['JIBBERISH_STANDALONE_MODE'] = '1'
+    
     # Restore stdout for any commands - we want to see the output from this point forward
     if 'original_stdout' in globals():
         sys.stdout = original_stdout
@@ -189,7 +198,8 @@ def cli(version, question, command):
     help()
 
     # use a high temperature for the welcome message
-    sentence = chat.ask_question("Give me only one short sentence Welcoming the user to Jibberish and introduce yourself and say your here to help.", 1.0)
+    with silence_stdout():
+        sentence = chat.ask_question("Give me only one short sentence Welcoming the user to Jibberish and introduce yourself and say your here to help.", 1.0)
     click.echo(click.style(f"\n{sentence}", fg="red", bold=True))
 
     # get the warn environment variable

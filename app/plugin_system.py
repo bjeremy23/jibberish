@@ -14,6 +14,8 @@ import pkgutil
 import click
 from abc import ABC, abstractmethod
 
+from app.utils import silence_stdout
+
 
 class BuiltinCommand(ABC):
     """Base class for all built-in command plugins"""
@@ -92,12 +94,11 @@ class BuiltinCommandRegistry:
         if plugin.is_required or plugin.is_enabled:
             cls._plugins.append(plugin)
             status = "required" if plugin.is_required else "optional (enabled)"
-            # Check if in standalone mode
-            is_standalone_mode = os.environ.get('JIBBERISH_STANDALONE_MODE') == '1'
-            if not is_standalone_mode:
+            with silence_stdout():
                 click.echo(click.style(f"Registered plugin: {plugin.plugin_name} - {status}", fg="green"))
         else:
-            click.echo(click.style(f"Skipping disabled optional plugin: {plugin.plugin_name}", fg="yellow"))
+            with silence_stdout():
+                click.echo(click.style(f"Skipping disabled optional plugin: {plugin.plugin_name}", fg="yellow"))
     
     @classmethod
     def find_handler(cls, command):
@@ -120,20 +121,16 @@ def load_plugins():
     """
     Dynamically load all plugins from the plugins directory.
     """
-    # Check if in standalone mode
-    is_standalone_mode = os.environ.get('JIBBERISH_STANDALONE_MODE') == '1'
-    
-    if not is_standalone_mode:
+    with silence_stdout():
         click.echo(click.style("Loading plugins...", fg="blue"))
-    
-    # Get the path to the plugins directory
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    plugins_dir = os.path.join(current_dir, "plugins")
-    
-    # Create plugins directory if it doesn't exist
-    if not os.path.exists(plugins_dir):
-        os.makedirs(plugins_dir)
-        if not is_standalone_mode:
+        
+        # Get the path to the plugins directory
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        plugins_dir = os.path.join(current_dir, "plugins")
+        
+        # Create plugins directory if it doesn't exist
+        if not os.path.exists(plugins_dir):
+            os.makedirs(plugins_dir)
             click.echo(click.style(f"Created plugins directory: {plugins_dir}", fg="blue"))
     
     # Import all modules in the plugins package
@@ -150,19 +147,18 @@ def load_plugins():
         # Load all modules in the plugins package
         for _, name, is_pkg in pkgutil.iter_modules([plugins_dir]):
             if not is_pkg:
-                try:  
-                    # Simple import without trying to reload
-                    module_name = f"app.plugins.{name}"
-                    module = importlib.import_module(module_name)
-                    
-                    if not is_standalone_mode:
+                with silence_stdout():
+                    try:  
+                        # Simple import without trying to reload
+                        module_name = f"app.plugins.{name}"
+                        module = importlib.import_module(module_name)
+                        
                         click.echo(click.style(f"Loaded plugin module: {name}", fg="green"))
-                except Exception as e:
-                    if not is_standalone_mode:
+                    except Exception as e:
                         click.echo(click.style(f"Error loading plugin {name}: {str(e)}", fg="red"))
                         # Print more details for exceptions
                         import traceback
                         click.echo(traceback.format_exc())
     except Exception as e:
-        if not is_standalone_mode:
+        with silence_stdout():
             click.echo(click.style(f"Error loading plugins: {str(e)}", fg="red"))
