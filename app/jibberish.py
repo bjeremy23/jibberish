@@ -57,6 +57,10 @@ if is_standalone_mode:
 import builtins
 builtins.JIBBERISH_STANDALONE_MODE = len(sys.argv) > 1 and sys.argv[1] in ['-v', '--version', '-q', '--question', '-c', '--command', '-h', '--help']
 
+# Set an environment variable for standalone mode to use in other modules
+if is_standalone_mode:
+    os.environ['JIBBERISH_STANDALONE_MODE'] = '1'
+
 # Add the parent directory to sys.path for imports
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if parent_dir not in sys.path:
@@ -96,7 +100,7 @@ def version_standalone():
 def question_standalone(query):
     """Run the question command in standalone mode"""
     # Import the question plugin
-    from plugins.question_command import QuestionPlugin
+    from app.plugins.question_command import QuestionPlugin
     question_cmd = QuestionPlugin()
     # Prepend the ? character
     formatted_query = f"?{query}"
@@ -106,7 +110,7 @@ def question_standalone(query):
 def ai_command_standalone(query):
     """Run the AI command plugin in standalone mode"""
     # Import the AI command plugin
-    from plugins.ai_command import AICommandPlugin
+    from app.plugins.ai_command import AICommandPlugin
     ai_cmd = AICommandPlugin()
     # Prepend the # character
     formatted_query = f"#{query}"

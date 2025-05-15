@@ -4,6 +4,9 @@ import openai
 # Import version information from centralized version module
 from app.version import __version__, VERSION_NAME
 
+# Check if in standalone mode
+is_standalone_mode = os.environ.get('JIBBERISH_STANDALONE_MODE') == '1'
+
 # openai
 with open(os.path.expanduser("~/.jbrsh")) as env:
     for line in env:
@@ -22,13 +25,17 @@ with open(os.path.expanduser("~/.jbrsh")) as env:
                 if value.startswith('"') and value.endswith('"'):
                     value = value[1:-1]  # Remove outer double quotes only
                 os.environ[key] = value
-                print(f"Environment variable {key}={value}")
+                if not is_standalone_mode:
+                    print(f"Environment variable {key}={value}")
             else:
                 # Standard processing for other variables - remove quotes if present
                 value = value.strip('"\'')
                 os.environ[key] = value
-                print(f"Set {key} to {value}")
-    print("Environment variables loaded from ~/.jbrsh\n")
+                if not is_standalone_mode:
+                    print(f"Set {key} to {value}")
+    
+    if not is_standalone_mode:
+        print("Environment variables loaded from ~/.jbrsh\n")
 
 ai_choice = os.environ.get('AI_CHOICE', 'openai').lower()
 if ai_choice not in ["openai", "azure"]:
@@ -49,9 +56,11 @@ if ai_choice == "azure":
                     credential = ManagedIdentityCredential(client_id=os.environ['AZURE_CLIENT_ID'])
                     auth_method = "managed_identity"
                     token_provider = get_bearer_token_provider(credential, "https://cognitiveservices.azure.com/.default")
-                    print("Using Azure Managed Identity authentication")
+                    if not is_standalone_mode:
+                        print("Using Azure Managed Identity authentication")
                 except (ImportError, Exception) as e:
-                    print(f"Could not use Managed Identity: {e}")
+                    if not is_standalone_mode:
+                        print(f"Could not use Managed Identity: {e}")
                     auth_method = None
             elif os.environ.get('AZURE_USER_ID'):
                 try:
@@ -59,13 +68,16 @@ if ai_choice == "azure":
                     credential = AzureCliCredential()
                     auth_method = "user_credential"
                     token_provider = get_bearer_token_provider(credential, "https://cognitiveservices.azure.com/.default")
-                    print("Using Azure CLI credential authentication")
+                    if not is_standalone_mode:
+                        print("Using Azure CLI credential authentication")
                 except (ImportError, Exception) as e:
-                    print(f"Could not use Azure CLI credentials: {e}.  Please ensure you are logged in to Azure CLI prior to running Jibberish.")
+                    if not is_standalone_mode:
+                        print(f"Could not use Azure CLI credentials: {e}.  Please ensure you are logged in to Azure CLI prior to running Jibberish.")
                     auth_method = None
             elif os.environ.get('AZURE_OPENAI_API_KEY'):
                 auth_method = "key"
-                print("Using API key authentication")
+                if not is_standalone_mode:
+                    print("Using API key authentication")
             else:
                 auth_method = None
                 raise ValueError("No valid authentication method available. Please provide AZURE_CLIENT_ID, AZURE_USER_ID, or AZURE_OPENAI_API_KEY.")
@@ -86,9 +98,11 @@ if ai_choice == "azure":
             
             # For Azure, we use the deployment name as the model name
             model = os.environ['AZURE_OPENAI_DEPLOYMENT_NAME']
-            print(f"Using AzureOpenAI client (v1.0.0+) with {auth_method} authentication for model {model}")
+            if not is_standalone_mode:
+                print(f"Using AzureOpenAI client (v1.0.0+) with {auth_method} authentication for model {model}")
         except (AttributeError) as e:
-            print(f"Error initializing AzureOpenAI client: {e}")
+            if not is_standalone_mode:
+                print(f"Error initializing AzureOpenAI client: {e}")
             # Fallback to standard client with key-based auth only
             if os.environ.get('AZURE_OPENAI_API_KEY'):
                 client = openai.OpenAI(api_key=os.environ['AZURE_OPENAI_API_KEY'])
@@ -97,7 +111,8 @@ if ai_choice == "azure":
                 raise ValueError("Cannot use managed identity or user credentials with legacy OpenAI client. Please provide AZURE_OPENAI_API_KEY.")
     except ImportError:
         # Use legacy Azure configuration (pre-v1.0.0)
-        print("Using legacy OpenAI Azure configuration (pre-v1.0.0)")
+        if not is_standalone_mode:
+            print("Using legacy OpenAI Azure configuration (pre-v1.0.0)")
         openai.api_type = "azure"
         
         # Can only use key-based auth with legacy client

@@ -92,7 +92,10 @@ class BuiltinCommandRegistry:
         if plugin.is_required or plugin.is_enabled:
             cls._plugins.append(plugin)
             status = "required" if plugin.is_required else "optional (enabled)"
-            click.echo(click.style(f"Registered plugin: {plugin.plugin_name} - {status}", fg="green"))
+            # Check if in standalone mode
+            is_standalone_mode = os.environ.get('JIBBERISH_STANDALONE_MODE') == '1'
+            if not is_standalone_mode:
+                click.echo(click.style(f"Registered plugin: {plugin.plugin_name} - {status}", fg="green"))
         else:
             click.echo(click.style(f"Skipping disabled optional plugin: {plugin.plugin_name}", fg="yellow"))
     
@@ -117,7 +120,11 @@ def load_plugins():
     """
     Dynamically load all plugins from the plugins directory.
     """
-    click.echo(click.style("Loading plugins...", fg="blue"))
+    # Check if in standalone mode
+    is_standalone_mode = os.environ.get('JIBBERISH_STANDALONE_MODE') == '1'
+    
+    if not is_standalone_mode:
+        click.echo(click.style("Loading plugins...", fg="blue"))
     
     # Get the path to the plugins directory
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -126,7 +133,8 @@ def load_plugins():
     # Create plugins directory if it doesn't exist
     if not os.path.exists(plugins_dir):
         os.makedirs(plugins_dir)
-        click.echo(click.style(f"Created plugins directory: {plugins_dir}", fg="blue"))
+        if not is_standalone_mode:
+            click.echo(click.style(f"Created plugins directory: {plugins_dir}", fg="blue"))
     
     # Import all modules in the plugins package
     try:
@@ -147,11 +155,14 @@ def load_plugins():
                     module_name = f"app.plugins.{name}"
                     module = importlib.import_module(module_name)
                     
-                    click.echo(click.style(f"Loaded plugin module: {name}", fg="green"))
+                    if not is_standalone_mode:
+                        click.echo(click.style(f"Loaded plugin module: {name}", fg="green"))
                 except Exception as e:
-                    click.echo(click.style(f"Error loading plugin {name}: {str(e)}", fg="red"))
-                    # Print more details for exceptions
-                    import traceback
-                    click.echo(traceback.format_exc())
+                    if not is_standalone_mode:
+                        click.echo(click.style(f"Error loading plugin {name}: {str(e)}", fg="red"))
+                        # Print more details for exceptions
+                        import traceback
+                        click.echo(traceback.format_exc())
     except Exception as e:
-        click.echo(click.style(f"Error loading plugins: {str(e)}", fg="red"))
+        if not is_standalone_mode:
+            click.echo(click.style(f"Error loading plugins: {str(e)}", fg="red"))
