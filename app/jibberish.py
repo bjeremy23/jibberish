@@ -2,6 +2,7 @@
 
 import sys
 import os
+import socket  # Add socket import for hostname retrieval
 
 # Get command-line arguments - but these won't matter for pip installation
 # as Click handles the args then
@@ -192,8 +193,18 @@ def cli(version, question, command):
         try:
             # find the current directory
             current_directory = os.getcwd()
+            # get the $USER variable
+            user = os.getenv('USER', 'user')
+            # get the $HOSTNAME variable
+            hostname = socket.gethostname()  # Use socket.gethostname() to retrieve the hostname
 
-            prompt_text = f"{current_directory}# "
+            homedir = os.getenv('HOME', current_directory)
+            if homedir in current_directory:
+                # Replace the home directory with ~
+                current_directory = current_directory.replace(homedir, "~")
+
+            # make the prompt text
+            prompt_text = f"[jbrsh] {user}@{hostname}:{current_directory}$ "
             command = input(prompt_text).strip()
 
             if command.lower() in ["exit", "quit", "q"]:
