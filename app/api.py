@@ -4,14 +4,9 @@ from contextlib import redirect_stdout
 
 # Import version information from centralized version module
 from app.version import __version__, VERSION_NAME
-from app.utils import silence_stdout, is_standalone_mode
+from app.utils import silence_stdout, is_debug_enabled
 
-# First set the JIBBERISH_STANDALONE_MODE environment variable if it's not already set
-# This ensures consistent behavior even when modules are imported directly
-if 'JIBBERISH_STANDALONE_MODE' not in os.environ:
-    os.environ['JIBBERISH_STANDALONE_MODE'] = '0'  # Default to non-standalone mode
-
-# Load environment variables - always load them, but only print in non-standalone mode
+# Load environment variables - always load them, but only print if debug is enabled
 with open(os.path.expanduser("~/.jbrsh")) as env:
     for line in env:
         line = line.strip()
@@ -29,16 +24,16 @@ with open(os.path.expanduser("~/.jbrsh")) as env:
                 if value.startswith('"') and value.endswith('"'):
                     value = value[1:-1]  # Remove outer double quotes only
                 os.environ[key] = value
-                if not is_standalone_mode():
+                if is_debug_enabled():
                     print(f"Environment variable {key}={value}")
             else:
                 # Standard processing for other variables - remove quotes if present
                 value = value.strip('"\'')
                 os.environ[key] = value
-                if not is_standalone_mode():
+                if is_debug_enabled():
                     print(f"Set {key} to {value}")
     
-    if not is_standalone_mode():
+    if is_debug_enabled():
         print("Environment variables loaded from ~/.jbrsh\n")
 
 ai_choice = os.environ.get('AI_CHOICE', 'openai').lower()
@@ -102,7 +97,7 @@ if ai_choice == "azure":
             print(f"Using AzureOpenAI client (v1.0.0+) with {auth_method} authentication for model {model}")
             
         except AttributeError as e:
-            if not is_standalone_mode():
+            if is_debug_enabled():
                 print(f"Error initializing AzureOpenAI client: {e}")
             # Fallback to standard client with key-based auth only
             if os.environ.get('AZURE_OPENAI_API_KEY'):
@@ -113,7 +108,7 @@ if ai_choice == "azure":
                 
         except ImportError:
             # Use legacy Azure configuration (pre-v1.0.0)
-            if not is_standalone_mode():
+            if is_debug_enabled():
                 print("Using legacy OpenAI Azure configuration (pre-v1.0.0)")
             openai.api_type = "azure"
             

@@ -14,7 +14,7 @@ import pkgutil
 import click
 from abc import ABC, abstractmethod
 
-from app.utils import silence_stdout
+from app.utils import silence_stdout, is_debug_enabled
 
 
 class BuiltinCommand(ABC):
@@ -94,10 +94,10 @@ class BuiltinCommandRegistry:
         if plugin.is_required or plugin.is_enabled:
             cls._plugins.append(plugin)
             status = "required" if plugin.is_required else "optional (enabled)"
-            with silence_stdout():
+            if is_debug_enabled():
                 click.echo(click.style(f"Registered plugin: {plugin.plugin_name} - {status}", fg="green"))
         else:
-            with silence_stdout():
+            if is_debug_enabled():
                 click.echo(click.style(f"Skipping disabled optional plugin: {plugin.plugin_name}", fg="yellow"))
     
     @classmethod
@@ -121,16 +121,17 @@ def load_plugins():
     """
     Dynamically load all plugins from the plugins directory.
     """
-    with silence_stdout():
+    if is_debug_enabled():
         click.echo(click.style("Loading plugins...", fg="blue"))
         
-        # Get the path to the plugins directory
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        plugins_dir = os.path.join(current_dir, "plugins")
-        
-        # Create plugins directory if it doesn't exist
-        if not os.path.exists(plugins_dir):
-            os.makedirs(plugins_dir)
+    # Get the path to the plugins directory
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    plugins_dir = os.path.join(current_dir, "plugins")
+    
+    # Create plugins directory if it doesn't exist
+    if not os.path.exists(plugins_dir):
+        os.makedirs(plugins_dir)
+        if is_debug_enabled():
             click.echo(click.style(f"Created plugins directory: {plugins_dir}", fg="blue"))
     
     # Import all modules in the plugins package
@@ -147,18 +148,19 @@ def load_plugins():
         # Load all modules in the plugins package
         for _, name, is_pkg in pkgutil.iter_modules([plugins_dir]):
             if not is_pkg:
-                with silence_stdout():
-                    try:  
-                        # Simple import without trying to reload
-                        module_name = f"app.plugins.{name}"
-                        module = importlib.import_module(module_name)
-                        
+                try:  
+                    # Simple import without trying to reload
+                    module_name = f"app.plugins.{name}"
+                    module = importlib.import_module(module_name)
+                    
+                    if is_debug_enabled():
                         click.echo(click.style(f"Loaded plugin module: {name}", fg="green"))
-                    except Exception as e:
+                except Exception as e:
+                    if is_debug_enabled():
                         click.echo(click.style(f"Error loading plugin {name}: {str(e)}", fg="red"))
                         # Print more details for exceptions
                         import traceback
                         click.echo(traceback.format_exc())
     except Exception as e:
-        with silence_stdout():
+        if is_debug_enabled():
             click.echo(click.style(f"Error loading plugins: {str(e)}", fg="red"))

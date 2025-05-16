@@ -13,7 +13,7 @@ if parent_dir not in sys.path:
 
 from app import api
 from app.plugin_system import BuiltinCommand, BuiltinCommandRegistry
-from app.utils import silence_stdout, is_standalone_mode
+from app.utils import silence_stdout
 
 # Use a uniquely named class to force reloading
 class VersionPlugin(BuiltinCommand):

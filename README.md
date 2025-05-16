@@ -170,3 +170,45 @@ This documentation covers:
 The Jibberish shell includes a comprehensive test suite to ensure all components work as expected.
 
 For detailed instructions on running tests, see [README/README-tests.md](README/README-tests.md).
+
+### Debug Mode
+
+Jibberish runs in a clean mode by default, showing only the essential output for commands. If you want to see detailed output including:
+
+- Environment variable loading
+- Plugin registration messages
+- API initialization details
+
+You can enable debug mode in one of two ways:
+
+1. **Temporarily** - For a single command:
+   ```bash
+   JIBBERISH_DEBUG=true jibberish -v
+   ```
+
+2. **Permanently** - Add to your ~/.jbrsh file:
+   ```
+   JIBBERISH_DEBUG=true
+   ```
+
+When debug mode is disabled (the default), you'll get clean output like this:
+
+```bash
+$ jibberish -v
+Jibberish v25.5.4
+Javanese
+```
+
+When debug mode is enabled, you'll see all diagnostic information:
+
+```bash
+$ JIBBERISH_DEBUG=true jibberish -v
+Set AI_CHOICE to azure
+Set AZURE_CLIENT_ID to 0272f95e-051c-4d0f-8950-9b9de3f08ea0
+...
+Loading plugins...
+Registered plugin: ai_command - required
+...
+Jibberish v25.5.4
+Javanese
+```

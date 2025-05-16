@@ -5,18 +5,9 @@ import io
 import os
 import time
 
-# Get command-line arguments
+# Get command-line arguments - but these won't matter for pip installation
+# as Click handles the args then
 args = sys.argv[1:] if len(sys.argv) > 1 else []
-
-# Check if we're in standalone mode - do this early before any imports
-standalone_options = ['-v', '--version', '-q', '--question', '-c', '--command']
-is_standalone_mode = args and args[0] in standalone_options
-
-# Set the environment variable for standalone mode early so other modules can detect it
-if is_standalone_mode:
-    os.environ['JIBBERISH_STANDALONE_MODE'] = '1'
-    # Set another environment variable to completely suppress verbose output
-    os.environ['JIBBERISH_SILENT'] = '1'
 
 # Process the help flag specially if present (before any imports)
 if args and args[0] in ['-h', '--help']:
@@ -40,10 +31,10 @@ Usage: jibberish.py [OPTIONS]
     -h, --help           Show this message and exit
 
   EXAMPLES:
-    python jibberish.py                       # Start interactive shell
-    python jibberish.py -v                    # Show version info
-    python jibberish.py -q "What is Linux?"   # Ask a question
-    python jibberish.py -c "list large files" # Generate and execute a command
+    jibberish                      # Start interactive shell
+    jibberish -v                   # Show version info
+    jibberish -q "What is Linux?"  # Ask a question
+    jibberish -c "list large files" # Generate and execute a command
 
 Options:
   -v, --version        Display version information
@@ -53,10 +44,6 @@ Options:
 """
     print(click_help_text)
     sys.exit(0)
-
-# Now do the rest of the imports
-import builtins
-builtins.JIBBERISH_STANDALONE_MODE = is_standalone_mode
 
 # Add the parent directory to sys.path for imports
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -74,7 +61,7 @@ from app.executor import (
     execute_chained_commands,
     is_built_in
 )
-from app.utils import silence_stdout, is_standalone_mode
+from app.utils import silence_stdout
 
 def help():
     """
@@ -91,44 +78,37 @@ def version_standalone():
     """Run the version command in standalone mode"""
     # Import the version plugin
     from app.plugins.version_command import VersionPlugin
-    
-    # Restore stdout for displaying the version
-    if 'real_stdout' in globals():
-        sys.stdout = real_stdout
-    
-    # Now execute the version command
     version_plugin = VersionPlugin()
-    version_plugin.execute("version")
+    
+    # Use silence_stdout to control debug output
+    with silence_stdout():
+        version_plugin.execute("version")
     return True
 
 def question_standalone(query):
     """Run the question command in standalone mode"""
     # Import the question plugin
     from app.plugins.question_command import QuestionPlugin
-    
-    # Restore stdout for displaying the answer
-    if 'real_stdout' in globals():
-        sys.stdout = real_stdout
-    
     question_cmd = QuestionPlugin()
     # Prepend the ? character
     formatted_query = f"?{query}"
-    question_cmd.execute(formatted_query)
+    
+    # Use silence_stdout to control debug output
+    with silence_stdout():
+        question_cmd.execute(formatted_query)
     return True
 
 def ai_command_standalone(query):
     """Run the AI command plugin in standalone mode"""
     # Import the AI command plugin
     from app.plugins.ai_command import AICommandPlugin
-    
-    # Restore stdout for displaying the command and output
-    if 'real_stdout' in globals():
-        sys.stdout = real_stdout
-    
     ai_cmd = AICommandPlugin()
     # Prepend the # character
     formatted_query = f"#{query}"
-    result = ai_cmd.execute(formatted_query)
+    
+    # Use silence_stdout to control debug output during command generation
+    with silence_stdout():
+        result = ai_cmd.execute(formatted_query)
     
     # If the plugin returned a command to execute, run it
     if isinstance(result, tuple) and result[0] is False:
@@ -174,17 +154,13 @@ def cli(version, question, command):
 
     \b
     EXAMPLES:
-      python jibberish.py                       # Start interactive shell
-      python jibberish.py -v                    # Show version info
-      python jibberish.py -q "What is Linux?"   # Ask a question
-      python jibberish.py -c "list large files" # Generate and execute a command
+      jibberish                      # Start interactive shell 
+      jibberish -v                   # Show version info
+      jibberish -q "What is Linux?"  # Ask a question
+      jibberish -c "list large files" # Generate and execute a command
     """
     # Determine if we're in standalone mode based on command-line arguments
     is_standalone = bool(version or question or command)
-    
-    # Set environment variable for standalone mode - do this early for other modules
-    if is_standalone:
-        os.environ['JIBBERISH_STANDALONE_MODE'] = '1'
     
     # For help option, Click will automatically display the help text and exit
     # so we don't need additional handling for it
@@ -289,18 +265,6 @@ def cli(version, question, command):
 
 def main():
     """Entry point for the package when installed via pip."""
-    # Special case for standalone version display (jbrsh -v from pip installation)
-    import os.path
-    script_name = os.path.basename(sys.argv[0])
-    
-    if script_name == "jbrsh-version":
-        # Import the standalone version display module
-        from app.version import __version__, VERSION_NAME
-        print(f"Jibberish v{__version__}")
-        print(f"{VERSION_NAME}")
-        return
-    
-    # Otherwise, run the normal CLI
     cli()
 
 if __name__ == "__main__":
