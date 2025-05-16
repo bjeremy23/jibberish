@@ -3,13 +3,13 @@
 This is a specialized plugin for the A40PacketCore group enabling Container Network Architecture (CNA) development environment.
 ## Usage
 
-Most 'cna' commands are handled through normal execution. This plugin specifically handles only these two commands:
+Most 'cna' commands are handled through normal execution. This plugin specifically handles only these two 'special' commands:
 
 ```
 [jbrsh] user@hostname:~$ cna-setup
 [jbrsh] user@hostname:~$ cna enter-build
 ```
-
+The 'cna-setup' will execute the normal bash function.
 The `cna enter-build` command will provide an interactive shell inside the build container.
 
 ## Enabling the Plugin
