@@ -107,7 +107,7 @@ Options:
 ./setup.sh --yes
 ```
 
-After installation, you'll need to edit the `~/.jbrsh` file to add your API keys and customize settings. For detailed instructions on setting up your API credentials, see [README/README-setup.md](README/README-setup.md).
+After installation, you'll need to edit the `~/.jbrsh` file to add your API keys and customize settings. For detailed instructions on setting up your API credentials, see [README-ai-setup.md](README-ai-setup.md).
 
 ## ~/.jbrsh Configuration
 
