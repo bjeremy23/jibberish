@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
-import io
 import os
-import time
 
 # Get command-line arguments - but these won't matter for pip installation
 # as Click handles the args then
@@ -61,7 +59,6 @@ from app.executor import (
     execute_chained_commands,
     is_built_in
 )
-from app.utils import silence_stdout
 
 def help():
     """
@@ -92,7 +89,6 @@ def question_standalone(query):
     # Prepend the ? character
     formatted_query = f"?{query}"
     
-    # Use silence_stdout to control debug output
     question_cmd.execute(formatted_query)
     return True
 

@@ -3,8 +3,6 @@ Specialized context management for AI queries.
 This module contains context definitions for different domains and utilities for matching queries to contexts.
 """
 
-import logging
-
 # SSH context keywords and definition
 ssh_keywords = [
     'ssh', 'remote', 'login', 'connect', 'master', 'server', 'scp', 'rsync',

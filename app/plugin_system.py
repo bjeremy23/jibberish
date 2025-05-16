@@ -14,7 +14,7 @@ import pkgutil
 import click
 from abc import ABC, abstractmethod
 
-from app.utils import silence_stdout, is_debug_enabled
+from app.utils import is_debug_enabled
 
 
 class BuiltinCommand(ABC):

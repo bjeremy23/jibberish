@@ -1,6 +1,5 @@
 import os
 import openai
-from contextlib import redirect_stdout
 
 # Import version information from centralized version module
 from app.version import __version__, VERSION_NAME

@@ -15,7 +15,6 @@ from app import api
 import time 
 import click 
 import re
-import json
 import os
 from app.context_manager import add_specialized_contexts, determine_temperature
 

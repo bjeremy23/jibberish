@@ -39,17 +39,3 @@ def silence_stdout():
             sys.stdout = original_stdout
     else:
         yield
-
-def suppress_in_standalone(func):
-    """Decorator to suppress console output if debug mode is not enabled."""
-    def wrapper(*args, **kwargs):
-        if not is_debug_enabled():
-            original_stdout = sys.stdout
-            sys.stdout = io.StringIO()
-            try:
-                return func(*args, **kwargs)
-            finally:
-                sys.stdout = original_stdout
-        else:
-            return func(*args, **kwargs)
-    return wrapper
