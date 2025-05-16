@@ -7,7 +7,7 @@ name = "jibberish"
 description = "AI-powered Linux shell"
 readme = "README.md"
 requires-python = ">=3.8"
-license = { text = "MIT" }
+license = { text = "GPL-3.0-or-later" }
 dynamic = ["version"]
 dependencies = [
     "click>=8.0.0",
