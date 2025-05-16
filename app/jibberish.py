@@ -61,6 +61,20 @@ from app.executor import (
     is_built_in
 )
 
+# Function to format the prompt string based on user configuration
+def format_prompt(prompt_template, user, hostname, path):
+    """
+    Format the prompt string by replacing placeholders with actual values:
+    %u: username
+    %h: hostname
+    %p: current path
+    """
+    formatted_prompt = prompt_template
+    formatted_prompt = formatted_prompt.replace('%u', user)
+    formatted_prompt = formatted_prompt.replace('%h', hostname)
+    formatted_prompt = formatted_prompt.replace('%p', path)
+    return formatted_prompt
+
 def help():
     """
     Display help information for interactive mode
@@ -202,9 +216,13 @@ def cli(version, question, command):
             if homedir in current_directory:
                 # Replace the home directory with ~
                 current_directory = current_directory.replace(homedir, "~")
-
-            # make the prompt text
-            prompt_text = f"[jbrsh] {user}@{hostname}:{current_directory}$ "
+            
+            # Get the configured prompt format or use the default
+            default_prompt = "[jbrsh] %u@%h:%p$ "
+            prompt_format = os.getenv('JIBBERISH_PROMPT', default_prompt)
+            
+            # Format the prompt using the template
+            prompt_text = format_prompt(prompt_format, user, hostname, current_directory)
             command = input(prompt_text).strip()
 
             if command.lower() in ["exit", "quit", "q"]:
