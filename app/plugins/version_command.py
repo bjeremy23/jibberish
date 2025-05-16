@@ -34,10 +34,10 @@ class VersionPlugin(BuiltinCommand):
         # In standalone mode, we only want to display the version number
         # Skip all other output when running with -v option
         # Display version details - don't silence this as it's the main output
-        print(click.style(f"Jibberish v{api.__version__}", fg="green", bold=True))
-        print(click.style(f"{api.VERSION_NAME}", fg="green"))
+        click.echo(click.style(f"Jibberish v{api.__version__}", fg="green", bold=True))
+        click.echo(click.style(f"{api.VERSION_NAME}", fg="green"))
         
-        print("\nFor more information, visit: https://github.com/bjeremy23/jibberish")
+        click.echo("\nFor more information, visit: https://github.com/bjeremy23/jibberish")
         return True
 
 

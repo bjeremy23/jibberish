@@ -3,6 +3,7 @@ AI command generation plugin.
 """
 import click
 import os
+import sys
 from app import chat
 from ..plugin_system import BuiltinCommand, BuiltinCommandRegistry
 
@@ -68,6 +69,10 @@ class AICommandPlugin(BuiltinCommand):
         # Check if we should prompt before executing
         prompt_setting = os.environ.get('PROMPT_AI_COMMANDS', '').lower()
         if prompt_setting in ('true', 'always', 'yes', '1'):
+            # Make sure the prompt is visible (this flushes stdout buffer)
+            sys.stdout.flush()
+            # Add an explicit newline and prompt message
+            click.echo()
             choice = input(click.style("Execute this command? [y/n]: ", fg="blue"))
             if choice.lower() != 'y':
                 click.echo(click.style("Command execution cancelled", fg="yellow"))

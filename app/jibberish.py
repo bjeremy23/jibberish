@@ -93,8 +93,7 @@ def question_standalone(query):
     formatted_query = f"?{query}"
     
     # Use silence_stdout to control debug output
-    with silence_stdout():
-        question_cmd.execute(formatted_query)
+    question_cmd.execute(formatted_query)
     return True
 
 def ai_command_standalone(query):
@@ -105,9 +104,8 @@ def ai_command_standalone(query):
     # Prepend the # character
     formatted_query = f"#{query}"
     
-    # Use silence_stdout to control debug output during command generation
-    with silence_stdout():
-        result = ai_cmd.execute(formatted_query)
+    # Generate the command - do not silence this part
+    result = ai_cmd.execute(formatted_query)
     
     # If the plugin returned a command to execute, run it
     if isinstance(result, tuple) and result[0] is False:
@@ -181,8 +179,7 @@ def cli(version, question, command):
     help()
 
     # use a high temperature for the welcome message
-    with silence_stdout():
-        sentence = chat.ask_question("Give me only one short sentence Welcoming the user to Jibberish and introduce yourself and say your here to help.", 1.0)
+    sentence = chat.ask_question("Give me only one short sentence Welcoming the user to Jibberish and introduce yourself and say your here to help.", 1.0)
     click.echo(click.style(f"\n{sentence}", fg="red", bold=True))
 
     # get the warn environment variable
