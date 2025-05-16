@@ -80,9 +80,8 @@ def version_standalone():
     from app.plugins.version_command import VersionPlugin
     version_plugin = VersionPlugin()
     
-    # Use silence_stdout to control debug output
-    with silence_stdout():
-        version_plugin.execute("version")
+    # Execute the version command without silencing output
+    version_plugin.execute("version")
     return True
 
 def question_standalone(query):

@@ -37,10 +37,7 @@ class VersionPlugin(BuiltinCommand):
         print(click.style(f"Jibberish v{api.__version__}", fg="green", bold=True))
         print(click.style(f"{api.VERSION_NAME}", fg="green"))
         
-        # Print additional information if desired - only show in interactive mode
-        with silence_stdout():
-            click.echo()
-            click.echo("For more information, visit: https://github.com/bjeremy23/jibberish")
+        print("\nFor more information, visit: https://github.com/bjeremy23/jibberish")
         return True
 
 
