@@ -1,23 +1,16 @@
-# CNA Setup Plugin for Jibberish
+# CNA Commands Plugin for Jibberish
 
 This is a specialized plugin for the A40PacketCore group enabling Container Network Architecture (CNA) development environment.
-
-## Features
-
-- Executes the CNA setup functionality using multiple approaches:
-  1. Looks for script files in standard locations
-  2. Tries to execute as a bash shell function
-  3. Searches in your PATH for executables
-- Works with `cna-setup` or `cna_setup` command names
-- Passes through all command-line arguments
-- Displays output and error messages in a user-friendly format
-- Reports success or failure based on the exit code
-
 ## Usage
+
+Most 'cna' commands are handled through normal execution. This plugin specifically handles only these two commands:
 
 ```
 [jbrsh] user@hostname:~$ cna-setup
+[jbrsh] user@hostname:~$ cna enter-build
 ```
+
+The `cna enter-build` command will provide an interactive shell inside the build container.
 
 ## Enabling the Plugin
 
@@ -62,15 +55,21 @@ PLUGIN_CNA_SETUP_COMMAND_ENABLED=n
 2. **"cna-setup: command not found"**
    - Make sure the script exists in one of the expected locations and has executable permissions
 
-3. **Docker login errors: "Cannot perform an interactive login from a non TTY device"**
-   - This is a limitation of running docker login commands in a non-interactive session
-   - For initial setup with docker login, run `cna-setup` directly in a bash terminal first
+3. **Docker login and interactive commands**
+   - Interactive commands like `cna enter-build` are now supported using the `script` utility
+   - The plugin automatically detects interactive commands and creates a proper TTY environment
+   - If you still experience issues with Docker login, run it in a bash terminal first
    - Once logged in, the credentials should persist for future Jibberish usage
 
 4. **"ERROR: expected CNA_TOOLS to be set; cannot setup CNA environment"**
    - The script requires the `CNA_TOOLS` environment variable to be set
    - The plugin will now automatically set this to `/localdata/$USER/.vm-tools`
    - If that's not correct, set it manually in your `.jbrsh` file or `.bashrc`
+
+5. **"fatal: destination path '/localdata/$USER/.vm-tools' already exists and is not an empty directory"**
+   - This is not actually an error - it's just Git reporting that it can't clone because the directory already exists
+   - The plugin will now properly handle this case by using the existing directory
+   - You can safely ignore this message
 
 ### Checking Script Location
 
@@ -80,10 +79,16 @@ If you're experiencing issues, verify the script exists and is executable:
 ls -la /localdata/$USER/.vm-tools/interface/bin/cna-setup.sh
 ```
 
-### Advanced Troubleshooting
+### Interactive Commands Support
 
-The plugin uses a two-step approach:
-1. First attempts to run the command as a bash function (sourced from your profile)
-2. If that fails, tries to source the script file from standard locations
+The plugin has special handling for interactive commands:
 
-This ensures the command works regardless of whether it's available as a shell function or as a script that needs to be sourced.
+1. `cna enter-build` - Enters an interactive Docker container
+   - The plugin will detect this command and do one of the following:
+     - In a graphical environment (when DISPLAY is set):
+       - Try to launch a new terminal window with optimized settings for each terminal type:
+         - `gnome-terminal` - Standard GNOME terminal
+         - `xterm` - With medium font size (12pt) and high contrast colors
+     - In a non-graphical environment (SSH sessions, terminals without DISPLAY):
+       - Automatically fall back to the `script` utility to create a TTY
+     - If terminal launch fails for any reason, also falls back to the `script` utility
