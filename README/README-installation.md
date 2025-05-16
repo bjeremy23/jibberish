@@ -115,4 +115,4 @@ After installation, you'll need to edit the `~/.jbrsh` file to add your API keys
 - This file contains environment variables used within the shell
 - You will need to fill out ENV variables to connect to your AI service
 
-For detailed instructions on setting up your API credentials, see [README/README-ai-setup.md](README/README-ai-setup.md).
+For detailed instructions on setting up your API credentials, see [README-ai-setup.md](README-ai-setup.md).
