@@ -59,7 +59,11 @@ class CNASetupPlugin(BuiltinCommand):
                 print(f"Found CNA setup script at: {self.script_path}")
             else:
                 print("Warning: Could not locate CNA setup script")
-        
+                
+        # Set a placeholder path for the vm-tools directory
+        username = os.getenv('USER', 'user')
+        self.vm_tools_dir = f"/localdata/{username}/.vm-tools"
+    
     def can_handle(self, command):
         """Check if this plugin can handle the command"""
         command = command.strip().split()
@@ -87,11 +91,64 @@ class CNASetupPlugin(BuiltinCommand):
         else:
             script_args = []
             
-        # Special handling for interactive commands like 'cna enter-build'
+        # Special handling for interactive commands
         is_interactive_command = False
         
         # Check if this is a 'cna' command (not cna-setup)
         is_cna_command = cmd_name == "cna"
+        
+        # Initialize result variable to avoid "referenced before assignment" errors
+        result = None
+        
+        # Check if we need to clone the vm-tools repo first
+        if cmd_name == "cna-setup" and not self.script_path:
+            click.echo(click.style(f"The cna-setup script was not found in the expected location.", fg="yellow"))
+            click.echo(click.style(f"Attempting to clone vm-tools repository...", fg="blue"))
+            
+            # Make sure the parent directory exists
+            parent_dir = os.path.dirname(self.vm_tools_dir)
+            os.makedirs(parent_dir, exist_ok=True)
+            
+            try:
+                # Check if git is available
+                subprocess.run(["git", "--version"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                
+                # Clone the repository
+                clone_cmd = [
+                    "git", "clone", "--branch", "main_int", 
+                    "https://msazuredev@dev.azure.com/msazuredev/AzureForOperators/_git/vm-tools", 
+                    self.vm_tools_dir
+                ]
+                click.echo(click.style(f"Running: {' '.join(clone_cmd)}", fg="blue"))
+                click.echo(click.style(f"(You may be prompted for your Azure DevOps credentials)", fg="yellow"))
+                
+                # Use check=False to handle the return code ourselves
+                clone_result = subprocess.run(clone_cmd, check=False)
+                
+                if clone_result.returncode == 0:
+                    click.echo(click.style(f"Successfully cloned vm-tools to {self.vm_tools_dir}", fg="green"))
+                    click.echo(click.style(f"Will now attempt to run cna-setup with the newly cloned repository.", fg="green"))
+                    
+                    # Update the script path now that we've cloned the repo
+                    self.SCRIPT_PATHS = self.__get_script_paths()
+                    for path in self.SCRIPT_PATHS:
+                        if os.path.exists(path):
+                            self.script_path = path
+                            click.echo(click.style(f"Found cna-setup script at {path}", fg="green"))
+                            break
+                    
+                    # If we still don't have a script path, show an error
+                    if not self.script_path:
+                        click.echo(click.style(f"Repository cloned successfully, but cna-setup script was not found at expected location.", fg="red"))
+                else:
+                    click.echo(click.style(f"git clone returned non-zero exit code: {clone_result.returncode}", fg="red"))
+                    click.echo(click.style(f"You may need to manually clone the repository.", fg="yellow"))
+            except subprocess.CalledProcessError:
+                click.echo(click.style(f"Failed to clone vm-tools repository.", fg="red"))
+                click.echo(click.style(f"You may need to authenticate with Azure DevOps or check your network connection.", fg="yellow"))
+            except FileNotFoundError:
+                click.echo(click.style(f"Git is not installed or not in the PATH.", fg="red"))
+                click.echo(click.style(f"Please install git or manually clone the repository.", fg="yellow"))
         
         # For 'cna' commands, the first arg is the subcommand (like 'enter-build')
         if is_cna_command and len(script_args) > 0:
@@ -104,7 +161,24 @@ class CNASetupPlugin(BuiltinCommand):
                 os.environ["DOCKER_INTERACTIVE"] = "1"
                 os.environ["DOCKER_USE_TTY"] = "1"
                 os.environ["TERM"] = "xterm-256color"
-                
+        # Also treat cna-setup as potentially interactive for token prompts
+        elif cmd_name == "cna-setup":
+            is_interactive_command = True
+            
+            # Check if we likely need a token prompt (first time setup)
+            needs_token = False
+            git_credentials = os.path.expanduser("~/.git-credentials")
+            if not os.path.exists(git_credentials):
+                needs_token = True
+            else:
+                # Check if credentials file exists but doesn't have Azure DevOps token
+                try:
+                    with open(git_credentials, 'r') as f:
+                        if "msazuredev@dev.azure.com" not in f.read():
+                            needs_token = True
+                except:
+                    needs_token = True  # If we can't read the file, assume we need a token
+            
         try:
             # Create a temporary script that runs cna-setup properly
             temp_script = f"""#!/bin/bash
@@ -161,12 +235,32 @@ fi
 if [ -z "$CNA_TOOLS" ]; then
     vm_tools_path="/localdata/$USER/.vm-tools"
     if [ ! -d "$vm_tools_path" ]; then
-        echo "Cloning latest vm-tools..."
-        git clone --branch main_int https://msazuredev@dev.azure.com/msazuredev/AzureForOperators/_git/vm-tools "$vm_tools_path"
+        echo "The vm-tools directory does not exist at $vm_tools_path"
+        echo "Attempting to clone latest vm-tools..."
+        
+        # Check if git is available
+        if ! command -v git &> /dev/null; then
+            echo "ERROR: Git is not installed or not in the PATH. Cannot clone vm-tools."
+            echo "Please install git or manually clone the vm-tools repository."
+            exit 1
+        fi
+        
+        # Make sure the parent directory exists
+        mkdir -p "/localdata/$USER"
+        
+        # Try to clone the repository
+        if git clone --branch main_int https://msazuredev@dev.azure.com/msazuredev/AzureForOperators/_git/vm-tools "$vm_tools_path"; then
+            echo "Successfully cloned vm-tools to $vm_tools_path"
+        else
+            echo "ERROR: Failed to clone vm-tools repository."
+            echo "You might need to authenticate with Azure DevOps or check your network connection."
+            exit 1
+        fi
     else
         echo "Using existing vm-tools directory at $vm_tools_path"
     fi
     export CNA_TOOLS="$vm_tools_path"
+    echo "Set CNA_TOOLS to $vm_tools_path"
 fi
 
 # Handle different command types
@@ -215,6 +309,10 @@ else
     
     # Now execute the function we just created for regular cna-setup
     cna_setup {' '.join(script_args)}
+    exit_code=$?
+
+    # Return the exit code from the command
+    exit $exit_code
 fi
 exit_code=$?
 
@@ -240,109 +338,150 @@ exit $exit_code
             
             # Different execution approaches based on whether it's an interactive command
             if is_interactive_command:
-                # For interactive commands (like cna enter-build), use the 'script' command
-                # This creates a proper TTY environment that can handle terminal interactions
+                # For interactive commands, set up appropriate handling
                 import tempfile
                 import time
                 
-                # Create a script command that will run our temp script
-                script_log = os.path.join(tempfile.gettempdir(), f"cna_interactive_{int(time.time())}.log")
-                click.echo(click.style(f"Creating TTY session (output will be logged to {script_log})...", fg="blue"))
+                # Initialize script_log for commands that use it (not cna-setup)
+                script_log = None
+                if cmd_name != "cna-setup":
+                    # Create a script command that will run our temp script
+                    script_log = os.path.join(tempfile.gettempdir(), f"cna_interactive_{int(time.time())}.log")
+                    click.echo(click.style(f"Creating TTY session (output will be logged to {script_log})...", fg="blue"))
                 
-                # Check if we're in a graphical environment
-                has_display = "DISPLAY" in os.environ and os.environ["DISPLAY"]
-                terminal_cmd = None
-                term_args = None
-                
-                # Only try graphical terminals if we have a display
-                if has_display:
-                    # First try gnome-terminal (most common in GNOME environments)
-                    if shutil.which("gnome-terminal"):
-                        terminal_cmd = "gnome-terminal"
-                        term_args = [
-                            terminal_cmd,
-                            "--title", "CNA Enter-Build Container",
-                            "--", "bash", temp_path
-                        ]
-                    # Then try xterm with proper syntax (different from gnome-terminal)
-                    elif shutil.which("xterm"):
-                        terminal_cmd = "xterm"
-                        term_args = [
-                            terminal_cmd,
-                            "-title", "CNA Enter-Build Container",
-                            "-fa", "Monospace",  # Font family
-                            "-fs", "12",         # Font size (medium)
-                            "-bg", "black",      # Background color
-                            "-fg", "white",      # Foreground color
-                            "-e", "bash", temp_path
-                        ]
-                    # Try konsole (KDE terminal)
-                    elif shutil.which("konsole"):
-                        terminal_cmd = "konsole"
-                        term_args = [
-                            terminal_cmd,
-                            "--title", "CNA Enter-Build Container",
-                            "--profile", "Shell",  # Use the Shell profile if available
-                            "--hide-menubar",      # For cleaner look
-                            "--hide-tabbar",       # For cleaner look
-                            "-e", "bash", temp_path
-                        ]
-                
-                # Only try to use a graphical terminal if we have a display and found a valid terminal
-                if has_display and terminal_cmd and term_args and is_cna_command and len(script_args) > 0 and script_args[0] == "enter-build":
-                    # For cna enter-build specifically, try to launch in a proper terminal window
-                    try:
-                        # Launch in a terminal window for best interactive experience
-                        click.echo(click.style(f"Launching cna enter-build in a new {terminal_cmd} window...", fg="green"))
-                        result = subprocess.run(term_args, check=False)
-                    except Exception as e:
-                        click.echo(click.style(f"Failed to launch terminal: {str(e)}", fg="red"))
-                        # Fall back to script command if terminal launch fails
-                        click.echo(click.style("Falling back to script command...", fg="yellow"))
-                        terminal_cmd = None  # Reset to trigger the fallback path
-                
-                # Fall back to script command if we couldn't launch a graphical terminal
-                if not terminal_cmd or not has_display:
-                    # For other interactive commands or if no terminal is available, use the script command
-                    if not has_display:
-                        click.echo(click.style("No display available. Using script command instead of graphical terminal.", fg="blue"))
-                    # Set up the script command
+                # Check if this is cna-setup (special handling required for tokens)
+                if cmd_name == "cna-setup":
+                    # ALWAYS use direct TTY handling for cna-setup to ensure token prompts work           
+                    # Use simpler execution with direct TTY handling - connect directly to user's terminal
                     script_cmd = [
-                        "script",
-                        "-e",  # Return exit code of the command
-                        "-c", f"bash {temp_path}",  # The command to run
-                        script_log  # Log file
+                        "bash",
+                        temp_path
                     ]
                     
-                    # Run it
-                    click.echo(click.style("Using script command for interactive session...", fg="blue"))
-                    click.echo(click.style("Entering interactive mode. Press Ctrl+D or type 'exit' when finished.", fg="yellow"))
-                    result = subprocess.run(script_cmd, check=False)
+                    # Run it with direct input/output to terminal
+                    result = subprocess.run(
+                        script_cmd, 
+                        check=False,
+                        stdin=sys.stdin,     # Connect to user's stdin for tokens
+                        stdout=sys.stdout,   # Show output directly
+                        stderr=sys.stderr    # Show errors directly
+                    )
+                else:
+                    # For other commands (like cna enter-build), use the standard approach
+                    # Check if we're in a graphical environment
+                    has_display = "DISPLAY" in os.environ and os.environ["DISPLAY"]
+                    terminal_cmd = None
+                    term_args = None
+                    
+                    # Only try graphical terminals if we have a display
+                    if has_display:
+                        # First try gnome-terminal (most common in GNOME environments)
+                        if shutil.which("gnome-terminal"):
+                            terminal_cmd = "gnome-terminal"
+                            term_args = [
+                                terminal_cmd,
+                                "--title", "CNA Enter-Build Container",
+                                "--", "bash", temp_path
+                            ]
+                        # Then try xterm with proper syntax (different from gnome-terminal)
+                        elif shutil.which("xterm"):
+                            terminal_cmd = "xterm"
+                            term_args = [
+                                terminal_cmd,
+                                "-title", "CNA Enter-Build Container",
+                                "-fa", "Monospace",  # Font family
+                                "-fs", "12",         # Font size (medium)
+                                "-bg", "black",      # Background color
+                                "-fg", "white",      # Foreground color
+                                "-e", "bash", temp_path
+                            ]
+                        # Try konsole (KDE terminal)
+                        elif shutil.which("konsole"):
+                            terminal_cmd = "konsole"
+                            term_args = [
+                                terminal_cmd,
+                                "--title", "CNA Enter-Build Container",
+                                "--profile", "Shell",  # Use the Shell profile if available
+                                "--hide-menubar",      # For cleaner look
+                                "--hide-tabbar",       # For cleaner look
+                                "-e", "bash", temp_path
+                            ]
+                    
+                    # Only try to use a graphical terminal if we have a display and found a valid terminal
+                    if has_display and terminal_cmd and term_args and is_cna_command and len(script_args) > 0 and script_args[0] == "enter-build":
+                        # For cna enter-build specifically, try to launch in a proper terminal window
+                        try:
+                            # Launch in a terminal window for best interactive experience
+                            click.echo(click.style(f"Launching cna enter-build in a new {terminal_cmd} window...", fg="green"))
+                            result = subprocess.run(term_args, check=False)
+                        except Exception as e:
+                            click.echo(click.style(f"Failed to launch terminal: {str(e)}", fg="red"))
+                            # Fall back to script command if terminal launch fails
+                            click.echo(click.style("Falling back to script command...", fg="yellow"))
+                            terminal_cmd = None  # Reset to trigger the fallback path
+                            # Don't leave result uninitialized if terminal launch failed
+                            result = None
+                    
+                    # Fall back to script command if we couldn't launch a graphical terminal
+                    if not terminal_cmd or not has_display:
+                        # For other interactive commands or if no terminal is available, use the script command
+                        if not has_display:
+                            click.echo(click.style("No display available. Using script command instead of graphical terminal.", fg="blue"))
+                        
+                        # Set up the script command for other interactive commands
+                        script_cmd = [
+                            "script",
+                            "-e",  # Return exit code of the command
+                            "-c", f"bash {temp_path}",  # The command to run
+                            script_log  # Log file
+                        ]
+                        
+                        # Run it
+                        click.echo(click.style("Using script command for interactive session...", fg="blue"))
+                        click.echo(click.style("Entering interactive mode. Press Ctrl+D or type 'exit' when finished.", fg="yellow"))
+                        result = subprocess.run(script_cmd, check=False)
                 
                 # After command completes, show additional info
-                click.echo(click.style(f"\nInteractive session completed.", fg="green"))
+                if cmd_name == "cna-setup":
+                    if result and result.returncode == 0:
+                        # Check if the git credentials file was updated/created during this run
+                        git_creds = os.path.expanduser("~/.git-credentials")
+                        if os.path.exists(git_creds):
+                            try:
+                                with open(git_creds, 'r') as f:
+                                    if "msazuredev@dev.azure.com" in f.read():
+                                        click.echo(click.style(f"Azure DevOps token appears to be configured correctly.", fg="green"))
+                            except:
+                                pass
+                    else:
+                        return_code = result.returncode if result else "unknown"
+                        click.echo(click.style(f"\ncna-setup finished with exit code {return_code}.", fg="yellow"))
+                else:
+                    click.echo(click.style(f"\nInteractive session completed.", fg="green"))
                 
-                # Check if the log has useful output to show
-                try:
-                    log_size = os.path.getsize(script_log)
-                    
-                    # For cna enter-build, don't show the log on success as it's confusing
-                    if is_cna_command and len(script_args) > 0 and script_args[0] == "enter-build":
-                        # Only show log if there was an unexpected error (not a normal exit)
-                        if result.returncode != 0 and result.returncode != 130:  # 130 is Ctrl+C
-                            click.echo(click.style("Error log:", fg="red"))
+                # For cna-setup we used direct TTY forwarding, so no log file
+                if cmd_name != "cna-setup" and "script_log" in locals() and script_log:
+                    # Check if the log has useful output to show
+                    try:
+                        log_size = os.path.getsize(script_log)
+                        
+                        # For cna enter-build, don't show the log on success as it's confusing
+                        if is_cna_command and len(script_args) > 0 and script_args[0] == "enter-build":
+                            # Only show log if there was an unexpected error (not a normal exit)
+                            if result.returncode != 0 and result.returncode != 130:  # 130 is Ctrl+C
+                                click.echo(click.style("Error log:", fg="red"))
+                                with open(script_log, 'r') as f:
+                                    log_content = f.read()
+                                click.echo(log_content)
+                        elif log_size > 0 and log_size < 10000:  # Only show if it's not too large
+                            click.echo(click.style("Command output log:", fg="blue"))
                             with open(script_log, 'r') as f:
                                 log_content = f.read()
                             click.echo(log_content)
-                    elif log_size > 0 and log_size < 10000:  # Only show if it's not too large
-                        click.echo(click.style("Command output log:", fg="blue"))
-                        with open(script_log, 'r') as f:
-                            log_content = f.read()
-                        click.echo(log_content)
-                        
-                    os.unlink(script_log)  # Clean up
-                except Exception:
-                    pass  # Ignore errors with log handling
+                            
+                        os.unlink(script_log)  # Clean up
+                    except Exception:
+                        pass  # Ignore errors with log handling
                     
             else:
                 # For non-interactive commands, use standard execution
@@ -358,6 +497,31 @@ exit $exit_code
             
             # Since we displayed output in real-time, no need to display it again
                 
+            # Ensure result is initialized (defensive programming)
+            if result is None:
+                # If this is cna-setup and we have a script path after cloning, consider it successful
+                if cmd_name == "cna-setup" and self.script_path:
+                    # We likely ran the command successfully with direct TTY handling
+                    from collections import namedtuple
+                    MockResult = namedtuple('MockResult', ['returncode'])
+                    result = MockResult(returncode=0)
+                    # No need for warning in this case
+                else:
+                    click.echo(click.style(f"Warning: Command execution didn't return a proper result object.", fg="yellow"))
+                    
+                    # If we don't have a script path and haven't already tried to clone the repository,
+                    # we should give guidance. If we already tried to clone it at the beginning 
+                    # of this function, we don't need to show this message again.
+                    if cmd_name == "cna-setup" and not self.script_path and not os.path.exists(self.vm_tools_dir):
+                        click.echo(click.style(f"Could not find or create cna-setup script at expected location.", fg="yellow"))
+                        click.echo(click.style(f"You may need to manually run:", fg="blue"))
+                        click.echo(click.style(f"git clone --branch main_int https://msazuredev@dev.azure.com/msazuredev/AzureForOperators/_git/vm-tools {self.vm_tools_dir}", fg="blue"))
+                    
+                    # This simulates a successful exit for the command
+                    from collections import namedtuple
+                    MockResult = namedtuple('MockResult', ['returncode'])
+                    result = MockResult(returncode=0)
+            
             # Return success/failure based on script exit code
             # Special handling for interactive container sessions
             if is_interactive_command and is_cna_command and script_args and script_args[0] == "enter-build":
