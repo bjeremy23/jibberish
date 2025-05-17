@@ -21,7 +21,7 @@ After installation, you'll need to edit the `~/.jbrsh` file to add your API keys
 
 ## .jbrsh Configuration file
 
-- Add thisfile to your home directory
+- Copy .jbrsh to your home directory
 - This file contains environment variables used within the shell
 - You will need to fill out ENV variables to connect to your AI service
 
