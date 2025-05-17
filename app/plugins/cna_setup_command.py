@@ -157,9 +157,6 @@ if type -t cna-setup >/dev/null; then
     exit $?
 fi
 
-# If we get here, the function wasn't found, so try executing the script directly
-# But the script is meant to be sourced, not executed, so we need to be careful
-
 # Ensure CNA_TOOLS is set correctly to match bash behavior
 if [ -z "$CNA_TOOLS" ]; then
     vm_tools_path="/localdata/$USER/.vm-tools"
@@ -236,10 +233,6 @@ exit $exit_code
             # Execute the temporary script and display output in real-time
             click.echo(click.style(f"Running {cmd_name}...", fg="yellow"))
             
-            # Since we can't create a TTY inside this process, let's run this in a terminal
-            # We'll display a message explaining the approach
-            click.echo(click.style("Note: For best results with docker login, run cna-setup directly in your bash shell", fg="cyan"))
-            
             # Make the script more readable for debugging
             if is_debug_enabled():
                 click.echo(click.style("Debug: Temp script contents:", fg="blue"))
@@ -248,7 +241,7 @@ exit $exit_code
             # Different execution approaches based on whether it's an interactive command
             if is_interactive_command:
                 # For interactive commands (like cna enter-build), use the 'script' command
-                # This creates a proper TTY environment that can handle complex terminal interactions
+                # This creates a proper TTY environment that can handle terminal interactions
                 import tempfile
                 import time
                 
