@@ -32,7 +32,7 @@ Jibberish can leverage environment variables defined in your `~/.jbrsh` file to 
 
 ```bash
 # SSH to $MASTER and find the VPP pod in fed-test namespace to show thread usage
-/home/jbrsh# ssh $MASTER "kubectl -n fed-test get pods | grep vpp | awk '{print \$1}' | xargs -I{} kubectl -n fed-test exec {} -- vppctl show thread usage"
+ssh $MASTER "kubectl -n fed-test get pods | grep vpp | awk '{print \$1}' | xargs -I{} kubectl -n fed-test exec {} -- vppctl show thread usage"
 ```
 
 This single command:
