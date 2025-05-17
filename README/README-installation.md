@@ -15,7 +15,17 @@ pip install "jibberish[azure] @ git+https://github.com/bjeremy23/jibberish.git"
 # install them separately:
 pip install git+https://github.com/bjeremy23/jibberish.git
 pip install azure-identity azureopenai==0.0.1
+
 ```
+After installation, you'll need to edit the `~/.jbrsh` file to add your API keys and customize settings. For detailed instructions on setting up your API credentials, see [README-ai-setup.md](README-ai-setup.md).
+
+## .jbrsh Configuration file
+
+- Add thisfile to your home directory
+- This file contains environment variables used within the shell
+- You will need to fill out ENV variables to connect to your AI service
+
+For detailed instructions on setting up your API credentials, see [README-ai-setup.md](README-ai-setup.md).
 
 ### Installation from local repository
 
@@ -107,12 +117,3 @@ Options:
 ./setup.sh --yes
 ```
 
-After installation, you'll need to edit the `~/.jbrsh` file to add your API keys and customize settings. For detailed instructions on setting up your API credentials, see [README-ai-setup.md](README-ai-setup.md).
-
-## ~/.jbrsh Configuration
-
-- Add this file to your home directory
-- This file contains environment variables used within the shell
-- You will need to fill out ENV variables to connect to your AI service
-
-For detailed instructions on setting up your API credentials, see [README-ai-setup.md](README-ai-setup.md).
