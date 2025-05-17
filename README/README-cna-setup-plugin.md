@@ -33,7 +33,7 @@ PLUGIN_CNA_SETUP_COMMAND_ENABLED=n
 ## Requirements
 
 - The `cna-setup.sh` script must be present in one of the following locations (where $USER is your username):
-  - `/$USER/.vm-tools/interface/bin/cna-setup.sh`
+  - `/localdata/$USER/.vm-tools/interface/bin/cna-setup.sh`
 
 - The `CNA_TOOLS` environment variable is required by the script
   - The plugin will automatically set it to `/localdata/$USER/.vm-tools` if not already set
