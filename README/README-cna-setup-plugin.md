@@ -3,7 +3,7 @@
 This is a specialized plugin for the A40PacketCore group enabling Container Network Architecture (CNA) development environment.
 ## Usage
 
-Most 'cna' commands are handled through normal execution. This plugin specifically handles only these two 'special' commands:
+Most 'cna' commands are checked for typos and then handled through normal execution. This plugin specifically handles only these two 'special' commands:
 
 ```
 [jbrsh] user@hostname:~$ cna-setup

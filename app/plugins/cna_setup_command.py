@@ -1,9 +1,17 @@
 """
 Plugin for running CNA commands in Jibberish.
 This plugin specifically handles the 'cna-setup' command (with any arguments) and
-the 'cna enter-build' command. Other 'cna' commands are handled by the executor.
-The scripts and functions are designed to be sourced from the
-.vm-tools directory.
+the 'cna enter-build' command directly. All other 'cna' commands are captured
+for typo correction but then passed back to be executed by the system executor.
+
+The direct-handled commands use temp scripts that are designed to be sourced 
+from the .vm-tools directory.
+
+How commands are handled:
+1. 'cna-setup' - Directly handled with TTY forwarding for token prompts
+2. 'cna enter-build' - Directly handled in graphical terminal or via script command
+3. Other 'cna' commands - Checked for typos, then passed to main executor
+4. Typos of 'cna' (like 'cne') - Suggest correction to 'cna'
 """
 import os
 import sys
@@ -26,6 +34,12 @@ class CNASetupPlugin(BuiltinCommand):
     plugin_name = "cna_setup_command"  # Name of the plugin
     is_required = False  # This is an optional plugin
     is_enabled = True  # Enabled by default, can be overridden by environment variable
+    
+    # Define common typos for 'cna' command
+    CNA_TYPOS = ["cne", "cni", "cns", "can", "cnq", "cma", "cba", "cn", "cnaa"]
+    
+    # Define which cna commands to handle directly vs pass back to executor
+    DIRECT_HANDLED_COMMANDS = ["enter-build"]  # cna-setup is handled separately
     
     # Path to the cna-setup script
     # Check both common locations with both naming conventions
@@ -66,31 +80,59 @@ class CNASetupPlugin(BuiltinCommand):
     
     def can_handle(self, command):
         """Check if this plugin can handle the command"""
-        command = command.strip().split()
-        # Handle only cna-setup (any arguments) and cna enter-build
-        if len(command) == 0:
+        command_parts = command.strip().split()
+        # Handle empty commands
+        if len(command_parts) == 0:
             return False
         
+        cmd_name = command_parts[0]
+        
+        # Handle common typos of 'cna'
+        if cmd_name in self.CNA_TYPOS:
+            return True
+        
         # Accept any cna-setup command
-        if command[0] == "cna-setup":
+        if cmd_name == "cna-setup":
             return True
             
-        # For cna, only accept "cna enter-build" specifically
-        if command[0] == "cna" and len(command) >= 2 and command[1] == "enter-build":
+        # Accept any command that starts with 'cna'
+        if cmd_name == "cna":
             return True
             
         return False
     
     def execute(self, command):
-        """Execute the cna-setup command."""
+        """Execute the cna commands."""
         # Parse arguments (everything after "cna-setup")
         args = command.strip().split()
-        cmd_name = args[0]  # This will be "cna-setup"
+        cmd_name = args[0]  # This will be "cna-setup" or "cna" or a typo
         if len(args) > 1:
             script_args = args[1:]
         else:
             script_args = []
             
+        # Handle typos of 'cna'
+        if cmd_name in self.CNA_TYPOS:
+            click.echo(click.style(f"{cmd_name}: command not found", fg="red"))
+            suggestion = "cna" + (" " + " ".join(script_args) if script_args else "")
+            choice = input(click.style(f"Did you mean '{suggestion}'? Run this command instead? [y/n]: ", fg="yellow"))
+            if choice.lower() == "y":
+                cmd_name = "cna"  # Correct the command
+                # Pass the corrected command back to the executor
+                corrected_command = "cna " + " ".join(script_args)
+                # Return False and the corrected command to be executed by the executor
+                return False, corrected_command
+            else:
+                return False
+        
+        # For commands like 'cna something', check if we should handle it directly or pass back
+        if cmd_name == "cna" and len(script_args) > 0:
+            subcommand = script_args[0]
+            # If it's not a command we handle directly, pass it back to the executor
+            if subcommand not in self.DIRECT_HANDLED_COMMANDS:
+                # Return the command to be executed by the executor without any messages
+                return False, command.strip()
+        
         # Special handling for interactive commands
         is_interactive_command = False
         
@@ -154,8 +196,7 @@ class CNASetupPlugin(BuiltinCommand):
         if is_cna_command and len(script_args) > 0:
             if script_args[0] == "enter-build":
                 is_interactive_command = True
-                click.echo(click.style("Interactive command detected: 'cna enter-build'", fg="yellow"))
-                click.echo(click.style("Setting up interactive terminal environment...", fg="blue"))
+                click.echo(click.style("Setting up terminal environment...", fg="blue"))
                 
                 # Set environment variables that will be needed for the container session
                 os.environ["DOCKER_INTERACTIVE"] = "1"
@@ -342,12 +383,10 @@ exit $exit_code
                 import tempfile
                 import time
                 
-                # Initialize script_log for commands that use it (not cna-setup)
-                script_log = None
+                # Initialize TTY session for interactive commands
                 if cmd_name != "cna-setup":
-                    # Create a script command that will run our temp script
-                    script_log = os.path.join(tempfile.gettempdir(), f"cna_interactive_{int(time.time())}.log")
-                    click.echo(click.style(f"Creating TTY session (output will be logged to {script_log})...", fg="blue"))
+                    # Create a TTY session
+                    click.echo(click.style(f"Creating TTY session...", fg="blue"))
                 
                 # Check if this is cna-setup (special handling required for tokens)
                 if cmd_name == "cna-setup":
@@ -432,8 +471,7 @@ exit $exit_code
                         script_cmd = [
                             "script",
                             "-e",  # Return exit code of the command
-                            "-c", f"bash {temp_path}",  # The command to run
-                            script_log  # Log file
+                            "-c", f"bash {temp_path}"  # The command to run
                         ]
                         
                         # Run it
@@ -459,29 +497,7 @@ exit $exit_code
                 else:
                     click.echo(click.style(f"\nInteractive session completed.", fg="green"))
                 
-                # For cna-setup we used direct TTY forwarding, so no log file
-                if cmd_name != "cna-setup" and "script_log" in locals() and script_log:
-                    # Check if the log has useful output to show
-                    try:
-                        log_size = os.path.getsize(script_log)
-                        
-                        # For cna enter-build, don't show the log on success as it's confusing
-                        if is_cna_command and len(script_args) > 0 and script_args[0] == "enter-build":
-                            # Only show log if there was an unexpected error (not a normal exit)
-                            if result.returncode != 0 and result.returncode != 130:  # 130 is Ctrl+C
-                                click.echo(click.style("Error log:", fg="red"))
-                                with open(script_log, 'r') as f:
-                                    log_content = f.read()
-                                click.echo(log_content)
-                        elif log_size > 0 and log_size < 10000:  # Only show if it's not too large
-                            click.echo(click.style("Command output log:", fg="blue"))
-                            with open(script_log, 'r') as f:
-                                log_content = f.read()
-                            click.echo(log_content)
-                            
-                        os.unlink(script_log)  # Clean up
-                    except Exception:
-                        pass  # Ignore errors with log handling
+                # No log file handling needed
                     
             else:
                 # For non-interactive commands, use standard execution
