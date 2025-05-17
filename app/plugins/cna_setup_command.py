@@ -104,8 +104,7 @@ class CNASetupPlugin(BuiltinCommand):
                 os.environ["DOCKER_INTERACTIVE"] = "1"
                 os.environ["DOCKER_USE_TTY"] = "1"
                 os.environ["TERM"] = "xterm-256color"
-        # Note: There is no such thing as 'cna-setup enter-build' per user requirements
-        
+                
         try:
             # Create a temporary script that runs cna-setup properly
             temp_script = f"""#!/bin/bash
