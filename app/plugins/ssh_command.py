@@ -24,7 +24,8 @@ class SSHCommand(BuiltinCommand):
         try:
             # Check for aliases first
             try:
-                from plugins.alias_command import get_aliases
+                # Correct import path relative to current module
+                from ..plugins.alias_command import get_aliases
                 aliases = get_aliases()
                 # Check if 'ssh' is an alias
                 if 'ssh' in aliases:
@@ -36,7 +37,7 @@ class SSHCommand(BuiltinCommand):
                         expanded_command = f"{ssh_alias} {parts[1]}"
                     else:
                         expanded_command = ssh_alias
-                    
+                    # print the expanded command for debugging
                     command = expanded_command
             except (ImportError, AttributeError):
                 # If there's an error importing the plugin or getting aliases, just continue
