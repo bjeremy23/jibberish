@@ -121,7 +121,6 @@ def ai_command_standalone(query):
     # If the plugin returned a command to execute, run it
     if isinstance(result, tuple) and result[0] is False:
         command_to_execute = result[1]
-        click.echo(click.style(f"\nExecuting generated command: {command_to_execute}", fg="green"))
         execute_command(command_to_execute)
     
     return True
