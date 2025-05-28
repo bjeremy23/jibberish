@@ -560,8 +560,18 @@ def execute_command(command):
                     # Ask user if they want to execute the suggested command (showing the full corrected command)
                     choice = input(click.style(f"Did you mean '{corrected_command}'? Run this command instead? [y/n]: ", fg="yellow"))
                     if choice.lower() == "y":
-                        # Execute the suggested command
-                        execute_command(corrected_command)
+                        # Execute the suggested command, but check if it's a built-in first
+                        handled, new_command = is_built_in(corrected_command)
+                        
+                        if handled:
+                            # The built-in command was handled directly
+                            pass
+                        elif new_command is not None:
+                            # A new command was returned (e.g., from history or AI)
+                            execute_command(new_command)
+                        else:
+                            # Execute external command
+                            execute_command(corrected_command)
             elif "No such file or directory" in error:
                 # When the file/directory path doesn't exist, echo the original error
                 # This preserves the error message for cases like "ls /nonexistent/path"
