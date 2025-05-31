@@ -445,7 +445,11 @@ exit $exit_code
                                 "--hide-tabbar",       # For cleaner look
                                 "-e", "bash", temp_path
                             ]
-                    
+                    ###################################
+                    # DO NOT USE A DISPLAY for enter-build 
+                    ###################################
+                    terminal_cmd = None
+
                     # Only try to use a graphical terminal if we have a display and found a valid terminal
                     if has_display and terminal_cmd and term_args and is_cna_command and len(script_args) > 0 and script_args[0] == "enter-build":
                         # For cna enter-build specifically, try to launch in a proper terminal window
@@ -464,8 +468,8 @@ exit $exit_code
                     # Fall back to script command if we couldn't launch a graphical terminal
                     if not terminal_cmd or not has_display:
                         # For other interactive commands or if no terminal is available, use the script command
-                        if not has_display:
-                            click.echo(click.style("No display available. Using script command instead of graphical terminal.", fg="blue"))
+                        #if not has_display:
+                        #   click.echo(click.style("No display available. Using script command instead of graphical terminal.", fg="blue"))
                         
                         # Set up the script command for other interactive commands
                         script_cmd = [
