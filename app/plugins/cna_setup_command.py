@@ -474,6 +474,8 @@ exit $exit_code
                         # Set up the script command for other interactive commands
                         script_cmd = [
                             "script",
+                            "-q",  # Quiet mode (no start/end messages)
+                            "/dev/null",  # Discard typescript output
                             "-e",  # Return exit code of the command
                             "-c", f"bash {temp_path}"  # The command to run
                         ]
