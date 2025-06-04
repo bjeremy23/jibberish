@@ -239,7 +239,7 @@ fi
 {"export DOCKER_USE_TTY=1" if is_interactive_command else ""}
 
 # If this is cna enter-build, we need special handling
-if [ "{cmd_name}" = "cna" ] && [ "{' '.join(script_args)}" = "enter-build" ]; then
+if [ "{cmd_name}" = "cna" ] && [[ "{' '.join(script_args)}" == enter-build* ]]; then
     # Set appropriate environment variables for interactive sessions
     export DOCKER_INTERACTIVE=1
     export DOCKER_USE_TTY=1
@@ -250,15 +250,15 @@ if [ "{cmd_name}" = "cna" ] && [ "{' '.join(script_args)}" = "enter-build" ]; th
     
     # Check if the function exists first
     if type -t cna >/dev/null; then
-        echo "Found cna function in bash environment, executing cna enter-build..."
-        cna enter-build
+        echo "Found cna function in bash environment, executing cna {' '.join(script_args)}..."
+        cna {' '.join(script_args)}
         # The exit code doesn't matter for interactive containers
         exit 0
     else
         # If no cna function, try to find the script
         if [ -f "$CNA_TOOLS/interface/bin/cna" ]; then
-            echo "Found cna script, executing cna enter-build..."
-            bash "$CNA_TOOLS/interface/bin/cna" enter-build
+            echo "Found cna script, executing cna {' '.join(script_args)}..."
+            bash "$CNA_TOOLS/interface/bin/cna" {' '.join(script_args)}
             # The exit code doesn't matter for interactive containers
             exit 0
         fi
@@ -305,14 +305,14 @@ if [ -z "$CNA_TOOLS" ]; then
 fi
 
 # Handle different command types
-if [ "{cmd_name}" = "cna" ] && [ "{' '.join(script_args)}" = "enter-build" ]; then
+if [ "{cmd_name}" = "cna" ] && [[ "{' '.join(script_args)}" == enter-build* ]]; then
     # For cna enter-build, we need to source the cna-setup script first, then run cna enter-build
     if [ -f "{self.script_path}" ]; then
         echo "Sourcing cna-setup script..."
         source "{self.script_path}"
         
-        # Now execute cna enter-build command
-        echo "Executing cna enter-build..."
+        # Now execute cna command (enter-build with any options)
+        echo "Executing cna {' '.join(script_args)}..."
         if [ -f "$CNA_TOOLS/interface/bin/cna" ]; then
             # Extra environment variables for interactive docker sessions
             export DOCKER_USE_TTY=1
@@ -322,8 +322,8 @@ if [ "{cmd_name}" = "cna" ] && [ "{' '.join(script_args)}" = "enter-build" ]; th
             # Trap exit signals to handle container exit gracefully
             trap 'exit 0' SIGINT SIGTERM
             
-            # Execute the cna script with enter-build argument
-            bash "$CNA_TOOLS/interface/bin/cna" enter-build
+            # Execute the cna script with all the provided arguments
+            bash "$CNA_TOOLS/interface/bin/cna" {' '.join(script_args)}
             
             # Container has exited - always return success
             exit 0
