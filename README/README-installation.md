@@ -2,20 +2,29 @@
 
 This document outlines the various methods to install and set up Jibberish, an AI-powered Linux Shell.
 
-## Quick Installation with pip
+## Choose your installation
 
+### Basic installation (Recommended)
 ```bash
-# Basic installation
 pip install git+https://github.com/bjeremy23/jibberish.git
+``` 
 
-# With Azure OpenAI support
+### For development, you may want to install in "editable" mode:
+```bash
+git clone https://github.com/bjeremy23/jibberish.git
+cd jibberish
+pip install -e .
+```
+
+### With Azure OpenAI support
+``` bash
 pip install "jibberish[azure] @ git+https://github.com/bjeremy23/jibberish.git"
+```
 
-# If you encounter dependency issues with Azure packages,
-# install them separately:
+### If you encounter dependency issues with Azure packages install them separately:
+``` bash
 pip install git+https://github.com/bjeremy23/jibberish.git
 pip install azure-identity azureopenai==0.0.1
-
 ```
 After installation, you'll need to edit the `~/.jbrsh` file to add your API keys and customize settings. For detailed instructions on setting up your API credentials, see [README-ai-setup.md](README-ai-setup.md).
 
@@ -61,16 +70,6 @@ jibberish -q "How do I find files modified in the last 24 hours?"
 
 # Generate a command
 jibberish -c "Find all Python files containing the word 'error'"
-```
-
-### Development Installation
-
-For development, you may want to install in "editable" mode:
-
-```bash
-git clone https://github.com/bjeremy23/jibberish.git
-cd jibberish
-pip install -e .
 ```
 
 ## Manual Installation from Source
