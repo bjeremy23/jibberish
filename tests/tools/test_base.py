@@ -1,20 +1,17 @@
 #!/usr/bin/env python
 """
-Unittest-based test script for testing the jibberish tool system.
+Tests for the jibberish tool system base classes and registry.
 """
 import os
 import sys
 import unittest
-import tempfile
 from unittest.mock import patch, MagicMock
 
 # Add the parent directory to the path so we can import the modules
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
 # Import the tool system components
-from app.tools import ToolRegistry, FileReaderTool
-from app.tools.base import Tool, ToolCallParser
-from tests.utils.test_utils import CaptureOutput
+from app.tools.base import Tool, ToolRegistry, ToolCallParser
 
 
 class TestToolRegistry(unittest.TestCase):
@@ -78,102 +75,6 @@ class TestToolRegistry(unittest.TestCase):
         mock_tool.to_function_definition.assert_called_once()
 
 
-class TestFileReaderTool(unittest.TestCase):
-    """Tests for the FileReaderTool."""
-    
-    def setUp(self):
-        """Set up the test environment before each test method."""
-        self.tool = FileReaderTool()
-        
-        # Create a temporary file for testing
-        self.temp_file = tempfile.NamedTemporaryFile(mode='w', delete=False)
-        self.temp_file.write("Line 1\nLine 2\nLine 3\nLine 4\nLine 5\n")
-        self.temp_file.close()
-        
-        # Create a temporary directory for testing
-        self.temp_dir = tempfile.mkdtemp()
-    
-    def tearDown(self):
-        """Clean up after each test method."""
-        # Clean up temporary files
-        if os.path.exists(self.temp_file.name):
-            os.unlink(self.temp_file.name)
-        if os.path.exists(self.temp_dir):
-            os.rmdir(self.temp_dir)
-    
-    def test_tool_properties(self):
-        """Test that the tool has the correct properties."""
-        self.assertEqual(self.tool.name, "read_file")
-        self.assertIn("Read the contents of a file", self.tool.description)
-        
-        # Check parameters structure
-        params = self.tool.parameters
-        self.assertEqual(params["type"], "object")
-        self.assertIn("filepath", params["properties"])
-        self.assertIn("filepath", params["required"])
-    
-    def test_read_file_success(self):
-        """Test successfully reading a file."""
-        result = self.tool.execute(filepath=self.temp_file.name)
-        
-        # Check that the result contains the file contents
-        self.assertIn("Line 1", result)
-        self.assertIn("Line 2", result)
-        self.assertIn("=== File:", result)
-        self.assertIn("5 total", result)
-    
-    def test_read_file_with_max_lines(self):
-        """Test reading a file with max_lines parameter."""
-        result = self.tool.execute(filepath=self.temp_file.name, max_lines=2)
-        
-        # Check that only 2 lines were read
-        self.assertIn("Line 1", result)
-        self.assertIn("Line 2", result)
-        self.assertNotIn("Line 3", result)
-        self.assertIn("Lines 1-2 of 5", result)
-    
-    def test_read_file_with_start_line(self):
-        """Test reading a file with start_line parameter."""
-        result = self.tool.execute(filepath=self.temp_file.name, start_line=3, max_lines=2)
-        
-        # Check that we started from line 3
-        self.assertNotIn("Line 1", result)
-        self.assertNotIn("Line 2", result)
-        self.assertIn("Line 3", result)
-        self.assertIn("Line 4", result)
-        self.assertIn("Lines 3-4 of 5", result)
-    
-    def test_read_nonexistent_file(self):
-        """Test reading a file that doesn't exist."""
-        result = self.tool.execute(filepath="/nonexistent/file.txt")
-        
-        self.assertIn("ERROR:", result)
-        self.assertIn("does not exist", result)
-    
-    def test_read_directory_as_file(self):
-        """Test trying to read a directory as a file."""
-        result = self.tool.execute(filepath=self.temp_dir)
-        
-        self.assertIn("ERROR:", result)
-        self.assertIn("is not a file", result)
-    
-    def test_start_line_beyond_file_length(self):
-        """Test start_line parameter beyond file length."""
-        result = self.tool.execute(filepath=self.temp_file.name, start_line=10)
-        
-        self.assertIn("ERROR:", result)
-        self.assertIn("beyond the file length", result)
-    
-    def test_function_definition_format(self):
-        """Test that the tool generates a proper function definition."""
-        definition = self.tool.to_function_definition()
-        
-        self.assertEqual(definition["name"], "read_file")
-        self.assertIn("description", definition)
-        self.assertIn("parameters", definition)
-        self.assertEqual(definition["parameters"]["type"], "object")
-
-
 class TestToolCallParser(unittest.TestCase):
     """Tests for the ToolCallParser."""
     
@@ -207,6 +108,17 @@ class TestToolCallParser(unittest.TestCase):
         self.assertEqual(len(tool_calls), 1)
         self.assertEqual(tool_calls[0]["name"], "read_file")
         self.assertEqual(tool_calls[0]["arguments"]["filepath"], "/var/log/system.log")
+    
+    def test_extract_tool_calls_pattern3_no_filepath_fallback(self):
+        """Test extracting tool calls with [TOOL] pattern without = sign (should not auto-assign filepath)."""
+        response = "[TOOL] read_file: /var/log/system.log"
+        
+        tool_calls = ToolCallParser.extract_tool_calls(response)
+        
+        self.assertEqual(len(tool_calls), 1)
+        self.assertEqual(tool_calls[0]["name"], "read_file")
+        # Should have empty arguments since there's no key=value format
+        self.assertEqual(tool_calls[0]["arguments"], {})
     
     def test_extract_multiple_tool_calls(self):
         """Test extracting multiple tool calls from one response."""
@@ -249,47 +161,54 @@ class TestToolCallParser(unittest.TestCase):
         self.assertFalse(ToolCallParser.should_use_tools(response))
 
 
-class TestToolIntegration(unittest.TestCase):
-    """Integration tests for the complete tool system."""
+class MockTool(Tool):
+    """Mock tool implementation for testing."""
     
-    def setUp(self):
-        """Set up the test environment before each test method."""
-        # Ensure FileReaderTool is registered
-        if ToolRegistry.get_tool("read_file") is None:
-            ToolRegistry.register(FileReaderTool())
-        
-        # Create a test file
-        self.temp_file = tempfile.NamedTemporaryFile(mode='w', delete=False)
-        self.temp_file.write("#!/usr/bin/env python3\nprint('Hello, World!')\n")
-        self.temp_file.close()
+    @property
+    def name(self) -> str:
+        return "mock_tool"
     
-    def tearDown(self):
-        """Clean up after each test method."""
-        if os.path.exists(self.temp_file.name):
-            os.unlink(self.temp_file.name)
+    @property
+    def description(self) -> str:
+        return "A mock tool for testing"
     
-    def test_end_to_end_tool_execution(self):
-        """Test complete workflow: parse tool call and execute it."""
-        # Simulate AI response with tool call
-        ai_response = f"TOOL_CALL: read_file(filepath='{self.temp_file.name}')"
+    @property
+    def parameters(self):
+        return {
+            "type": "object",
+            "properties": {
+                "test_param": {
+                    "type": "string",
+                    "description": "A test parameter"
+                }
+            },
+            "required": ["test_param"]
+        }
+    
+    def execute(self, **kwargs) -> str:
+        return f"Mock tool executed with: {kwargs}"
+
+
+class TestToolBaseClass(unittest.TestCase):
+    """Tests for the Tool base class."""
+    
+    def test_tool_function_definition(self):
+        """Test that Tool base class generates proper function definitions."""
+        tool = MockTool()
+        definition = tool.to_function_definition()
         
-        # Parse the tool calls
-        tool_calls = ToolCallParser.extract_tool_calls(ai_response)
+        self.assertEqual(definition["name"], "mock_tool")
+        self.assertEqual(definition["description"], "A mock tool for testing")
+        self.assertIn("parameters", definition)
+        self.assertEqual(definition["parameters"]["type"], "object")
+    
+    def test_tool_execution(self):
+        """Test that Tool base class can execute properly."""
+        tool = MockTool()
+        result = tool.execute(test_param="test_value")
         
-        self.assertEqual(len(tool_calls), 1)
-        
-        # Execute the tool
-        tool_call = tool_calls[0]
-        tool = ToolRegistry.get_tool(tool_call["name"])
-        
-        self.assertIsNotNone(tool)
-        
-        result = tool.execute(**tool_call["arguments"])
-        
-        # Verify the execution result
-        self.assertIn("#!/usr/bin/env python3", result)
-        self.assertIn("Hello, World!", result)
-        self.assertIn("=== File:", result)
+        self.assertIn("test_param", result)
+        self.assertIn("test_value", result)
 
 
 if __name__ == '__main__':
