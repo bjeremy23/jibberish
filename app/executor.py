@@ -255,14 +255,39 @@ def run_in_background(command):
         # Launch the process without & and use proper flags to run in background
         # Use nohup to ensure the process continues even if the terminal closes
         # Redirect output to our temporary files instead of /dev/null
-        process = subprocess.Popen(
-            f"nohup {actual_command} > {stdout_path} 2> {stderr_path} & echo $!",
-            shell=True,
-            executable='/bin/bash',
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
-        )
+        try:
+            process = subprocess.Popen(
+                f"nohup {actual_command} > {stdout_path} 2> {stderr_path} & echo $!",
+                shell=True,
+                executable='/bin/bash',
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+        except (OSError, FileNotFoundError) as e:
+            # Handle stale file handle - current directory is invalid
+            click.echo(click.style(f"Warning: Current directory is invalid (stale file handle). Switching to home directory.", fg="yellow"))
+            try:
+                home_dir = os.path.expanduser("~")
+                os.chdir(home_dir)
+                click.echo(click.style(f"Changed working directory to: {home_dir}", fg="yellow"))
+                # Retry the command in the home directory
+                process = subprocess.Popen(
+                    f"nohup {actual_command} > {stdout_path} 2> {stderr_path} & echo $!",
+                    shell=True,
+                    executable='/bin/bash',
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+            except Exception as retry_error:
+                # Clean up temp files before returning
+                try:
+                    os.unlink(stdout_path)
+                    os.unlink(stderr_path)
+                except OSError:
+                    pass
+                return -1, "", f"Failed to execute background command even after changing to home directory: {retry_error}"
         
         # Get the actual PID of the background process
         output, _ = process.communicate()
@@ -310,11 +335,29 @@ def run_in_interactive(command):
         signal.signal(signal.SIGINT, custom_sigint_handler)
         
         # Run the interactive command with subprocess
-        process = subprocess.Popen(
-            command,
-            shell=True,
-            executable='/bin/bash'
-        )
+        try:
+            process = subprocess.Popen(
+                command,
+                shell=True,
+                executable='/bin/bash'
+            )
+        except (OSError, FileNotFoundError) as e:
+            # Handle stale file handle - current directory is invalid
+            click.echo(click.style(f"Warning: Current directory is invalid (stale file handle). Switching to home directory.", fg="yellow"))
+            try:
+                home_dir = os.path.expanduser("~")
+                os.chdir(home_dir)
+                click.echo(click.style(f"Changed working directory to: {home_dir}", fg="yellow"))
+                # Retry the command in the home directory
+                process = subprocess.Popen(
+                    command,
+                    shell=True,
+                    executable='/bin/bash'
+                )
+            except Exception as retry_error:
+                # Restore original handler before returning
+                signal.signal(signal.SIGINT, original_sigint)
+                return -1, "", f"Failed to execute command even after changing to home directory: {retry_error}"
         
         # Wait for command to complete
         return_code = process.wait()
@@ -374,16 +417,38 @@ def run_in_non_interactive(command):
                 env[var] = value
     
     # Start process with pipes and the enhanced environment
-    process = subprocess.Popen(
-        command,
-        shell=True,
-        executable='/bin/bash',
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        bufsize=1,
-        text=True,
-        env=env
-    )
+    try:
+        process = subprocess.Popen(
+            command,
+            shell=True,
+            executable='/bin/bash',
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            bufsize=1,
+            text=True,
+            env=env
+        )
+    except (OSError, FileNotFoundError) as e:
+        # Handle stale file handle - current directory is invalid
+        click.echo(click.style(f"Warning: Current directory is invalid (stale file handle). Switching to home directory.", fg="yellow"))
+        try:
+            home_dir = os.path.expanduser("~")
+            os.chdir(home_dir)
+            click.echo(click.style(f"Changed working directory to: {home_dir}", fg="yellow"))
+            # Retry the command in the home directory
+            process = subprocess.Popen(
+                command,
+                shell=True,
+                executable='/bin/bash',
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                bufsize=1,
+                text=True,
+                env=env
+            )
+        except Exception as retry_error:
+            # If we still can't execute, return an error
+            return -1, "", f"Failed to execute command even after changing to home directory: {retry_error}"
     
     # Function to read from pipes and put lines into queues
     def reader(pipe, queue):

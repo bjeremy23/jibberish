@@ -204,8 +204,22 @@ def cli(version, question, command):
 
     while True:
         try:
-            # find the current directory
-            current_directory = os.getcwd()
+            # find the current directory - handle stale file handle
+            try:
+                current_directory = os.getcwd()
+            except (FileNotFoundError, OSError):
+                # Current directory is stale/deleted - switch to HOME
+                home_dir = os.getenv('HOME', os.path.expanduser('~'))
+                click.echo(click.style(f"Warning: Current directory is invalid (stale file handle). Switching to home directory.", fg="yellow"))
+                try:
+                    os.chdir(home_dir)
+                    current_directory = home_dir
+                    click.echo(click.style(f"Changed working directory to: {home_dir}", fg="yellow"))
+                except Exception as e:
+                    # If we can't change to HOME, use HOME string for display
+                    current_directory = home_dir
+                    click.echo(click.style(f"Could not change to home directory: {e}", fg="red"))
+            
             # get the $USER variable
             user = os.getenv('USER', 'user')
             # get the $HOSTNAME variable
