@@ -42,7 +42,7 @@ PROMPT_AI_COMMANDS=true
 # false = Display stdout or stderr only
 IGNORE_ERRORS=true
 
-# The default AI partner for chat (default: "Marvin the Paranoid Android")
+# The default AI partner for chat (default: "Jarvis")
 # In the shell, change with ':) <partner>' command
 AI_PARTNER="Jarvis"
 
