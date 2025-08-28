@@ -18,6 +18,15 @@ import re
 import os
 from app.context_manager import add_specialized_contexts, determine_temperature
 
+# Import the tool system
+try:
+    from app.tools import ToolRegistry
+    from app.tools.base import ToolCallParser
+    TOOLS_AVAILABLE = True
+except ImportError:
+    TOOLS_AVAILABLE = False
+    click.echo(click.style("Warning: Tool system not available", fg="yellow"))
+
 # Get the default partner from environment variable or use the fallback
 partner = os.environ.get('AI_PARTNER', "Marvin the Paranoid Android")
 
@@ -358,65 +367,144 @@ def ask_ai(command):
 
 def ask_question(command, temp=0.5):
     """
-    Have a small contextual chat with the AI
+    Have a small contextual chat with the AI, with tool support.
+    If the AI requests tools, execute them and resend with enhanced context.
     """
-    messages = load_chat_history()
-    
-    # Add additional context for certain types of questions
-    additional_context = []
-    if any(term in command.lower() for term in ['technical', 'explain', 'how does', 'why is']):
-        additional_context.append({
-            "role": "system",
-            "content": f"Provide accurate technical explanations while maintaining the character of {partner}."
-        })
-    
-    messages.append(
-        {
-            "role": "user",
-            "content": f"{command}"
-        }
-    )
-    
-    response = None
-    retries = 3
-    
-    # Use the context manager's temperature function, but default to the provided temp
-    if temp == 0.5:  # Only override if default was used
-        temp = determine_temperature(command)
-        
-    for _ in range(retries):
-        try:
-            # Handle both new and legacy Azure OpenAI APIs
-            if hasattr(api.client, 'chat'):
-                # New OpenAI API (v1.0.0+)
-                response = api.client.chat.completions.create(
-                    model=api.model,
-                    messages=chat_context + additional_context + messages,
-                    temperature=temp
-                )
-            else:
-                # Legacy OpenAI API (pre-v1.0.0)
-                response = api.client.ChatCompletion.create(
-                    engine=api.model,  # For Azure legacy API, use engine instead of model
-                    messages=chat_context + additional_context + messages,
-                    temperature=temp
-                )
-            break
-        except Exception as e:
-            click.echo(click.style(f"Connection error: {e}. Retrying...", fg="red"))
-            time.sleep(2)
+    return _ask_question_with_tools(command, temp, max_tool_iterations=3)
 
-    if response:
-        r =  response.choices[0].message.content.strip()
-        messages.append(
-            {
-                "role": "assistant",
-                "content": f"{r}"
+def _ask_question_with_tools(command, temp=0.5, max_tool_iterations=3):
+    """
+    Internal function that handles the tool execution loop.
+    """
+    original_command = command
+    messages = load_chat_history()
+    tool_context = []  # Accumulate tool outputs
+    
+    for iteration in range(max_tool_iterations):
+        # Add additional context for certain types of questions
+        additional_context = []
+        if any(term in command.lower() for term in ['technical', 'explain', 'how does', 'why is']):
+            additional_context.append({
+                "role": "system",
+                "content": f"Provide accurate technical explanations while maintaining the character of {partner}."
+            })
+        
+        # Add tool availability context if tools are available
+        if TOOLS_AVAILABLE and iteration == 0:
+            available_tools = ToolRegistry.get_all_tools()
+            if available_tools:
+                tool_descriptions = []
+                for tool_name, tool in available_tools.items():
+                    tool_descriptions.append(f"- {tool_name}: {tool.description}")
+                
+                tool_context_msg = {
+                    "role": "system", 
+                    "content": f"""You have access to the following tools to help answer questions:
+
+{chr(10).join(tool_descriptions)}
+
+To use a tool, include in your response: TOOL_CALL: tool_name(param="value")
+For example: TOOL_CALL: read_file(filepath="/path/to/file")
+
+Use tools when you need additional information to provide a complete answer."""
+                }
+                additional_context.append(tool_context_msg)
+        
+        # Add any tool context from previous iterations
+        if tool_context:
+            context_msg = {
+                "role": "system",
+                "content": f"Additional context from tools:\n\n{chr(10).join(tool_context)}"
             }
-        )
+            additional_context.append(context_msg)
+        
+        # Prepare the current message
+        current_message = {
+            "role": "user",
+            "content": command
+        }
+        
+        current_messages = messages + [current_message]
+        
+        response = None
+        retries = 3
+        
+        # Use the context manager's temperature function, but default to the provided temp
+        if temp == 0.5:  # Only override if default was used
+            temp = determine_temperature(command)
+            
+        for _ in range(retries):
+            try:
+                # Handle both new and legacy Azure OpenAI APIs
+                if hasattr(api.client, 'chat'):
+                    # New OpenAI API (v1.0.0+)
+                    response = api.client.chat.completions.create(
+                        model=api.model,
+                        messages=chat_context + additional_context + current_messages,
+                        temperature=temp
+                    )
+                else:
+                    # Legacy OpenAI API (pre-v1.0.0)
+                    response = api.client.ChatCompletion.create(
+                        engine=api.model,  # For Azure legacy API, use engine instead of model
+                        messages=chat_context + additional_context + current_messages,
+                        temperature=temp
+                    )
+                break
+            except Exception as e:
+                click.echo(click.style(f"Connection error: {e}. Retrying...", fg="red"))
+                time.sleep(2)
+
+        if not response:
+            return "Failed to connect to OpenAI API after multiple attempts."
+        
+        ai_response = response.choices[0].message.content.strip()
+        
+        # Check if the AI wants to use tools
+        if TOOLS_AVAILABLE and ToolCallParser.should_use_tools(ai_response):
+            tool_calls = ToolCallParser.extract_tool_calls(ai_response)
+            
+            if tool_calls:
+                click.echo(click.style(f"AI is requesting {len(tool_calls)} tool(s)...", fg="blue"))
+                
+                # Execute each tool call
+                tools_executed = False
+                for tool_call in tool_calls:
+                    tool_name = tool_call.get("name")
+                    tool_args = tool_call.get("arguments", {})
+                    
+                    tool = ToolRegistry.get_tool(tool_name)
+                    if tool:
+                        click.echo(click.style(f"Executing tool: {tool_name}", fg="cyan"))
+                        try:
+                            tool_output = tool.execute(**tool_args)
+                            tool_context.append(f"Tool {tool_name} output:\n{tool_output}")
+                            tools_executed = True
+                            click.echo(click.style(f"Tool {tool_name} completed", fg="green"))
+                        except Exception as e:
+                            error_msg = f"Tool {tool_name} failed: {str(e)}"
+                            tool_context.append(error_msg)
+                            click.echo(click.style(error_msg, fg="red"))
+                    else:
+                        error_msg = f"Tool {tool_name} not found"
+                        tool_context.append(error_msg)
+                        click.echo(click.style(error_msg, fg="red"))
+                
+                if tools_executed:
+                    # Modify the command to include context about tool execution
+                    command = f"{original_command}\n\nPlease provide a complete answer using the tool outputs above."
+                    continue  # Go to next iteration with tool context
+        
+        # No more tools needed, return the final response
+        messages.append(current_message)
+        messages.append({
+            "role": "assistant",
+            "content": ai_response
+        })
         save_chat(messages)
-        return r
-    else:
-        return "Failed to connect to OpenAI API after multiple attempts."
+        return ai_response
+    
+    # If we've exhausted iterations, return what we have
+    return ai_response if 'ai_response' in locals() else "Maximum tool iterations reached without completing the request."
 
 
