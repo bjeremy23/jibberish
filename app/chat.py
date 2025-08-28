@@ -17,6 +17,7 @@ import click
 import re
 import os
 from app.context_manager import add_specialized_contexts, determine_temperature
+from app.utils import generate_tool_context_message
 
 # Import the tool system
 try:
@@ -390,24 +391,9 @@ def _ask_question_with_tools(command, temp=0.5, max_tool_iterations=3):
             })
         
         # Add tool availability context if tools are available
-        if TOOLS_AVAILABLE and iteration == 0:
-            available_tools = ToolRegistry.get_all_tools()
-            if available_tools:
-                tool_descriptions = []
-                for tool_name, tool in available_tools.items():
-                    tool_descriptions.append(f"- {tool_name}: {tool.description}")
-                
-                tool_context_msg = {
-                    "role": "system", 
-                    "content": f"""You have access to the following tools to help answer questions:
-
-{chr(10).join(tool_descriptions)}
-
-To use a tool, include in your response: TOOL_CALL: tool_name(param="value")
-For example: TOOL_CALL: read_file(filepath="/path/to/file")
-
-Use tools when you need additional information to provide a complete answer."""
-                }
+        if iteration == 0:
+            tool_context_msg = generate_tool_context_message()
+            if tool_context_msg:
                 additional_context.append(tool_context_msg)
         
         # Add any tool context from previous iterations
