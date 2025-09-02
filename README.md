@@ -119,6 +119,61 @@ Jibberish handles both interactive commands and background processes:
 
 For more advanced usage and detailed documentation on specific features, refer to the guides linked below.
 
+### File Tools
+
+Jibberish includes built-in tools for reading and writing files, which can be used through natural language commands when asking questions with the `?` prefix:
+
+#### Reading Files
+
+Ask Jibberish to read and analyze file contents:
+
+```bash
+# Read a specific file
+/home/jbrsh# ? Using the ./README, summarize the key features
+
+# Read parts of a file
+/home/jbrsh# ? Read the first 20 lines of /var/log/syslog and tell me about any errors
+
+# Analyze configuration files
+/home/jbrsh# ? Check my ~/.bashrc file and explain what customizations I have
+```
+
+#### Writing Files
+
+Ask Jibberish to create or update files based on your requests:
+
+```bash
+# Create a summary file
+/home/jbrsh# ? Read the documentation and create a quick reference guide in /tmp/quick-ref.md
+
+# Generate configuration files
+/home/jbrsh# ? Create a basic nginx.conf file for a static website in /tmp/nginx.conf
+
+# Save command output to files
+/home/jbrsh# ? Analyze the system logs and write a summary to /tmp/log-analysis.txt
+```
+
+#### Combined File Operations
+
+You can combine reading and writing operations in a single request:
+
+```bash
+# Process and transform files
+/home/jbrsh# ? Read the CSV data from ./input.csv, format it as markdown table, and save to ./output.md
+
+# Create reports from multiple sources
+/home/jbrsh# ? Using both ./config.yaml and ./logs.txt, create a system status report in /tmp/status.md
+```
+
+The file tools support:
+- **Any file path**: Absolute paths, relative paths, or tilde (`~`) for home directory
+- **Multiple encodings**: UTF-8 (default), ASCII, Latin-1
+- **Append mode**: Add content to existing files instead of overwriting
+- **Automatic directory creation**: Creates parent directories if they don't exist
+- **Error handling**: Clear error messages for permission issues or invalid paths
+
+These tools integrate seamlessly with Jibberish's AI capabilities, allowing you to work with files using natural language rather than remembering complex command syntax.
+
 
 ### Standalone Mode
 
