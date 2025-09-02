@@ -369,13 +369,15 @@ def ask_ai(command):
 def ask_question(command, temp=0.5):
     """
     Have a small contextual chat with the AI, with tool support.
-    If the AI requests tools, execute them and resend with enhanced context.
+    Uses a two-phase approach: first execute tools, then generate response with tool context.
     """
-    return _ask_question_with_tools(command, temp, max_tool_iterations=3)
+    return _ask_question_with_tools(command, temp, max_tool_iterations=2)
 
-def _ask_question_with_tools(command, temp=0.5, max_tool_iterations=3):
+def _ask_question_with_tools(command, temp=0.5, max_tool_iterations=2):
     """
     Internal function that handles the tool execution loop.
+    Phase 1: Execute any initial tool calls from AI response
+    Phase 2: Generate final response using tool outputs
     """
     original_command = command
     messages = load_chat_history()
@@ -390,11 +392,10 @@ def _ask_question_with_tools(command, temp=0.5, max_tool_iterations=3):
                 "content": f"Provide accurate technical explanations while maintaining the character of {partner}."
             })
         
-        # Add tool availability context if tools are available
-        if iteration == 0:
-            tool_context_msg = generate_tool_context_message()
-            if tool_context_msg:
-                additional_context.append(tool_context_msg)
+        # Add tool availability context for all iterations (not just iteration 0)
+        tool_context_msg = generate_tool_context_message()
+        if tool_context_msg:
+            additional_context.append(tool_context_msg)
         
         # Add any tool context from previous iterations
         if tool_context:
@@ -447,12 +448,12 @@ def _ask_question_with_tools(command, temp=0.5, max_tool_iterations=3):
         ai_response = response.choices[0].message.content.strip()
         
         # Check if the AI wants to use tools
-        if TOOLS_AVAILABLE and ToolCallParser.should_use_tools(ai_response):
+        should_use = TOOLS_AVAILABLE and ToolCallParser.should_use_tools(ai_response)
+        
+        if should_use:
             tool_calls = ToolCallParser.extract_tool_calls(ai_response)
             
             if tool_calls:
-                click.echo(click.style(f"AI is requesting {len(tool_calls)} tool(s)...", fg="blue"))
-                
                 # Execute each tool call
                 tools_executed = False
                 for tool_call in tool_calls:
@@ -477,14 +478,38 @@ def _ask_question_with_tools(command, temp=0.5, max_tool_iterations=3):
                         click.echo(click.style(error_msg, fg="red"))
                 
                 if tools_executed:
-                    # Modify the command to include context about tool execution
-                    command = f"{original_command}\n\nPlease provide a complete answer using the tool outputs above."
+                    # Clean up the AI response that contained the tool calls before proceeding
+                    if TOOLS_AVAILABLE:
+                        import re
+                        # Only remove JSON blocks containing tool_calls
+                        ai_response = re.sub(r'```json\s*\n.*?"tool_calls".*?```', '', ai_response, flags=re.IGNORECASE | re.DOTALL)
+                        ai_response = re.sub(r'\n{2,}', '\n\n', ai_response.strip())
+                    
+                    # For the next iteration, ask AI to use the tool outputs to complete the request
+                    # Be explicit about requiring tool calls if the original request involved file operations
+                    if any(word in original_command.lower() for word in ['write', 'save', 'create file', 'output to']):
+                        command = f"Using the tool outputs provided above, complete this request: {original_command}\n\nIMPORTANT: If the request asks you to write or save content to a file, you MUST use the write_file tool with the appropriate TOOL_CALL format."
+                    else:
+                        command = f"Using the tool outputs provided above, {original_command}"
                     continue  # Go to next iteration with tool context
         
-        # No more tools needed, return the final response
+        # No more tools needed or max iterations reached, return the final response
+        
+        # Clean up response by removing tool call syntax if present
+        if TOOLS_AVAILABLE:
+            import re
+            # Only remove JSON blocks containing tool_calls, not all JSON
+            ai_response = re.sub(r'```json\s*\n.*?"tool_calls".*?```', '', ai_response, flags=re.IGNORECASE | re.DOTALL)
+            # Clean up excessive newlines and whitespace
+            ai_response = re.sub(r'\n{2,}', '\n\n', ai_response.strip())
+        
+        # Ensure we return clean response
+        ai_response = ai_response.strip()
+
+        
         messages.append(current_message)
         messages.append({
-            "role": "assistant",
+            "role": "assistant", 
             "content": ai_response
         })
         save_chat(messages)
@@ -492,5 +517,7 @@ def _ask_question_with_tools(command, temp=0.5, max_tool_iterations=3):
     
     # If we've exhausted iterations, return what we have
     return ai_response if 'ai_response' in locals() else "Maximum tool iterations reached without completing the request."
+
+
 
 

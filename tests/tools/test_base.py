@@ -145,8 +145,7 @@ class TestToolCallParser(unittest.TestCase):
         """Test should_use_tools with responses that should use tools."""
         test_cases = [
             "TOOL_CALL: read_file(filepath='test.py')",
-            "I need to read the file to understand",
-            "Let me examine the file contents",
+            "USE_TOOL: write_file {'filepath': 'output.txt'}",
             "[TOOL] read_file: filepath=test.txt"
         ]
         
@@ -159,6 +158,76 @@ class TestToolCallParser(unittest.TestCase):
         response = "This is a regular response without any tool indicators."
         
         self.assertFalse(ToolCallParser.should_use_tools(response))
+    
+    def test_natural_language_no_tool_detection(self):
+        """Test that natural language responses without tool calls are correctly identified."""
+        natural_response = """Certainly. Here is a concise summary of the FDIO patch creation process, based on the README, which you can save to /tmp/patch.readme:
+
+---
+
+**FDIO Patch Creation Summary**
+
+To create a new FDIO patch, use `cna make modify-fdio-src-patch` to generate a modifiable source directory, make and commit your changes in a single commit, then run `cna make create-fdio-src-patch` to generate the patch file.
+
+---
+
+This summary is ready for writing to `/tmp/patch.readme`. If you want me to write this directly to the file, please enable the necessary file write permissions or confirm the action."""
+        
+        # Should not detect tools in natural language
+        self.assertFalse(ToolCallParser.should_use_tools(natural_response))
+        
+        # Should not extract any tool calls
+        tool_calls = ToolCallParser.extract_tool_calls(natural_response)
+        self.assertEqual(len(tool_calls), 0)
+    
+    def test_explicit_tool_call_detection(self):
+        """Test that explicit tool calls are correctly detected and extracted."""
+        explicit_response = """I'll write the summary to the file for you.
+
+TOOL_CALL: write_file(filepath="/tmp/patch.readme", content="**FDIO Patch Creation Summary**\\n\\nTo create a new FDIO patch, use `cna make modify-fdio-src-patch`...")"""
+        
+        # Should detect explicit tool calls
+        self.assertTrue(ToolCallParser.should_use_tools(explicit_response))
+        
+        # Should extract the tool call correctly
+        tool_calls = ToolCallParser.extract_tool_calls(explicit_response)
+        self.assertEqual(len(tool_calls), 1)
+        self.assertEqual(tool_calls[0]["name"], "write_file")
+        self.assertIn("filepath", tool_calls[0]["arguments"])
+        self.assertIn("content", tool_calls[0]["arguments"])
+        self.assertEqual(tool_calls[0]["arguments"]["filepath"], "/tmp/patch.readme")
+    
+    def test_use_tool_format_detection(self):
+        """Test that USE_TOOL format is correctly detected and extracted."""
+        use_tool_response = """Let me save this summary for you.
+
+USE_TOOL: write_file {"filepath": "/tmp/patch.readme", "content": "FDIO Patch Creation Summary"}"""
+        
+        # Should detect USE_TOOL format
+        self.assertTrue(ToolCallParser.should_use_tools(use_tool_response))
+        
+        # Should extract the tool call correctly
+        tool_calls = ToolCallParser.extract_tool_calls(use_tool_response)
+        self.assertEqual(len(tool_calls), 1)
+        self.assertEqual(tool_calls[0]["name"], "write_file")
+        self.assertEqual(tool_calls[0]["arguments"]["filepath"], "/tmp/patch.readme")
+        self.assertEqual(tool_calls[0]["arguments"]["content"], "FDIO Patch Creation Summary")
+    
+    def test_tool_detection_case_insensitive(self):
+        """Test that tool detection works case-insensitively."""
+        responses = [
+            "tool_call: read_file(filepath='/test')",
+            "TOOL_CALL: read_file(filepath='/test')",
+            "use_tool: read_file {'filepath': '/test'}",
+            "USE_TOOL: read_file {'filepath': '/test'}",
+            "[tool] read_file: filepath=/test",
+            "[TOOL] read_file: filepath=/test"
+        ]
+        
+        for response in responses:
+            with self.subTest(response=response):
+                self.assertTrue(ToolCallParser.should_use_tools(response), 
+                              f"Should detect tools in: {response}")
 
 
 class MockTool(Tool):
@@ -209,6 +278,35 @@ class TestToolBaseClass(unittest.TestCase):
         
         self.assertIn("test_param", result)
         self.assertIn("test_value", result)
+
+    def test_extract_tool_calls_pattern4(self):
+        """Test extracting tool calls with ```tool_name format (markdown code blocks)."""
+        response = """```write_file
+/tmp/test.txt
+This is the content
+that spans multiple lines
+```"""
+        
+        parser = ToolCallParser()
+        tool_calls = parser.extract_tool_calls(response)
+        
+        self.assertEqual(len(tool_calls), 1)
+        self.assertEqual(tool_calls[0]['name'], 'write_file')
+        self.assertEqual(tool_calls[0]['arguments']['filepath'], '/tmp/test.txt')
+        self.assertIn('This is the content', tool_calls[0]['arguments']['content'])
+        self.assertIn('multiple lines', tool_calls[0]['arguments']['content'])
+
+    def test_markdown_code_block_detection(self):
+        """Test that markdown code blocks with tool names are correctly detected."""
+        parser = ToolCallParser()
+        
+        # Should detect
+        self.assertTrue(parser.should_use_tools("```read_file\n/path/to/file\n```"))
+        self.assertTrue(parser.should_use_tools("```write_file\n/tmp/out.txt\nContent here\n```"))
+        
+        # Should not detect (not tool names)
+        self.assertFalse(parser.should_use_tools("```python\nprint('hello')\n```"))
+        self.assertFalse(parser.should_use_tools("```bash\nls -la\n```"))
 
 
 if __name__ == '__main__':

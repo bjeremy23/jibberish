@@ -90,86 +90,84 @@ class ToolCallParser:
         """
         Extract tool calls from an AI response.
         
-        Looks for patterns like:
-        - TOOL_CALL: read_file(filepath="/path/to/file")
-        - USE_TOOL: file_reader {"filepath": "/path/to/file"}
-        - [TOOL] read_file: filepath="/path/to/file"
+        Looks for JSON format tool calls in code blocks:
+        ```json
+        {
+          "tool_calls": [
+            {"name": "tool_name", "arguments": {"param": "value"}}
+          ]
+        }
+        ```
         
         Returns a list of tool calls with name and arguments.
         """
         tool_calls = []
         
-        # Pattern 1: TOOL_CALL: tool_name(param=value)
-        pattern1 = r'TOOL_CALL:\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*?)\)'
-        matches1 = re.finditer(pattern1, response, re.IGNORECASE)
+        # Primary pattern: JSON format in code blocks (this handles 99% of cases now)
+        json_pattern = r'```json\s*\n(.*?)\n\s*```'
+        matches = re.finditer(json_pattern, response, re.IGNORECASE | re.DOTALL)
         
-        for match in matches1:
-            tool_name = match.group(1)
-            params_str = match.group(2)
-            
-            # Parse parameters (basic key=value parsing)
-            params = {}
-            if params_str.strip():
-                param_pairs = re.findall(r'(\w+)\s*=\s*["\']([^"\']*)["\']', params_str)
-                for key, value in param_pairs:
-                    params[key] = value
-            
-            tool_calls.append({
-                "name": tool_name,
-                "arguments": params
-            })
-        
-        # Pattern 2: USE_TOOL: tool_name {json}
-        pattern2 = r'USE_TOOL:\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*({.*?})'
-        matches2 = re.finditer(pattern2, response, re.IGNORECASE | re.DOTALL)
-        
-        for match in matches2:
-            tool_name = match.group(1)
-            json_str = match.group(2)
-            
+        for match in matches:
+            json_str = match.group(1).strip()
             try:
-                params = json.loads(json_str)
-                tool_calls.append({
-                    "name": tool_name,
-                    "arguments": params
-                })
+                data = json.loads(json_str)
+                if isinstance(data, dict) and 'tool_calls' in data:
+                    for tool_call in data['tool_calls']:
+                        if isinstance(tool_call, dict) and 'name' in tool_call:
+                            # Handle parameter name variations for backward compatibility
+                            args = tool_call.get('arguments', {})
+                            if tool_call['name'] == 'write_file':
+                                if 'path' in args:
+                                    args['filepath'] = args.pop('path')
+                                if 'file_path' in args:
+                                    args['filepath'] = args.pop('file_path')
+                            
+                            tool_calls.append({
+                                "name": tool_call['name'],
+                                "arguments": args
+                            })
             except json.JSONDecodeError:
                 continue
         
-        # Pattern 3: [TOOL] tool_name: param=value
-        pattern3 = r'\[TOOL\]\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*(.*?)(?=\n|$)'
-        matches3 = re.finditer(pattern3, response, re.IGNORECASE)
-        
-        for match in matches3:
-            tool_name = match.group(1)
-            params_str = match.group(2).strip()
+        # Simple fallback: TOOL_CALL: tool_name with JSON (minimal legacy support)
+        if not tool_calls:
+            pattern = r'TOOL_CALL:\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\n\s*({.*?})'
+            matches = re.finditer(pattern, response, re.IGNORECASE | re.DOTALL)
             
-            params = {}
-            if '=' in params_str:
-                # Parse key=value format
-                param_pairs = re.findall(r'(\w+)\s*=\s*["\']?([^,"\'\n]*)["\']?', params_str)
-                for key, value in param_pairs:
-                    params[key.strip()] = value.strip().strip('"\'')
-            
-            tool_calls.append({
-                "name": tool_name,
-                "arguments": params
-            })
+            for match in matches:
+                tool_name = match.group(1)
+                try:
+                    params = json.loads(match.group(2))
+                    # Handle parameter name variations
+                    if tool_name == 'write_file':
+                        if 'path' in params:
+                            params['filepath'] = params.pop('path')
+                        if 'file_path' in params:
+                            params['filepath'] = params.pop('file_path')
+                    
+                    tool_calls.append({
+                        "name": tool_name,
+                        "arguments": params
+                    })
+                except json.JSONDecodeError:
+                    continue
         
         return tool_calls
     
     @staticmethod
     def should_use_tools(response: str) -> bool:
         """
-        Check if the response indicates tools should be used.
+        Check if the response contains tool calls.
         """
-        tool_indicators = [
-            'TOOL_CALL:',
-            'USE_TOOL:',
-            '[TOOL]',
-            'I need to read the file',
-            'Let me examine the file',
-            'I should check the contents'
-        ]
+        import re
         
-        return any(indicator.lower() in response.lower() for indicator in tool_indicators)
+        # Primary check: JSON code blocks with tool_calls
+        json_pattern = r'```json\s*\n.*?"tool_calls".*?\n\s*```'
+        if re.search(json_pattern, response, re.IGNORECASE | re.DOTALL):
+            return True
+        
+        # Simple fallback check
+        if re.search(r'TOOL_CALL:\s*[a-zA-Z_][a-zA-Z0-9_]*', response, re.IGNORECASE):
+            return True
+            
+        return False

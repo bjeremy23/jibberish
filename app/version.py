@@ -6,5 +6,5 @@ across the entire Jibberish project.
 """
 
 # Define version information
-__version__ = "25.5.4"
-VERSION_NAME = "Javanese"
+__version__ = "25.9.4"
+VERSION_NAME = "Kanaani"

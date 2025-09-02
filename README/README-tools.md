@@ -24,6 +24,20 @@ Reads the contents of a file and provides them as context to the AI.
 - `max_lines` (optional): Maximum number of lines to read
 - `start_line` (optional): Line number to start reading from (default: 1)
 
+### write_file
+Writes content to a file at the specified location. Creates directories if needed and can overwrite or append to existing files. Useful for saving AI responses, generated content, or notes.
+
+**Usage patterns the AI can use:**
+- `TOOL_CALL: write_file(filepath="/path/to/file", content="text to write")`
+- `USE_TOOL: write_file {"filepath": "/tmp/notes.txt", "content": "My notes", "append": true}`
+- `[TOOL] write_file: filepath=/path/to/file content="Hello World"`
+
+**Parameters:**
+- `filepath` (required): Path where the file should be written
+- `content` (required): Content to write to the file
+- `append` (optional): If true, append to file instead of overwriting (default: false)
+- `encoding` (optional): Text encoding to use (default: utf-8)
+
 ## Example Usage
 
 ```bash

@@ -1,7 +1,8 @@
 """
 Utility functions for Jibberish shell that don't fit elsewhere.
 
-This module contains functions that control Jibberish behavior:
+This module contains functions for:
+- generate_tool_context_message() - Creates system messages for AI tool usage
 - is_debug_enabled() - Controls output verbosity based on JIBBERISH_DEBUG environment variable
 """
 import os
@@ -92,12 +93,31 @@ def generate_tool_context_message():
     
     return {
         "role": "system", 
-        "content": f"""You have access to the following tools to help answer questions:
+        "content": """You have access to the following tools to help answer questions:
 
-{chr(10).join(tool_descriptions)}
+""" + chr(10).join(tool_descriptions) + """
 
-To use a tool, include in your response: TOOL_CALL: tool_name(param="value")
-For example: TOOL_CALL: read_file(filepath="/path/to/file", start_line=10, max_lines=50)
+MANDATORY: You MUST use tools to complete requests that require reading files, writing files, or accessing external information. Do not explain what you will do - immediately use the tools.
+
+REQUIRED FORMAT: When using tools, you MUST respond with this exact JSON format and nothing else:
+
+```json
+{
+  "tool_calls": [
+    {
+      "name": "tool_name",
+      "arguments": {
+        "param1": "value1",
+        "param2": "value2"
+      }
+    }
+  ]
+}
+```
+
+CRITICAL: Always use the EXACT parameter names specified in the tool schema above. For example, write_file uses 'filepath', not 'path' or 'file_path'.
+
+TOOL CHAINING: When a user's request requires multiple tools or actions (like "read X and write Y"), include ALL required tools in a single JSON block.
 
 Use tools when you need additional information to provide a complete answer. Pay attention to parameter types and requirements."""
     }
