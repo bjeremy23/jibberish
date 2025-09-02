@@ -16,8 +16,6 @@ Reads the contents of a file and provides them as context to the AI.
 
 **Usage patterns the AI can use:**
 - `TOOL_CALL: read_file(filepath="/path/to/file")`
-- `USE_TOOL: read_file {"filepath": "/path/to/file", "max_lines": 20}`
-- `[TOOL] read_file: filepath=/path/to/file`
 
 **Parameters:**
 - `filepath` (required): Path to the file to read
@@ -29,8 +27,6 @@ Writes content to a file at the specified location. Creates directories if neede
 
 **Usage patterns the AI can use:**
 - `TOOL_CALL: write_file(filepath="/path/to/file", content="text to write")`
-- `USE_TOOL: write_file {"filepath": "/tmp/notes.txt", "content": "My notes", "append": true}`
-- `[TOOL] write_file: filepath=/path/to/file content="Hello World"`
 
 **Parameters:**
 - `filepath` (required): Path where the file should be written
