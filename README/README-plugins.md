@@ -187,10 +187,10 @@ To control which optional plugins are loaded, you can set environment variables 
 
 ```bash
 # Enable the version command plugin
-PLUGIN_OPTIONAL_COMMAND_ENABLED=y
+PLUGIN_VERSION_COMMAND_ENABLED=y
 
 # Disable the ssh command plugin
-PLUGIN_OPTINAL_COMMAND_ENABLED=n
+PLUGIN_SSH_COMMAND_ENABLED=n
 ```
 
 Valid values for enabling a plugin: `y`, `yes`, `true`, `1`  
