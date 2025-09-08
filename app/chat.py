@@ -485,6 +485,11 @@ def _ask_question_with_tools(command, temp=0.5, max_tool_iterations=4):
         if temp == 0.5:  # Only override if default was used
             temp = determine_temperature(command)
         
+        # add a debug to print the current message
+        if is_debug_enabled():
+            click.echo(click.style(f"[DEBUG] Current message: {current_message}", fg="yellow"))
+            click.echo(click.style(f"[DEBUG] additional context: {additional_context}", fg="yellow"))
+
         # Get AI response
         ai_response = _get_ai_response(current_messages, additional_context, temp)
         if not ai_response:
@@ -522,8 +527,10 @@ def _ask_question_with_tools(command, temp=0.5, max_tool_iterations=4):
                     # Update conversation history
                     _update_conversation_history(messages, current_message, ai_response, tool_calls)
                     
-                    # For the next iteration, provide the tool outputs and ask for final response
-                    command = f"Based on the tool outputs above, provide your final answer to: {original_command}"
+                    # Create a follow-up prompt that first asks the AI to assess completion
+                    tools_used = [tc.get('name', 'unknown') for tc in tool_calls]
+                    command = f"You have executed {', '.join(tools_used)}. Review the original request and determine if it has been fully completed. If yes, provide a summary. If not, continue using appropriate tools to complete it: {original_command}. Do not repeat tasks."
+                    
                     if is_debug_enabled():
                         click.echo(click.style(f"[DEBUG] Continuing to next iteration with command: {command[:100]}...", fg="cyan"))
                     continue  # Go to next iteration with tool context

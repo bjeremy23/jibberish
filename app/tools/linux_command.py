@@ -56,13 +56,22 @@ class LinuxCommandTool(Tool):
             if not prompt_before_execution(f"command '{command}'"):
                 return f"Command execution cancelled: {command}"
             
-            # Use the centralized command execution logic that handles built-ins and chained commands
-            success, result = execute_command_with_built_ins(command)
+            # Use execute_shell_command directly to capture output for tool use
+            from ..executor import execute_shell_command
+            returncode, output, error = execute_shell_command(command)
             
-            if success:
-                return result
+            if returncode == 0:
+                # Command succeeded, return the output
+                return output.strip() if output else f"Command '{command}' executed successfully (no output)"
+            elif returncode == -1:
+                # Special case for interrupted commands
+                return f"ERROR: Command '{command}' was interrupted: {error}"
             else:
-                return result  # Error message is already formatted
+                # Command failed, return error information
+                error_msg = f"ERROR: Command '{command}' failed with exit code {returncode}"
+                if error:
+                    error_msg += f": {error}"
+                return error_msg
                 
         except Exception as e:
             return f"ERROR: Failed to execute command '{command}': {str(e)}"
