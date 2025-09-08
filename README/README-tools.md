@@ -52,37 +52,8 @@ Executes Linux shell commands with full support for built-in commands, command c
 
 ```
 ### Real-World Example: Reading Documentation and Executing Commands
-```bash
-[jbrsh] /localdata/brownjer/dpln/main_int_fedora42/bld-dataplane_base/working/cni-infra-dataplane/fdio.an/patches$ ? read the ./README and what is the command to create an FDIO patch directory
-```
 
-The AI responds:
-```
-Executing tool: read_file
-Tool read_file completed
-
-From the provided tool output of `./README`, the command to create an FDIO patch directory is:
-
-```
-cna make modify-fdio-src-patch
-```
-
-This command creates a VPP patched source directory in which a new patch can be implemented. After running it, follow the instructions displayed to make your code changes in the new directory.
-```
-
-Follow-up question:
-```bash
-[jbrsh] /localdata/brownjer/dpln/main_int_fedora42/bld-dataplane_base/working/cni-infra-dataplane/fdio.an/patches$ ? can you execute that command
-```
-
-The AI responds:
-```
-Executing tool: linux_command
-
-Execute command 'cna make modify-fdio-src-patch'? [y/n]: y
-
-[Command executes and creates the FDIO patch directory]
-```
+![alt text](image.png)
 
 ## Creating Custom Tools
 
