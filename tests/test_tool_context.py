@@ -27,19 +27,14 @@ class TestToolContextMessage(unittest.TestCase):
         self.assertIn('read_file', content)
         self.assertIn('write_file', content)
         
-        # Check that it contains the improved formatting instructions
-        self.assertIn('TOOL_CALL:', content)
-        self.assertIn('USE_TOOL:', content)
-        self.assertIn('[TOOL]', content)
-        self.assertIn('```tool_name', content)  # Check for markdown code block format
-        
-        # Check that examples are provided
-        self.assertIn('Examples:', content)
+        # Check that it contains the JSON format instructions (only format we support)
+        self.assertIn('JSON format', content)
+        self.assertIn('```json', content)
+        self.assertIn('"tool_calls"', content)
         
         # Check that tool chaining is explained
         self.assertIn('TOOL CHAINING', content)
         self.assertIn('multiple tools or actions', content)
-        self.assertIn('actually make the tool calls', content)
     
     def test_tool_context_includes_parameter_info(self):
         """Test that tool context includes parameter information."""

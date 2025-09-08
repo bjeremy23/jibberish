@@ -45,8 +45,21 @@ class TestToolIntegration(unittest.TestCase):
     
     def test_end_to_end_tool_execution(self):
         """Test complete workflow: parse tool call and execute it."""
-        # Simulate AI response with tool call
-        ai_response = f"TOOL_CALL: read_file(filepath='{self.temp_file.name}')"
+        # Simulate AI response with tool call in JSON format
+        ai_response = f"""I'll read that file for you.
+
+```json
+{{
+  "tool_calls": [
+    {{
+      "name": "read_file",
+      "arguments": {{
+        "filepath": "{self.temp_file.name}"
+      }}
+    }}
+  ]
+}}
+```"""
         
         # Parse the tool calls
         tool_calls = ToolCallParser.extract_tool_calls(ai_response)
@@ -75,11 +88,27 @@ class TestToolIntegration(unittest.TestCase):
         temp_file2.close()
         
         try:
-            # Simulate AI response with multiple tool calls
-            ai_response = f"""
-            First, let me read the main file: TOOL_CALL: read_file(filepath='{self.temp_file.name}')
-            Now let me check the second file: TOOL_CALL: read_file(filepath='{temp_file2.name}')
-            """
+            # Simulate AI response with multiple tool calls in JSON format
+            ai_response = f"""First, let me read both files.
+
+```json
+{{
+  "tool_calls": [
+    {{
+      "name": "read_file",
+      "arguments": {{
+        "filepath": "{self.temp_file.name}"
+      }}
+    }},
+    {{
+      "name": "read_file",
+      "arguments": {{
+        "filepath": "{temp_file2.name}"
+      }}
+    }}
+  ]
+}}
+```"""
             
             # Parse the tool calls
             tool_calls = ToolCallParser.extract_tool_calls(ai_response)
@@ -103,7 +132,22 @@ class TestToolIntegration(unittest.TestCase):
     
     def test_tool_call_with_parameters(self):
         """Test tool calls with various parameters."""
-        ai_response = f"USE_TOOL: read_file {{\"filepath\": \"{self.temp_file.name}\", \"max_lines\": 2, \"start_line\": 1}}"
+        ai_response = f"""Let me read just the first 2 lines.
+
+```json
+{{
+  "tool_calls": [
+    {{
+      "name": "read_file",
+      "arguments": {{
+        "filepath": "{self.temp_file.name}",
+        "max_lines": 2,
+        "start_line": 1
+      }}
+    }}
+  ]
+}}
+```"""
         
         # Parse and execute
         tool_calls = ToolCallParser.extract_tool_calls(ai_response)
@@ -122,7 +166,20 @@ class TestToolIntegration(unittest.TestCase):
     def test_tool_error_handling_in_integration(self):
         """Test that tool errors are properly handled in the integration flow."""
         # Simulate tool call with non-existent file
-        ai_response = "TOOL_CALL: read_file(filepath='/nonexistent/file.txt')"
+        ai_response = """I'll try to read that file.
+
+```json
+{
+  "tool_calls": [
+    {
+      "name": "read_file",
+      "arguments": {
+        "filepath": "/nonexistent/file.txt"
+      }
+    }
+  ]
+}
+```"""
         
         # Parse and execute
         tool_calls = ToolCallParser.extract_tool_calls(ai_response)
@@ -182,8 +239,22 @@ class TestToolIntegration(unittest.TestCase):
         
         try:
             # Simulate AI response with write_file tool call
-            content = "This is test content\nwritten by the AI tool\n"
-            ai_response = f'TOOL_CALL: write_file(filepath="{temp_output}", content="{content}")'
+            content = "This is test content written by the AI tool"
+            ai_response = f\"\"\"I'll write that to the file.
+
+```json
+{{
+  \"tool_calls\": [
+    {{
+      \"name\": \"write_file\",
+      \"arguments\": {{
+        \"filepath\": \"{temp_output}\",
+        \"content\": \"{content}\"
+      }}
+    }}
+  ]
+}}
+```\"\"\"
             
             # Parse the tool calls
             tool_calls = ToolCallParser.extract_tool_calls(ai_response)
@@ -221,7 +292,20 @@ class TestToolIntegration(unittest.TestCase):
         
         try:
             # Step 1: Read from the original test file
-            read_response = f"TOOL_CALL: read_file(filepath='{self.temp_file.name}')"
+            read_response = f"""I'll read the file first.
+
+```json
+{{
+  "tool_calls": [
+    {{
+      "name": "read_file",
+      "arguments": {{
+        "filepath": "{self.temp_file.name}"
+      }}
+    }}
+  ]
+}}
+```"""
             read_tool_calls = ToolCallParser.extract_tool_calls(read_response)
             
             read_tool = ToolRegistry.get_tool("read_file")

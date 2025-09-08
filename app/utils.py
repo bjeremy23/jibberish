@@ -4,6 +4,8 @@ Utility functions for Jibberish shell that don't fit elsewhere.
 This module contains functions for:
 - generate_tool_context_message() - Creates system messages for AI tool usage
 - is_debug_enabled() - Controls output verbosity based on JIBBERISH_DEBUG environment variable
+- Chat history management functions
+- Base message templates for command generation
 """
 import os
 import sys
@@ -225,3 +227,121 @@ TOOL CHAINING: When a user's request requires multiple tools or actions (like "r
 
 Use tools when you need additional information to provide a complete answer. Pay attention to parameter types and requirements."""
     }
+
+# Chat History Management
+# Global variables for chat history
+total_noof_questions = 10
+noof_questions = 5
+chat_history = []
+
+# Command history configuration  
+MAX_HISTORY_PAIRS = 4
+
+# Initialize with example messages that will be kept within the 4-pair limit
+base_messages = [
+    {
+        "role": "user",
+        "content": "List all files in the current directory sorted by modification time, with the newest first."
+    },
+    {
+        "role": "assistant",
+        "content": "ls -lt"
+    },
+    {
+        "role": "user",
+        "content": "Find all Python files in the current directory and subdirectories that contain the word 'error'."
+    },
+    {
+        "role": "assistant",
+        "content": "find . -name \"*.py\" -type f -exec grep -l \"error\" {} \\;"
+    },
+    {
+        "role": "user",
+        "content": "Monitor system resource usage and show the top processes consuming CPU and memory."
+    },
+    {
+        "role": "assistant",
+        "content": "top -o %CPU"
+    },
+    {
+        "role": "user",
+        "content": "Create a backup of all text files in my project, compress them, and add a timestamp to the archive name."
+    },
+    {
+        "role": "assistant",
+        "content": "find ./project -name \"*.txt\" | tar -czvf backup_$(date +%Y%m%d_%H%M%S).tar.gz -T -"
+    }
+]
+
+def save_chat(chat):
+    """
+    Save the chat by updating the global chat history
+    """
+    global chat_history
+    
+    # Instead of appending the entire chat as a separate conversation,
+    # we want to maintain one continuous conversation
+    if not chat_history:
+        # First conversation - save as is
+        chat_history = chat
+    else:
+        # Ongoing conversation - extend the existing history
+        # Remove any duplicate messages that might already be in history
+        new_messages = []
+        for msg in chat:
+            # Only add messages that aren't already in the last few messages of history
+            if len(chat_history) == 0 or msg not in chat_history[-5:]:
+                new_messages.append(msg)
+        
+        chat_history.extend(new_messages)
+        
+        # Keep only the most recent message pairs (limit to total_noof_questions pairs)
+        if len(chat_history) > total_noof_questions * 2:
+            # Remove the oldest pairs to maintain the limit
+            excess_messages = len(chat_history) - (total_noof_questions * 2)
+            chat_history = chat_history[excess_messages:]
+
+def load_chat_history():
+    """
+    Load chat from the global history, returning the recent conversation messages
+    """
+    global chat_history
+    
+    # Return the current conversation history
+    # We want the last noof_questions pairs (each pair is 2 entries: user + assistant)
+    if not chat_history:
+        return []
+    
+    # Limit to the most recent conversation pairs
+    max_messages = noof_questions * 2  # 2 messages per pair (user + assistant)
+    if len(chat_history) > max_messages:
+        return chat_history[-max_messages:]
+    else:
+        return chat_history
+
+def get_base_messages():
+    """
+    Get a copy of the current base messages for command generation history.
+    
+    Returns:
+        list: Copy of base_messages list
+    """
+    return base_messages.copy()
+
+def update_base_messages(new_pair):
+    """
+    Add a new conversation pair to base messages and maintain the history limit.
+    
+    Args:
+        new_pair: List containing [user_message, assistant_message] dictionaries
+    """
+    global base_messages
+    
+    # Add new messages to the base messages
+    base_messages.extend(new_pair)
+    
+    # If we now have more than MAX_HISTORY_PAIRS (4) pairs, trim the oldest ones
+    if len(base_messages) > MAX_HISTORY_PAIRS * 2:
+        # Remove the oldest pairs (2 messages per pair) to maintain the limit
+        excess_pairs = (len(base_messages) - MAX_HISTORY_PAIRS * 2) // 2
+        base_messages = base_messages[excess_pairs * 2:]

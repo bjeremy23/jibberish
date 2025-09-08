@@ -78,9 +78,22 @@ class TestToolRegistry(unittest.TestCase):
 class TestToolCallParser(unittest.TestCase):
     """Tests for the ToolCallParser."""
     
-    def test_extract_tool_calls_pattern1(self):
-        """Test extracting tool calls with TOOL_CALL pattern."""
-        response = "I need to read that file. TOOL_CALL: read_file(filepath='/etc/passwd')"
+    def test_extract_tool_calls_json_format(self):
+        """Test extracting tool calls with JSON format."""
+        response = """I need to read that file.
+
+```json
+{
+  "tool_calls": [
+    {
+      "name": "read_file",
+      "arguments": {
+        "filepath": "/etc/passwd"
+      }
+    }
+  ]
+}
+```"""
         
         tool_calls = ToolCallParser.extract_tool_calls(response)
         
@@ -88,9 +101,23 @@ class TestToolCallParser(unittest.TestCase):
         self.assertEqual(tool_calls[0]["name"], "read_file")
         self.assertEqual(tool_calls[0]["arguments"]["filepath"], "/etc/passwd")
     
-    def test_extract_tool_calls_pattern2(self):
-        """Test extracting tool calls with USE_TOOL pattern."""
-        response = 'Let me check: USE_TOOL: read_file {"filepath": "/home/user/test.py", "max_lines": 20}'
+    def test_extract_tool_calls_with_multiple_args(self):
+        """Test extracting tool calls with multiple arguments."""
+        response = """Let me check that file.
+
+```json
+{
+  "tool_calls": [
+    {
+      "name": "read_file",
+      "arguments": {
+        "filepath": "/home/user/test.py",
+        "max_lines": 20
+      }
+    }
+  ]
+}
+```"""
         
         tool_calls = ToolCallParser.extract_tool_calls(response)
         
@@ -99,33 +126,30 @@ class TestToolCallParser(unittest.TestCase):
         self.assertEqual(tool_calls[0]["arguments"]["filepath"], "/home/user/test.py")
         self.assertEqual(tool_calls[0]["arguments"]["max_lines"], 20)
     
-    def test_extract_tool_calls_pattern3(self):
-        """Test extracting tool calls with [TOOL] pattern."""
-        response = "[TOOL] read_file: filepath=/var/log/system.log"
-        
-        tool_calls = ToolCallParser.extract_tool_calls(response)
-        
-        self.assertEqual(len(tool_calls), 1)
-        self.assertEqual(tool_calls[0]["name"], "read_file")
-        self.assertEqual(tool_calls[0]["arguments"]["filepath"], "/var/log/system.log")
-    
-    def test_extract_tool_calls_pattern3_no_filepath_fallback(self):
-        """Test extracting tool calls with [TOOL] pattern without = sign (should not auto-assign filepath)."""
-        response = "[TOOL] read_file: /var/log/system.log"
-        
-        tool_calls = ToolCallParser.extract_tool_calls(response)
-        
-        self.assertEqual(len(tool_calls), 1)
-        self.assertEqual(tool_calls[0]["name"], "read_file")
-        # Should have empty arguments since there's no key=value format
-        self.assertEqual(tool_calls[0]["arguments"], {})
+
     
     def test_extract_multiple_tool_calls(self):
         """Test extracting multiple tool calls from one response."""
-        response = """
-        First, I'll read the config: TOOL_CALL: read_file(filepath='config.py')
-        Then check the log: [TOOL] read_file: filepath=/var/log/app.log
-        """
+        response = """First, I'll read the config and then check the log.
+
+```json
+{
+  "tool_calls": [
+    {
+      "name": "read_file",
+      "arguments": {
+        "filepath": "config.py"
+      }
+    },
+    {
+      "name": "read_file",
+      "arguments": {
+        "filepath": "/var/log/app.log"
+      }
+    }
+  ]
+}
+```"""
         
         tool_calls = ToolCallParser.extract_tool_calls(response)
         
@@ -144,9 +168,33 @@ class TestToolCallParser(unittest.TestCase):
     def test_should_use_tools_positive(self):
         """Test should_use_tools with responses that should use tools."""
         test_cases = [
-            "TOOL_CALL: read_file(filepath='test.py')",
-            "USE_TOOL: write_file {'filepath': 'output.txt'}",
-            "[TOOL] read_file: filepath=test.txt"
+            """```json
+{
+  "tool_calls": [
+    {
+      "name": "read_file",
+      "arguments": {
+        "filepath": "test.py"
+      }
+    }
+  ]
+}
+```""",
+            """Let me help you with that.
+
+```json
+{
+  "tool_calls": [
+    {
+      "name": "write_file",
+      "arguments": {
+        "filepath": "output.txt",
+        "content": "Hello world"
+      }
+    }
+  ]
+}
+```"""
         ]
         
         for response in test_cases:
@@ -180,54 +228,38 @@ This summary is ready for writing to `/tmp/patch.readme`. If you want me to writ
         tool_calls = ToolCallParser.extract_tool_calls(natural_response)
         self.assertEqual(len(tool_calls), 0)
     
-    def test_explicit_tool_call_detection(self):
-        """Test that explicit tool calls are correctly detected and extracted."""
-        explicit_response = """I'll write the summary to the file for you.
+    def test_json_tool_call_detection(self):
+        """Test that JSON tool calls are correctly detected and extracted."""
+        json_response = """I'll write the summary to the file for you.
 
-TOOL_CALL: write_file(filepath="/tmp/patch.readme", content="**FDIO Patch Creation Summary**\\n\\nTo create a new FDIO patch, use `cna make modify-fdio-src-patch`...")"""
+```json
+{
+  "tool_calls": [
+    {
+      "name": "write_file",
+      "arguments": {
+        "filepath": "/tmp/patch.readme",
+        "content": "FDIO Patch Creation Summary"
+      }
+    }
+  ]
+}
+```"""
         
-        # Should detect explicit tool calls
-        self.assertTrue(ToolCallParser.should_use_tools(explicit_response))
+        # Should detect JSON tool calls
+        self.assertTrue(ToolCallParser.should_use_tools(json_response))
         
         # Should extract the tool call correctly
-        tool_calls = ToolCallParser.extract_tool_calls(explicit_response)
+        tool_calls = ToolCallParser.extract_tool_calls(json_response)
         self.assertEqual(len(tool_calls), 1)
         self.assertEqual(tool_calls[0]["name"], "write_file")
         self.assertIn("filepath", tool_calls[0]["arguments"])
         self.assertIn("content", tool_calls[0]["arguments"])
         self.assertEqual(tool_calls[0]["arguments"]["filepath"], "/tmp/patch.readme")
     
-    def test_use_tool_format_detection(self):
-        """Test that USE_TOOL format is correctly detected and extracted."""
-        use_tool_response = """Let me save this summary for you.
 
-USE_TOOL: write_file {"filepath": "/tmp/patch.readme", "content": "FDIO Patch Creation Summary"}"""
-        
-        # Should detect USE_TOOL format
-        self.assertTrue(ToolCallParser.should_use_tools(use_tool_response))
-        
-        # Should extract the tool call correctly
-        tool_calls = ToolCallParser.extract_tool_calls(use_tool_response)
-        self.assertEqual(len(tool_calls), 1)
-        self.assertEqual(tool_calls[0]["name"], "write_file")
-        self.assertEqual(tool_calls[0]["arguments"]["filepath"], "/tmp/patch.readme")
-        self.assertEqual(tool_calls[0]["arguments"]["content"], "FDIO Patch Creation Summary")
     
-    def test_tool_detection_case_insensitive(self):
-        """Test that tool detection works case-insensitively."""
-        responses = [
-            "tool_call: read_file(filepath='/test')",
-            "TOOL_CALL: read_file(filepath='/test')",
-            "use_tool: read_file {'filepath': '/test'}",
-            "USE_TOOL: read_file {'filepath': '/test'}",
-            "[tool] read_file: filepath=/test",
-            "[TOOL] read_file: filepath=/test"
-        ]
-        
-        for response in responses:
-            with self.subTest(response=response):
-                self.assertTrue(ToolCallParser.should_use_tools(response), 
-                              f"Should detect tools in: {response}")
+
 
 
 class MockTool(Tool):
@@ -279,34 +311,7 @@ class TestToolBaseClass(unittest.TestCase):
         self.assertIn("test_param", result)
         self.assertIn("test_value", result)
 
-    def test_extract_tool_calls_pattern4(self):
-        """Test extracting tool calls with ```tool_name format (markdown code blocks)."""
-        response = """```write_file
-/tmp/test.txt
-This is the content
-that spans multiple lines
-```"""
-        
-        parser = ToolCallParser()
-        tool_calls = parser.extract_tool_calls(response)
-        
-        self.assertEqual(len(tool_calls), 1)
-        self.assertEqual(tool_calls[0]['name'], 'write_file')
-        self.assertEqual(tool_calls[0]['arguments']['filepath'], '/tmp/test.txt')
-        self.assertIn('This is the content', tool_calls[0]['arguments']['content'])
-        self.assertIn('multiple lines', tool_calls[0]['arguments']['content'])
 
-    def test_markdown_code_block_detection(self):
-        """Test that markdown code blocks with tool names are correctly detected."""
-        parser = ToolCallParser()
-        
-        # Should detect
-        self.assertTrue(parser.should_use_tools("```read_file\n/path/to/file\n```"))
-        self.assertTrue(parser.should_use_tools("```write_file\n/tmp/out.txt\nContent here\n```"))
-        
-        # Should not detect (not tool names)
-        self.assertFalse(parser.should_use_tools("```python\nprint('hello')\n```"))
-        self.assertFalse(parser.should_use_tools("```bash\nls -la\n```"))
 
 
 if __name__ == '__main__':

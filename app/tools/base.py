@@ -103,7 +103,7 @@ class ToolCallParser:
         """
         tool_calls = []
         
-        # Primary pattern: JSON format in code blocks (this handles 99% of cases now)
+        # Only support JSON format in code blocks
         json_pattern = r'```json\s*\n(.*?)\n\s*```'
         matches = re.finditer(json_pattern, response, re.IGNORECASE | re.DOTALL)
         
@@ -129,29 +129,6 @@ class ToolCallParser:
             except json.JSONDecodeError:
                 continue
         
-        # Simple fallback: TOOL_CALL: tool_name with JSON (minimal legacy support)
-        if not tool_calls:
-            pattern = r'TOOL_CALL:\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\n\s*({.*?})'
-            matches = re.finditer(pattern, response, re.IGNORECASE | re.DOTALL)
-            
-            for match in matches:
-                tool_name = match.group(1)
-                try:
-                    params = json.loads(match.group(2))
-                    # Handle parameter name variations
-                    if tool_name == 'write_file':
-                        if 'path' in params:
-                            params['filepath'] = params.pop('path')
-                        if 'file_path' in params:
-                            params['filepath'] = params.pop('file_path')
-                    
-                    tool_calls.append({
-                        "name": tool_name,
-                        "arguments": params
-                    })
-                except json.JSONDecodeError:
-                    continue
-        
         return tool_calls
     
     @staticmethod
@@ -161,13 +138,9 @@ class ToolCallParser:
         """
         import re
         
-        # Primary check: JSON code blocks with tool_calls
+        # Only check for JSON code blocks with tool_calls
         json_pattern = r'```json\s*\n.*?"tool_calls".*?\n\s*```'
         if re.search(json_pattern, response, re.IGNORECASE | re.DOTALL):
-            return True
-        
-        # Simple fallback check
-        if re.search(r'TOOL_CALL:\s*[a-zA-Z_][a-zA-Z0-9_]*', response, re.IGNORECASE):
             return True
             
         return False

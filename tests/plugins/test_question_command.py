@@ -28,8 +28,8 @@ class TestQuestionCommand(unittest.TestCase):
         self.mock_click_echo = self.click_echo_patcher.start()
         
         # Mock the AI chat function to avoid making actual API calls
-        # We need to patch test_helper.chat.ask_question since that's what's used in question_command.py
-        self.chat_patcher = patch('test_helper.chat.ask_question', 
+        # We need to patch app.chat.ask_question since that's what's used in question_command.py
+        self.chat_patcher = patch('app.chat.ask_question', 
                                 return_value="This is a mock AI response.")
         self.mock_chat = self.chat_patcher.start()
     

@@ -23,6 +23,7 @@ print(f"Updated sys.path: {sys.path[0]}")
 try:
     print("Importing chat module...")
     from app import chat
+    from app import utils  # Import utils for chat history functions
     print("Chat module imported successfully")
 except Exception as e:
     print(f"Error importing chat module: {e}")
@@ -30,18 +31,18 @@ except Exception as e:
 
 class ChatHistoryTest(unittest.TestCase):
     def setUp(self):
-        # Save original values
-        self.original_chat_history = chat.chat_history.copy() if chat.chat_history else []
-        self.original_base_messages = chat.base_messages.copy() if hasattr(chat, 'base_messages') else []
+        # Save original values from utils module
+        self.original_chat_history = utils.chat_history.copy() if utils.chat_history else []
+        self.original_base_messages = utils.get_base_messages().copy()
         
         # Clear for tests
-        chat.chat_history = []
+        utils.chat_history = []
+        utils.update_base_messages([])
 
     def tearDown(self):
         # Restore original values
-        chat.chat_history = self.original_chat_history
-        if hasattr(chat, 'base_messages'):
-            chat.base_messages = self.original_base_messages
+        utils.chat_history = self.original_chat_history
+        utils.update_base_messages(self.original_base_messages)
 
     def test_save_chat(self):
         """Test that question history ('?') is saved correctly"""
@@ -51,12 +52,13 @@ class ChatHistoryTest(unittest.TestCase):
             {"role": "assistant", "content": "Test answer"}
         ]
         
-        # Save it
-        chat.save_chat(test_conversation)
+        # Save it using the utils function
+        utils.save_chat(test_conversation)
         
-        # Verify it was added
-        self.assertEqual(len(chat.chat_history), 1)
-        self.assertEqual(chat.chat_history[0], test_conversation)
+        # Verify it was added (chat_history is a flat list of messages)
+        self.assertEqual(len(utils.chat_history), 2)  # 2 messages
+        self.assertEqual(utils.chat_history[0]["content"], "Test question")
+        self.assertEqual(utils.chat_history[1]["content"], "Test answer")
         print("Test save_chat passed!")
 
     def test_load_chat_history(self):
@@ -71,27 +73,27 @@ class ChatHistoryTest(unittest.TestCase):
             {"role": "assistant", "content": "Answer 2"}
         ]
         
-        # Save them
-        chat.save_chat(test_conversation_1)
-        chat.save_chat(test_conversation_2)
+        # Save them using utils
+        utils.save_chat(test_conversation_1)
+        utils.save_chat(test_conversation_2)
         
-        # Load history
-        history = chat.load_chat_history()
+        # Load history using utils
+        history = utils.load_chat_history()
         
-        # Check result
-        self.assertEqual(len(history), 2)  # Should have both messages from last conversation
-        self.assertEqual(history[0]["content"], "Question 2")
-        self.assertEqual(history[1]["content"], "Answer 2")
+        # Check result - should have all 4 messages
+        self.assertEqual(len(history), 4)  # 4 messages total
+        self.assertEqual(history[2]["content"], "Question 2")  # 3rd message
+        self.assertEqual(history[3]["content"], "Answer 2")   # 4th message
         print("Test load_chat_history passed!")
     
     def test_history_limit(self):
         """Test that history is limited to total_noof_questions"""
         # Save the original limit
-        original_limit = chat.total_noof_questions
+        original_limit = utils.total_noof_questions
         
         try:
             # Set a small limit for testing
-            chat.total_noof_questions = 3
+            utils.total_noof_questions = 3
             
             # Add more conversations than the limit
             for i in range(5):  # 0, 1, 2, 3, 4
@@ -99,31 +101,27 @@ class ChatHistoryTest(unittest.TestCase):
                     {"role": "user", "content": f"Question {i}"},
                     {"role": "assistant", "content": f"Answer {i}"}
                 ]
-                chat.save_chat(convo)
+                utils.save_chat(convo)
             
-            # Should only keep the last 3
-            self.assertEqual(len(chat.chat_history), 3)
+            # Should only keep the last 3*2=6 messages (3 pairs)
+            self.assertEqual(len(utils.chat_history), 6)
             
-            # Check the actual conversations kept (should be 2, 3, 4)
-            self.assertEqual(chat.chat_history[0][0]["content"], "Question 2")
-            self.assertEqual(chat.chat_history[1][0]["content"], "Question 3")
-            self.assertEqual(chat.chat_history[2][0]["content"], "Question 4")
+            # Check the actual messages kept (should be from conversations 2, 3, 4)
+            self.assertEqual(utils.chat_history[0]["content"], "Question 2")
+            self.assertEqual(utils.chat_history[2]["content"], "Question 3")
+            self.assertEqual(utils.chat_history[4]["content"], "Question 4")
             
             print("Test history_limit passed!")
         finally:
             # Restore the original limit
-            chat.total_noof_questions = original_limit
+            utils.total_noof_questions = original_limit
     
     @patch('app.chat.api')
     def test_ai_command_history(self, mock_api):
         """Test that AI command history ('#') is stored in base_messages"""
         # Set up a clean base_messages for testing
-        if not hasattr(chat, 'base_messages'):
-            print("Chat module doesn't have base_messages attribute - skipping test")
-            return
-            
-        original_base_messages = chat.base_messages
-        chat.base_messages = []
+        original_base_messages = utils.get_base_messages()
+        utils.update_base_messages([])
         
         try:
             # Configure the mock API response
@@ -144,16 +142,19 @@ class ChatHistoryTest(unittest.TestCase):
             self.assertEqual(result, "ls -la")
             
             # Check that the command was added to base_messages
-            self.assertEqual(len(chat.base_messages), 2)
-            self.assertEqual(chat.base_messages[0]["role"], "user")
-            self.assertEqual(chat.base_messages[0]["content"], "List all files")
-            self.assertEqual(chat.base_messages[1]["role"], "assistant")
-            self.assertEqual(chat.base_messages[1]["content"], "ls -la")
+            current_base_messages = utils.get_base_messages()
+            # Base messages already had some initial content, so we check that our new content was added
+            self.assertGreaterEqual(len(current_base_messages), 2)
+            # Check the last two messages are our test messages
+            self.assertEqual(current_base_messages[-2]["role"], "user")
+            self.assertEqual(current_base_messages[-2]["content"], "List all files")
+            self.assertEqual(current_base_messages[-1]["role"], "assistant")
+            self.assertEqual(current_base_messages[-1]["content"], "ls -la")
             
             print("Test ai_command_history passed!")
         finally:
             # Restore original base_messages
-            chat.base_messages = original_base_messages
+            utils.update_base_messages(original_base_messages)
 
 # Run the tests
 if __name__ == "__main__":
