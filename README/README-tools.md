@@ -50,7 +50,6 @@ Executes Linux shell commands with full support for built-in commands, command c
   - Command chaining with `;`: `pwd; ls; date`
   - Built-in commands: `cd`, `export`, `history`
 
-```
 ### Real-World Example: Reading Documentation and Executing Commands
 
 ![alt text](image.png)
