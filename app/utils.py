@@ -8,7 +8,111 @@ This module contains functions for:
 import os
 import sys
 import io
+import click
 from contextlib import contextmanager
+
+def should_prompt_ai_commands():
+    """
+    Check if AI commands should be prompted before execution based on PROMPT_AI_COMMANDS environment variable.
+    
+    Returns:
+        bool: True if commands should be prompted, False if they should execute immediately
+    """
+    prompt_setting = os.environ.get('PROMPT_AI_COMMANDS', '').lower()
+    return prompt_setting in ('true', 'always', 'yes', '1')
+
+def prompt_before_execution(command_description="this command"):
+    """
+    Prompt the user before executing a command if PROMPT_AI_COMMANDS is enabled.
+    
+    Args:
+        command_description: Description of what will be executed (default: "this command")
+        
+    Returns:
+        bool: True if user agrees to execute, False if cancelled
+    """
+    if not should_prompt_ai_commands():
+        return True
+        
+    # Add an explicit newline and prompt message
+    click.echo("")
+    choice = input(click.style(f"Execute {command_description}? [y/n]: ", fg="blue"))
+    
+    sys.stdout.flush()
+    if choice.lower() != 'y':
+        click.echo(click.style("Command execution cancelled", fg="yellow"))
+        return False
+    
+    return True
+
+def execute_command_with_built_ins(command, original_command=None, add_to_history=False):
+    """
+    Execute a command handling built-ins and chained commands.
+    This is the core command execution logic used by both jibberish.py and linux_command.py.
+    
+    Args:
+        command: The command to execute
+        original_command: The original command (used for history when processing AI commands)
+        add_to_history: Whether to add generated commands to history
+        
+    Returns:
+        tuple: (success: bool, output: str) - success indicates if command executed without errors
+    """
+    try:
+        # Import here to avoid circular imports
+        from .executor import execute_command, execute_chained_commands, is_built_in
+        if add_to_history:
+            import readline
+            from . import history
+        
+        # Check if the command is a built-in command or requires special handling
+        handled, new_command = is_built_in(command)
+        
+        # If a plugin returned a new command to process, update the command
+        if not handled and new_command is not None:
+            # Add the generated command to history as well (for AI-generated commands)
+            # This ensures both the original request and the generated command are in history
+            if add_to_history and original_command and original_command.startswith('#'):
+                readline.add_history(new_command)
+                # Apply history limit after adding a new command
+                history.limit_history_size()
+            
+            command = new_command
+            
+            # Process the new command
+            if '&&' in command or ';' in command:
+                execute_chained_commands(command, 0)
+                return True, f"Executed chained command: {command}"
+            else:
+                # Check if the new command is a built-in
+                new_handled, another_command = is_built_in(command)
+                if not new_handled:
+                    # Just execute the command directly
+                    execute_command(command)
+                    return True, f"Executed command: {command}"
+                elif another_command is not None:
+                    # Handle nested command returns (rare case)
+                    click.echo(click.style(f"Executing nested command: {another_command}", fg="blue"))
+                    # For complex commands with nested quotes, use proper escaping
+                    execute_command(another_command)
+                    return True, f"Executed nested command: {another_command}"
+                else:
+                    return True, "Command handled by built-in plugin"
+        # If command was fully handled by a built-in, do nothing more
+        elif handled:
+            return True, "Command handled by built-in plugin"
+        # Check if the command contains && or ; for command chaining
+        elif '&&' in command or ';' in command:
+            execute_chained_commands(command, 0)
+            return True, f"Executed chained command: {command}"
+        else:
+            # we will execute the command in the case of a non-built-in command
+            execute_command(command)
+            return True, f"Executed command: {command}"
+            
+    except Exception as e:
+        error_msg = f"ERROR: Failed to execute command '{command}': {str(e)}"
+        return False, error_msg
 
 def is_debug_enabled():
     """

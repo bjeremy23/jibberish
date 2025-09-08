@@ -6,6 +6,7 @@ import os
 import sys
 from app import chat
 from ..plugin_system import BuiltinCommand, BuiltinCommandRegistry
+from ..utils import prompt_before_execution
 
 
 class AICommandPlugin(BuiltinCommand):
@@ -67,16 +68,8 @@ class AICommandPlugin(BuiltinCommand):
             return True
             
         # Check if we should prompt before executing
-        prompt_setting = os.environ.get('PROMPT_AI_COMMANDS', '').lower()
-        if prompt_setting in ('true', 'always', 'yes', '1'):
-            # Add an explicit newline and prompt message
-            click.echo("")
-            choice = input(click.style("Execute this command? [y/n]: ", fg="blue"))
-
-            sys.stdout.flush()
-            if choice.lower() != 'y':
-                click.echo(click.style("Command execution cancelled", fg="yellow"))
-                return True
+        if not prompt_before_execution("this command"):
+            return True
         
         # Execute the command
         if to_execute:

@@ -34,22 +34,69 @@ Writes content to a file at the specified location. Creates directories if neede
 - `append` (optional): If true, append to file instead of overwriting (default: false)
 - `encoding` (optional): Text encoding to use (default: utf-8)
 
-## Example Usage
+### linux_command
+Executes Linux shell commands with full support for built-in commands, command chaining, and security features. This tool uses the same command execution logic as the jibberish interactive shell, ensuring consistent behavior.
+
+**Usage patterns the AI can use:**
+- `TOOL_CALL: linux_command(command="ls -la")`
+- `TOOL_CALL: linux_command(command="mkdir project && cd project")`
+- `TOOL_CALL: linux_command(command="pwd; whoami; date")`
+
+**Parameters:**
+- `command` (required): The Linux command to execute. Supports:
+  - Simple commands: `ls`, `pwd`, `whoami`
+  - Commands with options: `ls -la`, `ps aux`
+  - Command chaining with `&&`: `mkdir dir && cd dir`
+  - Command chaining with `;`: `pwd; ls; date`
+  - Built-in commands: `cd`, `export`, `history`
+
+**Features:**
+- **Built-in Command Support**: Handles jibberish built-ins like `cd`, `export`, and `history`
+- **Command Chaining**: Supports complex operations with `&&` (conditional) and `;` (sequential)
+- **Security**: Respects `WARN_LIST` environment variable for dangerous commands
+- **User Prompting**: Honors `PROMPT_AI_COMMANDS` setting for execution confirmation
+- **Error Handling**: Provides detailed error messages and return codes
+
+**Security Notes:**
+- Commands in `WARN_LIST` (like `rm`, `mv`, `shutdown`) require manual execution
+- When `PROMPT_AI_COMMANDS=true`, user confirmation is required before execution
+- All command execution is logged and traceable
+
+
+```
+
+### Real-World Example: Reading Documentation and Executing Commands
 
 ```bash
-jibberish
-? What does the main function do in ~/project/main.py?
+[jbrsh] /localdata/brownjer/dpln/main_int_fedora42/bld-dataplane_base/working/cni-infra-dataplane/fdio.an/patches$ ? read the ./README and what is the command to create an FDIO patch directory
 ```
 
-The AI might respond:
+The AI responds:
 ```
-I need to examine that file to understand what the main function does. 
-TOOL_CALL: read_file(filepath="~/project/main.py")
+Executing tool: read_file
+Tool read_file completed
 
-[Tool executes and reads the file]
+From the provided tool output of `./README`, the command to create an FDIO patch directory is:
 
-Based on the code in main.py, the main function initializes the application, 
-sets up logging, parses command line arguments, and starts the web server on port 8080...
+```
+cna make modify-fdio-src-patch
+```
+
+This command creates a VPP patched source directory in which a new patch can be implemented. After running it, follow the instructions displayed to make your code changes in the new directory.
+```
+
+Follow-up question:
+```bash
+[jbrsh] /localdata/brownjer/dpln/main_int_fedora42/bld-dataplane_base/working/cni-infra-dataplane/fdio.an/patches$ ? can you execute that command
+```
+
+The AI responds:
+```
+Executing tool: linux_command
+
+Execute command 'cna make modify-fdio-src-patch'? [y/n]: y
+
+[Command executes and creates the FDIO patch directory]
 ```
 
 ## Creating Custom Tools

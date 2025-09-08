@@ -60,6 +60,7 @@ from app.executor import (
     execute_chained_commands,
     is_built_in
 )
+from app.utils import execute_command_with_built_ins
 
 # Function to format the prompt string based on user configuration
 def format_prompt(prompt_template, user, hostname, path):
@@ -256,43 +257,8 @@ def cli(version, question, command):
             click.echo(click.style("\nPress Ctrl+D or type 'exit' to exit the shell.", fg="yellow"))
             continue  # Continue the loop instead of exiting
 
-        # Check if the command is a built-in command or requires special handling
-        handled, new_command = is_built_in(command)
-        
-        # If a plugin returned a new command to process, update the command
-        if not handled and new_command is not None:
-            # Add the generated command to history as well (for AI-generated commands)
-            # This ensures both the original request and the generated command are in history
-            if command.startswith('#'):
-                readline.add_history(new_command)
-                # Apply history limit after adding a new command
-                history.limit_history_size()
-            
-            command = new_command
-            
-            # Process the new command
-            if '&&' in command or ';' in command:
-                execute_chained_commands(command, 0)
-            else:
-                # Check if the new command is a built-in
-                new_handled, another_command = is_built_in(command)
-                if not new_handled:
-                    # Just execute the command directly
-                    execute_command(command)
-                elif another_command is not None:
-                    # Handle nested command returns (rare case)
-                    click.echo(click.style(f"Executing nested command: {another_command}", fg="blue"))
-                    # For complex commands with nested quotes, use proper escaping
-                    execute_command(another_command)
-        # If command was fully handled by a built-in, do nothing more
-        elif handled:
-            pass
-        # Check if the command contains && or ; for command chaining
-        elif '&&' in command or ';' in command:
-            execute_chained_commands(command, 0)
-        else:
-            # we will execute the command in the case of a non-built-in command or
-            execute_command(command)
+        # Use the centralized command execution logic that handles built-ins and chained commands
+        success, result = execute_command_with_built_ins(command, original_command=command, add_to_history=True)
 
         # Always clear the readline buffer before the next prompt
         clear_readline_buffer()
