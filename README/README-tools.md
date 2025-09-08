@@ -50,23 +50,8 @@ Executes Linux shell commands with full support for built-in commands, command c
   - Command chaining with `;`: `pwd; ls; date`
   - Built-in commands: `cd`, `export`, `history`
 
-**Features:**
-- **Built-in Command Support**: Handles jibberish built-ins like `cd`, `export`, and `history`
-- **Command Chaining**: Supports complex operations with `&&` (conditional) and `;` (sequential)
-- **Security**: Respects `WARN_LIST` environment variable for dangerous commands
-- **User Prompting**: Honors `PROMPT_AI_COMMANDS` setting for execution confirmation
-- **Error Handling**: Provides detailed error messages and return codes
-
-**Security Notes:**
-- Commands in `WARN_LIST` (like `rm`, `mv`, `shutdown`) require manual execution
-- When `PROMPT_AI_COMMANDS=true`, user confirmation is required before execution
-- All command execution is logged and traceable
-
-
 ```
-
 ### Real-World Example: Reading Documentation and Executing Commands
-
 ```bash
 [jbrsh] /localdata/brownjer/dpln/main_int_fedora42/bld-dataplane_base/working/cni-infra-dataplane/fdio.an/patches$ ? read the ./README and what is the command to create an FDIO patch directory
 ```
