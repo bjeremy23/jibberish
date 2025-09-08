@@ -17,7 +17,7 @@ import click
 import re
 import os
 from app.context_manager import add_specialized_contexts, determine_temperature
-from app.utils import generate_tool_context_message
+from app.utils import generate_tool_context_message, is_debug_enabled
 
 # Import the tool system
 try:
@@ -34,10 +34,10 @@ partner = os.environ.get('AI_PARTNER', "Marvin the Paranoid Android")
 # There are two different histories; one for '#' (ask_ai) and one for '?' (ask_question)
 
 # '?' 
-# we have a total of 10 questions and keep the last 3 questions in the history
+# we have a total of 10 questions and keep the last 6 questions in the history
 # These are global variables to keep track of the number of questions
 total_noof_questions=10
-noof_questions=3
+noof_questions=6
 
 # Global list to store chat history for each instance of the shell
 chat_history = []
@@ -116,33 +116,45 @@ def save_chat(chat):
     """
     global chat_history
     
-    # Add current conversation
-    chat_history.append(chat)
-    
-    # Keep only the most recent conversations
-    chat_history = chat_history[-total_noof_questions:]
+    # Instead of appending the entire chat as a separate conversation,
+    # we want to maintain one continuous conversation
+    if not chat_history:
+        # First conversation - save as is
+        chat_history = chat
+    else:
+        # Ongoing conversation - extend the existing history
+        # Remove any duplicate messages that might already be in history
+        new_messages = []
+        for msg in chat:
+            # Only add messages that aren't already in the last few messages of history
+            if len(chat_history) == 0 or msg not in chat_history[-5:]:
+                new_messages.append(msg)
+        
+        chat_history.extend(new_messages)
+        
+        # Keep only the most recent message pairs (limit to total_noof_questions pairs)
+        if len(chat_history) > total_noof_questions * 2:
+            # Remove the oldest pairs to maintain the limit
+            excess_messages = len(chat_history) - (total_noof_questions * 2)
+            chat_history = chat_history[excess_messages:]
 
 def load_chat_history():
     """
-    Load chat from the global history, returning only the most recent noof_questions entries (user/assistant pairs)
+    Load chat from the global history, returning the recent conversation messages
     """
     global chat_history
     
-    # If there's no history yet, return empty list
+    # Return the current conversation history
+    # We want the last noof_questions pairs (each pair is 2 entries: user + assistant)
     if not chat_history:
         return []
-        
-    # If we have history, return the last conversation's entries limited to noof_questions
-    if chat_history and isinstance(chat_history[-1], list):
-        last_conversation = chat_history[-1]
-        # We want the last noof_questions pairs (each pair is 2 entries)
-        message_pairs = len(last_conversation) // 2
-        pairs_to_keep = min(noof_questions, message_pairs)
-        # Calculate how many entries to skip from the beginning
-        entries_to_skip = len(last_conversation) - (pairs_to_keep * 2)
-        return last_conversation[entries_to_skip:]
     
-    return []
+    # Limit to the most recent conversation pairs
+    max_messages = noof_questions * 2  # 2 messages per pair (user + assistant)
+    if len(chat_history) > max_messages:
+        return chat_history[-max_messages:]
+    else:
+        return chat_history
 
 
 def ask_why_failed(command, output):
@@ -371,19 +383,25 @@ def ask_question(command, temp=0.5):
     Have a small contextual chat with the AI, with tool support.
     Uses a two-phase approach: first execute tools, then generate response with tool context.
     """
-    return _ask_question_with_tools(command, temp, max_tool_iterations=2)
+    return _ask_question_with_tools(command, temp, max_tool_iterations=4)
 
-def _ask_question_with_tools(command, temp=0.5, max_tool_iterations=2):
+def _ask_question_with_tools(command, temp=0.5, max_tool_iterations=4):
     """
     Internal function that handles the tool execution loop.
     Phase 1: Execute any initial tool calls from AI response
     Phase 2: Generate final response using tool outputs
     """
     original_command = command
-    messages = load_chat_history()
     tool_context = []  # Accumulate tool outputs
     
+    # Load the current conversation history at the start
+    messages = load_chat_history()
+    
     for iteration in range(max_tool_iterations):
+        # Debug: Show iteration info
+        if is_debug_enabled():
+            click.echo(click.style(f"[DEBUG] Tool iteration {iteration + 1}/{max_tool_iterations}", fg="cyan"))
+        
         # Add additional context for certain types of questions
         additional_context = []
         if any(term in command.lower() for term in ['technical', 'explain', 'how does', 'why is']):
@@ -396,6 +414,14 @@ def _ask_question_with_tools(command, temp=0.5, max_tool_iterations=2):
         tool_context_msg = generate_tool_context_message()
         if tool_context_msg:
             additional_context.append(tool_context_msg)
+        
+        # Detect urgent write commands and force immediate action
+        urgent_write_patterns = ['write the file', 'write it now', '!!!', 'immediately', 'better be done']
+        if any(pattern in command.lower() for pattern in urgent_write_patterns) and tool_context:
+            additional_context.append({
+                "role": "system",
+                "content": "URGENT: The user is demanding immediate file writing. You MUST use write_file tool NOW with the content you have. Do not read more files. Use this exact format: ```json\n{\"tool_calls\": [{\"name\": \"write_file\", \"arguments\": {\"filepath\": \"path\", \"content\": \"merged_content\"}}]}\n```"
+            })
         
         # Add any tool context from previous iterations
         if tool_context:
@@ -447,11 +473,26 @@ def _ask_question_with_tools(command, temp=0.5, max_tool_iterations=2):
         
         ai_response = response.choices[0].message.content.strip()
         
+        # Debug: Show the AI response
+        if is_debug_enabled():
+            click.echo(click.style(f"[DEBUG] AI Response: {ai_response}", fg="yellow"))
+        
         # Check if the AI wants to use tools
         should_use = TOOLS_AVAILABLE and ToolCallParser.should_use_tools(ai_response)
         
+        # Debug: Show tool detection
+        if is_debug_enabled():
+            click.echo(click.style(f"[DEBUG] Should use tools: {should_use}", fg="yellow"))
+        
         if should_use:
             tool_calls = ToolCallParser.extract_tool_calls(ai_response)
+            
+            # Debug: Show extracted tool calls
+            if is_debug_enabled():
+                click.echo(click.style(f"[DEBUG] Tool calls extracted: {len(tool_calls) if tool_calls else 0}", fg="yellow"))
+                if tool_calls:
+                    for i, tool_call in enumerate(tool_calls):
+                        click.echo(click.style(f"[DEBUG] Tool {i+1}: {tool_call.get('name', 'unknown')}", fg="yellow"))
             
             if tool_calls:
                 # Execute each tool call
@@ -485,38 +526,46 @@ def _ask_question_with_tools(command, temp=0.5, max_tool_iterations=2):
                         ai_response = re.sub(r'```json\s*\n.*?"tool_calls".*?```', '', ai_response, flags=re.IGNORECASE | re.DOTALL)
                         ai_response = re.sub(r'\n{2,}', '\n\n', ai_response.strip())
                     
-                    # For the next iteration, ask AI to use the tool outputs to complete the request
-                    # Be explicit about requiring tool calls if the original request involved file operations
-                    if any(word in original_command.lower() for word in ['write', 'save', 'create file', 'output to']):
-                        command = f"Using the tool outputs provided above, complete this request: {original_command}\n\nIMPORTANT: If the request asks you to write or save content to a file, you MUST use the write_file tool with the appropriate TOOL_CALL format."
-                    else:
-                        command = f"Using the tool outputs provided above, {original_command}"
+                    # Add the current interaction to the conversation history before continuing
+                    messages.append(current_message)
+                    messages.append({
+                        "role": "assistant", 
+                        "content": ai_response if ai_response.strip() else f"[Tool execution: {', '.join([tc.get('name', 'unknown') for tc in tool_calls])}]"
+                    })
+                    
+                    # Save intermediate conversation state so follow-up questions can see tool results
+                    save_chat(messages)
+                    
+                    # For the next iteration, provide the tool outputs and ask for final response
+                    command = f"Based on the tool outputs above, provide your final answer to: {original_command}"
+                    if is_debug_enabled():
+                        click.echo(click.style(f"[DEBUG] Continuing to next iteration with command: {command[:100]}...", fg="cyan"))
                     continue  # Go to next iteration with tool context
         
-        # No more tools needed or max iterations reached, return the final response
-        
-        # Clean up response by removing tool call syntax if present
-        if TOOLS_AVAILABLE:
-            import re
-            # Only remove JSON blocks containing tool_calls, not all JSON
-            ai_response = re.sub(r'```json\s*\n.*?"tool_calls".*?```', '', ai_response, flags=re.IGNORECASE | re.DOTALL)
-            # Clean up excessive newlines and whitespace
-            ai_response = re.sub(r'\n{2,}', '\n\n', ai_response.strip())
-        
-        # Ensure we return clean response
-        ai_response = ai_response.strip()
-
-        
-        messages.append(current_message)
-        messages.append({
-            "role": "assistant", 
-            "content": ai_response
-        })
-        save_chat(messages)
-        return ai_response
+        # No tools in response - we're done, exit the loop
+        if is_debug_enabled():
+            click.echo(click.style(f"[DEBUG] No tools found in response, exiting loop", fg="cyan"))
+        break
     
-    # If we've exhausted iterations, return what we have
-    return ai_response if 'ai_response' in locals() else "Maximum tool iterations reached without completing the request."
+    # Clean up response by removing tool call syntax if present
+    if TOOLS_AVAILABLE:
+        import re
+        # Only remove JSON blocks containing tool_calls, not all JSON
+        ai_response = re.sub(r'```json\s*\n.*?"tool_calls".*?```', '', ai_response, flags=re.IGNORECASE | re.DOTALL)
+        # Clean up excessive newlines and whitespace
+        ai_response = re.sub(r'\n{2,}', '\n\n', ai_response.strip())
+    
+    # Ensure we return clean response
+    ai_response = ai_response.strip()
+    
+    # Add final conversation to history
+    messages.append(current_message)
+    messages.append({
+        "role": "assistant", 
+        "content": ai_response
+    })
+    save_chat(messages)
+    return ai_response
 
 
 

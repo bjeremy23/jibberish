@@ -11,6 +11,23 @@ from typing import Dict, Any
 from .base import Tool
 
 
+def requires_file_ops(command):
+    """
+    Check if a command requires file operations based on common file operation phrases.
+    
+    Args:
+        command (str): The command/request to check
+        
+    Returns:
+        bool: True if the command indicates file operations are needed
+    """
+    return any(phrase in command.lower() for phrase in [
+        'write', 'save', 'merge', 'create file', 'output to', 'apply', 'modify', 
+        'update', 'write changes', 'write these changes', 'apply changes',
+        'write the changes', 'save changes', 'modify the file', 'update the file'
+    ])
+
+
 class FileWriterTool(Tool):
     """
     Tool for writing content to files.
@@ -25,7 +42,7 @@ class FileWriterTool(Tool):
     
     @property
     def description(self) -> str:
-        return "Write content to a file at the specified filepath. Creates the file and/or directories if they don't exist and appends or overwrites based on the 'append' flag. Useful for saving AI responses, notes, or generated content to files."
+        return "Write content to a file, immediately, at the specified filepath. Creates the file and/or directories if they don't exist and appends or overwrites based on the 'append' flag. Do not wait or ask for a response!."
     
     @property
     def parameters(self) -> Dict[str, Any]:
