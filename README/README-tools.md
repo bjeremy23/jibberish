@@ -15,7 +15,18 @@ The jibberish tool system allows the AI to gather additional context by executin
 Reads the contents of a file and provides them as context to the AI.
 
 **Usage patterns the AI can use:**
-- `TOOL_CALL: read_file(filepath="/path/to/file")`
+```json
+{
+  "tool_calls": [
+    {
+      "name": "read_file",
+      "arguments": {
+        "filepath": "/path/to/file"
+      }
+    }
+  ]
+}
+```
 
 **Parameters:**
 - `filepath` (required): Path to the file to read
@@ -26,7 +37,19 @@ Reads the contents of a file and provides them as context to the AI.
 Writes content to a file at the specified location. Creates directories if needed and can overwrite or append to existing files. Useful for saving AI responses, generated content, or notes.
 
 **Usage patterns the AI can use:**
-- `TOOL_CALL: write_file(filepath="/path/to/file", content="text to write")`
+```json
+{
+  "tool_calls": [
+    {
+      "name": "write_file",
+      "arguments": {
+        "filepath": "/path/to/file",
+        "content": "text to write"
+      }
+    }
+  ]
+}
+```
 
 **Parameters:**
 - `filepath` (required): Path where the file should be written
@@ -38,9 +61,32 @@ Writes content to a file at the specified location. Creates directories if neede
 Executes Linux shell commands with full support for built-in commands, command chaining, and security features. This tool uses the same command execution logic as the jibberish interactive shell, ensuring consistent behavior.
 
 **Usage patterns the AI can use:**
-- `TOOL_CALL: linux_command(command="ls -la")`
-- `TOOL_CALL: linux_command(command="mkdir project && cd project")`
-- `TOOL_CALL: linux_command(command="pwd; whoami; date")`
+```json
+{
+  "tool_calls": [
+    {
+      "name": "linux_command",
+      "arguments": {
+        "command": "ls -la"
+      }
+    }
+  ]
+}
+```
+
+**For multiple commands or chaining:**
+```json
+{
+  "tool_calls": [
+    {
+      "name": "linux_command",
+      "arguments": {
+        "command": "mkdir project && cd project"
+      }
+    }
+  ]
+}
+```
 
 **Parameters:**
 - `command` (required): The Linux command to execute. Supports:
@@ -97,13 +143,44 @@ from app.tools import ToolRegistry
 ToolRegistry.register(MyCustomTool())
 ```
 
-## Tool Request Formats
+## Tool Request Format
 
-The AI can request tools using any of these formats:
+The AI uses a standardized JSON format for all tool requests:
 
-1. **Function-style**: `TOOL_CALL: tool_name(param="value")`
-2. **JSON-style**: `USE_TOOL: tool_name {"param": "value"}`
-3. **Tag-style**: `[TOOL] tool_name: param=value`
+```json
+{
+  "tool_calls": [
+    {
+      "name": "tool_name",
+      "arguments": {
+        "param1": "value1",
+        "param2": "value2"
+      }
+    }
+  ]
+}
+```
+
+**Multiple tools in one request:**
+```json
+{
+  "tool_calls": [
+    {
+      "name": "read_file",
+      "arguments": {
+        "filepath": "/etc/passwd"
+      }
+    },
+    {
+      "name": "write_file",
+      "arguments": {
+        "filepath": "~/analysis.txt",
+        "content": "Analysis results will go here"
+      }
+    }
+  ]
+}
+```
 
 ## Configuration
 
