@@ -394,7 +394,9 @@ def _execute_tool_calls(tool_calls, tool_context):
         
         tool = ToolRegistry.get_tool(tool_name)
         if tool:
-            click.echo(click.style(f"Executing tool: {tool_name}", fg="cyan"))
+            if is_debug_enabled():
+                click.echo(click.style(f"Executing tool: {tool_name} with args: {tool_args}", fg="cyan"))
+                
             try:
                 tool_output = tool.execute(**tool_args)
                 tool_context.append(f"Tool {tool_name} output:\n{tool_output}")
