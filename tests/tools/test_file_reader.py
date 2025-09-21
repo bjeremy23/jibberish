@@ -109,7 +109,7 @@ class TestFileReaderTool(unittest.TestCase):
         result = self.tool.execute(filepath="/nonexistent/file.txt")
         
         self.assertIn("ERROR:", result)
-        self.assertIn("does not exist", result)
+        self.assertIn("not found", result)
     
     def test_read_directory_as_file(self):
         """Test trying to read a directory as a file."""

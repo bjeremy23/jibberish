@@ -2,7 +2,8 @@
 
 import sys
 import os
-import socket  # Add socket import for hostname retrieval
+import socket
+
 
 # Get command-line arguments - but these won't matter for pip installation
 # as Click handles the args then
@@ -25,8 +26,8 @@ Usage: jibberish.py [OPTIONS]
 
   STANDALONE MODE OPTIONS:
     -v, --version        Display version information
-    -q, --question TEXT  Ask a general question (without needing the '?' prefix)
-    -c, --command TEXT   Generate and execute a command (without needing the '#' prefix)
+    -q, --question TEXT  Ask a general question or perform tasks in agent mode
+    -c, --command TEXT   Generate and execute a command
     -h, --help           Show this message and exit
 
   EXAMPLES:
@@ -60,7 +61,7 @@ from app.executor import (
     execute_chained_commands,
     is_built_in
 )
-from app.utils import execute_command_with_built_ins
+from app.utils import execute_command_with_built_ins, clear_readline_buffer
 
 # Function to format the prompt string based on user configuration
 def format_prompt(prompt_template, user, hostname, path):
@@ -83,7 +84,7 @@ def help():
     click.echo(click.style("Commands:", fg="blue"))
     click.echo(click.style("  <command>         - Execute the command", fg="blue"))
     click.echo(click.style("  #<command desc>   - Ask the AI to generate a command based on the user input", fg="blue"))
-    click.echo(click.style("  ?<question>       - ask a general question", fg="blue")) 
+    click.echo(click.style("  ?<question>       - ask a general question or perform tasks in agent mode", fg="blue"))
     click.echo(click.style("  exit, quit, q     - Exit the shell", fg="blue"))
     click.echo(click.style("  help              - help menu", fg="blue"))
 
@@ -192,16 +193,6 @@ def cli(version, question, command):
     # use a high temperature for the welcome message
     sentence = chat.ask_question("Give me only one short sentence Welcoming the user to Jibberish and introduce yourself and say your here to help.", 1.0)
     click.echo(click.style(f"\n{sentence}", fg="red", bold=True))
-
-    # get the warn environment variable
-    def clear_readline_buffer():
-        import readline
-        try:
-            # This works with GNU readline
-            readline.set_pre_input_hook(lambda: readline.insert_text(''))
-            readline.redisplay()
-        except Exception:
-            pass
 
     while True:
         try:

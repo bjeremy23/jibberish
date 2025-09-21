@@ -83,21 +83,18 @@ def execute_command_with_built_ins(command, original_command=None, add_to_histor
             
             # Process the new command
             if '&&' in command or ';' in command:
-                execute_chained_commands(command, 0)
-                return True, f"Executed chained command: {command}"
+                return execute_chained_commands(command, 0)
             else:
                 # Check if the new command is a built-in
                 new_handled, another_command = is_built_in(command)
                 if not new_handled:
                     # Just execute the command directly
-                    execute_command(command)
-                    return True, f"Executed command: {command}"
+                    return execute_command(command)
                 elif another_command is not None:
                     # Handle nested command returns (rare case)
                     click.echo(click.style(f"Executing nested command: {another_command}", fg="blue"))
                     # For complex commands with nested quotes, use proper escaping
-                    execute_command(another_command)
-                    return True, f"Executed nested command: {another_command}"
+                    return execute_command(another_command)
                 else:
                     return True, "Command handled by built-in plugin"
         # If command was fully handled by a built-in, do nothing more
@@ -105,12 +102,10 @@ def execute_command_with_built_ins(command, original_command=None, add_to_histor
             return True, "Command handled by built-in plugin"
         # Check if the command contains && or ; for command chaining
         elif '&&' in command or ';' in command:
-            execute_chained_commands(command, 0)
-            return True, f"Executed chained command: {command}"
+            return execute_chained_commands(command, 0)
         else:
             # we will execute the command in the case of a non-built-in command
-            execute_command(command)
-            return True, f"Executed command: {command}"
+            return execute_command(command)
             
     except Exception as e:
         error_msg = f"ERROR: Failed to execute command '{command}': {str(e)}"
@@ -345,3 +340,13 @@ def update_base_messages(new_pair):
         # Remove the oldest pairs (2 messages per pair) to maintain the limit
         excess_pairs = (len(base_messages) - MAX_HISTORY_PAIRS * 2) // 2
         base_messages = base_messages[excess_pairs * 2:]
+
+# get the warn environment variable
+def clear_readline_buffer():
+    import readline
+    try:
+        # This works with GNU readline
+        readline.set_pre_input_hook(lambda: readline.insert_text(''))
+        readline.redisplay()
+    except Exception:
+        pass

@@ -190,7 +190,7 @@ class TestToolIntegration(unittest.TestCase):
         
         # Should get an error message, not an exception
         self.assertIn("ERROR:", result)
-        self.assertIn("does not exist", result)
+        self.assertIn("not found", result)
     
     def test_function_definitions_integration(self):
         """Test that function definitions work properly for AI integration."""
@@ -240,21 +240,21 @@ class TestToolIntegration(unittest.TestCase):
         try:
             # Simulate AI response with write_file tool call
             content = "This is test content written by the AI tool"
-            ai_response = f\"\"\"I'll write that to the file.
+            ai_response = f"""I'll write that to the file.
 
 ```json
 {{
-  \"tool_calls\": [
+  "tool_calls": [
     {{
-      \"name\": \"write_file\",
-      \"arguments\": {{
-        \"filepath\": \"{temp_output}\",
-        \"content\": \"{content}\"
+      "name": "write_file",
+      "arguments": {{
+        "filepath": "{temp_output}",
+        "content": "{content}"
       }}
     }}
   ]
 }}
-```\"\"\"
+```"""
             
             # Parse the tool calls
             tool_calls = ToolCallParser.extract_tool_calls(ai_response)
@@ -325,7 +325,21 @@ class TestToolIntegration(unittest.TestCase):
             # Properly escape the content for JSON
             import json
             escaped_content = json.dumps(modified_content)
-            write_response = f'USE_TOOL: write_file {{"filepath": "{temp_output}", "content": {escaped_content}}}'
+            write_response = f"""I'll write the modified content.
+
+```json
+{{
+  "tool_calls": [
+    {{
+      "name": "write_file",
+      "arguments": {{
+        "filepath": "{temp_output}",
+        "content": {escaped_content}
+      }}
+    }}
+  ]
+}}
+```"""
             write_tool_calls = ToolCallParser.extract_tool_calls(write_response)
             
             write_tool = ToolRegistry.get_tool("write_file")

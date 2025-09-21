@@ -57,12 +57,12 @@ class TestLinuxCommandTool(unittest.TestCase):
         self.assertIn("Linux command to execute", command_param["description"])
     
     @patch('app.tools.linux_command.prompt_before_execution')
-    @patch('app.tools.linux_command.execute_command_with_built_ins')
+    @patch('app.executor.execute_shell_command')
     def test_successful_command_execution(self, mock_execute, mock_prompt):
         """Test successful command execution."""
         # Setup mocks
         mock_prompt.return_value = True
-        mock_execute.return_value = (True, "Command executed successfully")
+        mock_execute.return_value = (0, "Command executed successfully", "")
         
         # Execute command
         result = self.tool.execute("echo 'hello world'")
@@ -75,12 +75,12 @@ class TestLinuxCommandTool(unittest.TestCase):
         self.assertEqual(result, "Command executed successfully")
     
     @patch('app.tools.linux_command.prompt_before_execution')
-    @patch('app.tools.linux_command.execute_command_with_built_ins')
+    @patch('app.executor.execute_shell_command')
     def test_failed_command_execution(self, mock_execute, mock_prompt):
         """Test failed command execution."""
         # Setup mocks
         mock_prompt.return_value = True
-        mock_execute.return_value = (False, "ERROR: Command failed: No such file or directory")
+        mock_execute.return_value = (1, "", "ERROR: Command failed: No such file or directory")
         
         # Execute command
         result = self.tool.execute("ls /nonexistent/directory")
@@ -90,7 +90,8 @@ class TestLinuxCommandTool(unittest.TestCase):
         mock_execute.assert_called_once_with("ls /nonexistent/directory")
         
         # Verify result (error message should be passed through)
-        self.assertEqual(result, "ERROR: Command failed: No such file or directory")
+        self.assertIn("ERROR:", result)
+        self.assertIn("No such file or directory", result)
     
     @patch('app.tools.linux_command.prompt_before_execution')
     def test_command_execution_cancelled_by_prompt(self, mock_prompt):
@@ -159,10 +160,10 @@ class TestLinuxCommandTool(unittest.TestCase):
         os.environ["WARN_LIST"] = "rm,sudo,dd"
         
         with patch('app.tools.linux_command.prompt_before_execution') as mock_prompt, \
-             patch('app.tools.linux_command.execute_command_with_built_ins') as mock_execute:
+             patch('app.executor.execute_shell_command') as mock_execute:
             
             mock_prompt.return_value = True
-            mock_execute.return_value = (True, "Safe command executed")
+            mock_execute.return_value = (0, "Safe command executed", "")
             
             # Test safe commands that don't match warn list
             safe_commands = ["ls -la", "echo hello", "cat file.txt", "grep pattern file"]
@@ -181,10 +182,10 @@ class TestLinuxCommandTool(unittest.TestCase):
         os.environ["WARN_LIST"] = ""
         
         with patch('app.tools.linux_command.prompt_before_execution') as mock_prompt, \
-             patch('app.tools.linux_command.execute_command_with_built_ins') as mock_execute:
+             patch('app.executor.execute_shell_command') as mock_execute:
             
             mock_prompt.return_value = True
-            mock_execute.return_value = (True, "Command executed")
+            mock_execute.return_value = (0, "Command executed", "")
             
             result = self.tool.execute("rm file.txt")
             
@@ -197,10 +198,10 @@ class TestLinuxCommandTool(unittest.TestCase):
             del os.environ["WARN_LIST"]
         
         with patch('app.tools.linux_command.prompt_before_execution') as mock_prompt, \
-             patch('app.tools.linux_command.execute_command_with_built_ins') as mock_execute:
+             patch('app.executor.execute_shell_command') as mock_execute:
             
             mock_prompt.return_value = True
-            mock_execute.return_value = (True, "Command executed")
+            mock_execute.return_value = (0, "Command executed", "")
             
             result = self.tool.execute("rm file.txt")
             
@@ -219,7 +220,7 @@ class TestLinuxCommandTool(unittest.TestCase):
         self.assertIn("Cannot execute command", result)
     
     @patch('app.tools.linux_command.prompt_before_execution')
-    @patch('app.tools.linux_command.execute_command_with_built_ins')
+    @patch('app.executor.execute_shell_command')
     def test_exception_handling(self, mock_execute, mock_prompt):
         """Test that exceptions are properly caught and handled."""
         # Setup mocks to raise an exception
@@ -236,18 +237,18 @@ class TestLinuxCommandTool(unittest.TestCase):
         self.assertIn("Unexpected error occurred", result)
     
     @patch('app.tools.linux_command.prompt_before_execution')
-    @patch('app.tools.linux_command.execute_command_with_built_ins')
+    @patch('app.executor.execute_shell_command')
     def test_command_chaining(self, mock_execute, mock_prompt):
         """Test that command chaining is properly passed through."""
         # Setup mocks
         mock_prompt.return_value = True
-        mock_execute.return_value = (True, "Commands chained successfully")
+        mock_execute.return_value = (0, "Commands chained successfully", "")
         
         # Test command chaining with &&
         chained_command = "mkdir test_dir && cd test_dir && ls -la"
         result = self.tool.execute(chained_command)
         
-        # Verify the full chained command was passed to execute_command_with_built_ins
+        # Verify the full chained command was passed to execute_shell_command
         mock_execute.assert_called_once_with(chained_command)
         self.assertEqual(result, "Commands chained successfully")
     
@@ -318,11 +319,11 @@ class TestLinuxCommandTool(unittest.TestCase):
                 self.assertIn("SECURITY:", result)
     
     @patch('app.tools.linux_command.prompt_before_execution')
-    @patch('app.tools.linux_command.execute_command_with_built_ins')
+    @patch('app.executor.execute_shell_command')
     def test_empty_command(self, mock_execute, mock_prompt):
         """Test behavior with empty command."""
         mock_prompt.return_value = True
-        mock_execute.return_value = (True, "")
+        mock_execute.return_value = (0, "", "")
         
         result = self.tool.execute("")
         
@@ -331,11 +332,11 @@ class TestLinuxCommandTool(unittest.TestCase):
         mock_execute.assert_called_once_with("")
     
     @patch('app.tools.linux_command.prompt_before_execution')
-    @patch('app.tools.linux_command.execute_command_with_built_ins')
+    @patch('app.executor.execute_shell_command')
     def test_complex_command_with_special_characters(self, mock_execute, mock_prompt):
         """Test commands with special characters and complex syntax."""
         mock_prompt.return_value = True
-        mock_execute.return_value = (True, "Complex command executed")
+        mock_execute.return_value = (0, "Complex command executed", "")
         
         complex_command = "find /path -name '*.txt' | grep -E '^[A-Z]' | sort | head -10"
         result = self.tool.execute(complex_command)
@@ -349,10 +350,10 @@ class TestLinuxCommandTool(unittest.TestCase):
         
         # Test that case matters (these should NOT be blocked)
         with patch('app.tools.linux_command.prompt_before_execution') as mock_prompt, \
-             patch('app.tools.linux_command.execute_command_with_built_ins') as mock_execute:
+             patch('app.executor.execute_shell_command') as mock_execute:
             
             mock_prompt.return_value = True
-            mock_execute.return_value = (True, "Command executed")
+            mock_execute.return_value = (0, "Command executed", "")
             
             # These should be allowed (different case)
             case_different_commands = ["RM file.txt", "SUDO ls", "Rm file.txt"]

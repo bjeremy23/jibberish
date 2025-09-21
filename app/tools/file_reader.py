@@ -58,10 +58,15 @@ class FileReaderTool(Tool):
             # Expand user path (~) and resolve relative paths
             expanded_path = os.path.expanduser(filepath)
             
-            # Check if file exists
+            # Check if file exists, if the file does not exist, look for the file recursivly starting from the 
+            # current directory and ask if the user meant that file
             if not os.path.exists(expanded_path):
-                return f"ERROR: File '{filepath}' does not exist."
-            
+                for root, dirs, files in os.walk('.'):
+                    if os.path.basename(filepath) in files:
+                        found_path = os.path.join(root, os.path.basename(filepath))
+                        return f"File '{filepath}' not found. Did you mean '{found_path}'?"
+                return f"ERROR: File '{filepath}' not found."
+
             # Check if it's actually a file (not a directory)
             if not os.path.isfile(expanded_path):
                 return f"ERROR: '{filepath}' is not a file."

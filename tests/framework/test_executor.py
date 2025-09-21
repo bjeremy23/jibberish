@@ -265,7 +265,7 @@ class TestChainedCommands(unittest.TestCase):
         self.mock_click_echo = self.click_echo_patcher.start()
         
         # Mock execute_command to prevent actual command execution
-        self.cmd_patcher = patch.object(self.executor, 'execute_command')
+        self.cmd_patcher = patch.object(self.executor, 'execute_command', return_value=(0, "Mock command output"))
         self.mock_cmd = self.cmd_patcher.start()
         
         # Mock app.built_ins.is_built_in

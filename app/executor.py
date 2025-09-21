@@ -12,8 +12,6 @@ from app import chat
 from app.built_ins import is_built_in
 
 # Forward declaration for circular reference
-def execute_command(command):
-    pass
 
 def split_commands_respect_quotes(command_chain):
     """
@@ -576,7 +574,7 @@ def execute_command(command):
         choice = input(click.style("Are you sure you want to execute this command? [y/n]: ", fg="blue"))
         if choice.lower() != "y":
             click.echo(click.style("Command not executed", fg="red"))
-            return
+            return -1, f"Command '{command}' not executed by user choice"
     
     # Check if this is an SSH-related command
     ssh_commands = ["ssh", "ssh-keygen", "ssh-copy-id", "ssh-add", "scp", "sftp", "rsync"]
@@ -595,6 +593,8 @@ def execute_command(command):
                 click.echo(click.style("\nCommand interrupted by user (Ctrl+C)", fg="yellow"))
             else:
                 click.echo(click.style(f"{error}", fg="red"))
+
+            return -1, f"Error: {error}"
         elif error:
             # The command produced error output, handle specific error types
             
@@ -603,12 +603,12 @@ def execute_command(command):
             if is_ssh_command:
                 if returncode == 0:
                     click.echo(error)
-                    return
+                    return 0, output
                 else:
                     # For SSH commands with errors, display the original error message
                     # rather than trying to interpret it
                     click.echo(click.style(error.rstrip(), fg="red"))
-                    return  # Return after displaying the error
+                    return -1, f"{error.rstrip()}" # Return after displaying the error
                 
             # Check for different types of errors (process each error only once)
             if "command not found" in error:
@@ -633,14 +633,18 @@ def execute_command(command):
                             pass
                         elif new_command is not None:
                             # A new command was returned (e.g., from history or AI)
-                            execute_command(new_command)
+                            ret, msg = execute_command(new_command)
                         else:
                             # Execute external command
-                            execute_command(corrected_command)
+                            ret, msg = execute_command(corrected_command)
+
+                        return ret, msg
+                        
             elif "No such file or directory" in error:
                 # When the file/directory path doesn't exist, echo the original error
                 # This preserves the error message for cases like "ls /nonexistent/path"
                 click.echo(click.style(error.rstrip(), fg="red"))
+                return -1, f"{error.rstrip()}"
             else:
                 # For all other errors, echo the error message and offer to explain
                 click.echo(click.style(error.rstrip(), fg="red"))
@@ -654,6 +658,8 @@ def execute_command(command):
                             click.echo(click.style(f"{why_failed}", fg="red"))
                         else:
                             click.echo(click.style("No explanation provided.", fg="red"))
+
+                    return -1, f"{error.rstrip()}"
         elif returncode != 0:
             # Handle case where return code is non-zero but there's no error message
             # This should only happen if we really have no error output at all
@@ -663,7 +669,7 @@ def execute_command(command):
             if is_ssh_command:
                 # This is a failsafe in case the SSH error handling above missed something
                 # Simply return without showing the "command failed with no error output" message
-                return
+                return -1, "SSH command failed with no error output"
             
             cmd_name = command.strip().split()[0] if command.strip() else "Command" 
 
@@ -676,11 +682,19 @@ def execute_command(command):
                         click.echo(click.style(f"{why_failed}", fg="red"))
                     else:
                         click.echo(click.style("No explanation provided.", fg="red"))
+            return -1, "Command failed with non-zero exit code but no error output"
+        else:
+            # Command succeeded with no error - return success
+            click.echo(output) if output else None
+            return 0, output
+
     except KeyboardInterrupt:
         # Handle keyboard interrupt in this function as well
         click.echo(click.style("\nCommand execution interrupted by user (Ctrl+C)", fg="yellow"))
+        return -1, "Command execution interrupted by user (Ctrl+C)"
     except Exception as e:
         click.echo(click.style(f"Error: {e}", fg="red"))
+        return -1, f"Error: {e}"
 
 def execute_chained_commands(command_chain, recursion_depth=0):
     """
@@ -694,22 +708,24 @@ def execute_chained_commands(command_chain, recursion_depth=0):
     max_recursion_depth = 10
     if recursion_depth >= max_recursion_depth:
         click.echo(click.style(f"Error: Maximum command chain depth ({max_recursion_depth}) exceeded. This could be due to a circular reference or extremely complex command.", fg="red"))
-        return
+        return -1, f"Maximum command chain depth ({max_recursion_depth}) exceeded"
     
     # Guard against non-string inputs that could cause recursion
     if not isinstance(command_chain, str):
         click.echo(click.style(f"Error: Invalid command type: {type(command_chain)}", fg="red"))
-        return
+        return -1, f"Invalid command type: {type(command_chain)}"
         
     # First transform any multiline commands into proper format
     try:
         command_chain = transform_multiline(command_chain)
     except RecursionError:
         click.echo(click.style("Error: Command is too complex or recursive", fg="red"))
-        return
+        return -1, "Command is too complex or recursive"
     
     # Process semicolons first, then &&
     # Check if there are semicolons in the command
+    ret = -1
+    msg = ""
     if ';' in command_chain:
         # Split command by semicolons first
         semicolon_parts = split_commands_respect_semicolons(command_chain)
@@ -722,7 +738,7 @@ def execute_chained_commands(command_chain, recursion_depth=0):
                 
             # If a part contains &&, process as chained commands
             if '&&' in part:
-                execute_chained_commands(part, recursion_depth + 1)
+                ret, msg = execute_chained_commands(part, recursion_depth + 1)
             else:
                 # Execute as a single command
                 handled, new_command = is_built_in(part)
@@ -733,10 +749,14 @@ def execute_chained_commands(command_chain, recursion_depth=0):
                 elif new_command is not None:
                     # A new command was returned (e.g., from history or AI), execute it
                     # Don't recursively process here to avoid recursion issues
-                    execute_command(new_command)
+                    ret, msg = execute_command(new_command)
+                    if ret == -1:
+                        return ret, msg
                 else:
                     # Execute external command
-                    execute_command(part)
+                    ret, msg = execute_command(part)
+                    if ret == -1:
+                        return -1, msg
     else:
         # No semicolons, check if there are && chains (not pipes)
         if '&&' in command_chain and '|' not in command_chain:
@@ -756,10 +776,14 @@ def execute_chained_commands(command_chain, recursion_depth=0):
                     pass  # Don't return, let the next command execute
                 elif new_command is not None:
                     # A new command was returned (e.g., from history or AI), execute it
-                    execute_command(new_command)
+                    ret, msg = execute_command(new_command)
+                    if ret == -1:
+                        return ret, msg
                 else:
                     # Execute external command
-                    execute_command(cmd)
+                    ret, msg = execute_command(cmd)
+                    if ret == -1:
+                        return ret, msg
         else:
             # No complex chaining, just execute the command directly
             # This handles pipes (|) and simple commands
@@ -767,10 +791,10 @@ def execute_chained_commands(command_chain, recursion_depth=0):
             
             if handled:
                 # Built-in command was executed, nothing else to do
-                pass
+                return 0, "Built-in command executed successfully"
             elif new_command is not None:
                 # A new command was returned (e.g., from history or AI), execute it
-                execute_command(new_command)
+                return execute_command(new_command)
             else:
                 # Execute external command
-                execute_command(command_chain)
+                return execute_command(command_chain)
