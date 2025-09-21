@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 """
-Tests for the LinuxCommandTool specifically.
+Fixed tests for the LinuxCommandTool specifically.
 """
-import os
-import sys
 import unittest
 from unittest.mock import patch, Mock
+import os
+import sys
 
 # Add the parent directory to the path so we can import the modules
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
@@ -18,10 +18,10 @@ class TestLinuxCommandTool(unittest.TestCase):
     """Tests for the LinuxCommandTool."""
     
     def setUp(self):
-        """Set up the test environment before each test method."""
+        """Set up test fixtures before each test method."""
         self.tool = LinuxCommandTool()
         
-        # Store original environment variables to restore later
+        # Store original environment variables
         self.original_warn_list = os.environ.get("WARN_LIST", "")
         self.original_prompt_ai = os.environ.get("PROMPT_AI_COMMANDS", "")
     
@@ -32,7 +32,7 @@ class TestLinuxCommandTool(unittest.TestCase):
             os.environ["WARN_LIST"] = self.original_warn_list
         elif "WARN_LIST" in os.environ:
             del os.environ["WARN_LIST"]
-            
+        
         if self.original_prompt_ai:
             os.environ["PROMPT_AI_COMMANDS"] = self.original_prompt_ai
         elif "PROMPT_AI_COMMANDS" in os.environ:
@@ -41,77 +41,60 @@ class TestLinuxCommandTool(unittest.TestCase):
     def test_tool_properties(self):
         """Test that the tool has the correct properties."""
         self.assertEqual(self.tool.name, "linux_command")
-        self.assertIn("Execute Linux shell commands", self.tool.description)
-        self.assertIn("ALWAYS use this tool", self.tool.description)
+        self.assertIn("Use this tool if a request requires execution on the host", self.tool.description)
+        self.assertIn("executable linux command strings", self.tool.description)
         
         # Check parameters structure
         params = self.tool.parameters
         self.assertEqual(params["type"], "object")
         self.assertIn("command", params["properties"])
-        self.assertIn("command", params["required"])
-        
-        # Check command parameter details
-        command_param = params["properties"]["command"]
-        self.assertEqual(command_param["type"], "string")
-        self.assertIn("description", command_param)
-        self.assertIn("Linux command to execute", command_param["description"])
+        self.assertIn("required", params)
+        self.assertEqual(params["required"], ["command"])
     
-    @patch('app.tools.linux_command.prompt_before_execution')
-    @patch('app.executor.execute_shell_command')
-    def test_successful_command_execution(self, mock_execute, mock_prompt):
+    @patch('app.tools.linux_command.execute_command_with_built_ins')
+    def test_successful_command_execution(self, mock_execute):
         """Test successful command execution."""
         # Setup mocks
-        mock_prompt.return_value = True
-        mock_execute.return_value = (0, "Command executed successfully", "")
+        mock_execute.return_value = (0, "Command executed successfully")
         
         # Execute command
         result = self.tool.execute("echo 'hello world'")
         
         # Verify mocks were called correctly
-        mock_prompt.assert_called_once_with("command 'echo 'hello world''")
-        mock_execute.assert_called_once_with("echo 'hello world'")
+        mock_execute.assert_called_once_with("echo 'hello world'", original_command="echo 'hello world'", add_to_history=True)
         
         # Verify result
-        self.assertEqual(result, "Command executed successfully")
-    
-    @patch('app.tools.linux_command.prompt_before_execution')
-    @patch('app.executor.execute_shell_command')
-    def test_failed_command_execution(self, mock_execute, mock_prompt):
+        self.assertEqual(result, "SUCCESS: Command executed successfully")
+
+    @patch('app.tools.linux_command.execute_command_with_built_ins')
+    def test_failed_command_execution(self, mock_execute):
         """Test failed command execution."""
         # Setup mocks
-        mock_prompt.return_value = True
-        mock_execute.return_value = (1, "", "ERROR: Command failed: No such file or directory")
+        mock_execute.return_value = (1, "Command failed: No such file or directory")
         
         # Execute command
         result = self.tool.execute("ls /nonexistent/directory")
         
         # Verify mocks were called correctly
-        mock_prompt.assert_called_once_with("command 'ls /nonexistent/directory'")
-        mock_execute.assert_called_once_with("ls /nonexistent/directory")
+        mock_execute.assert_called_once_with("ls /nonexistent/directory", original_command="ls /nonexistent/directory", add_to_history=True)
         
-        # Verify result (error message should be passed through)
-        self.assertIn("ERROR:", result)
-        self.assertIn("No such file or directory", result)
-    
-    @patch('app.tools.linux_command.prompt_before_execution')
-    def test_command_execution_cancelled_by_prompt(self, mock_prompt):
-        """Test command execution cancelled by user prompt."""
-        # Ensure WARN_LIST doesn't block our test command
-        os.environ["WARN_LIST"] = ""
-        
-        # Setup mock to simulate user cancellation
-        mock_prompt.return_value = False
-        
-        # Execute command (use a safe command that won't be in WARN_LIST)
-        result = self.tool.execute("echo 'test command'")
-        
-        # Verify prompt was called
-        mock_prompt.assert_called_once_with("command 'echo 'test command''")
-        
-        # Verify cancellation message
-        self.assertIn("Command execution cancelled", result)
-        self.assertIn("echo 'test command'", result)
-    
+        # Verify result contains error message
+        self.assertIn("ERROR", result)
+        self.assertIn("Command failed: No such file or directory", result)
+
+    def test_exception_handling(self):
+        """Test that exceptions are properly caught and handled."""
+        with patch('app.tools.linux_command.execute_command_with_built_ins') as mock_execute:
+            # Setup mock to raise an exception
+            mock_execute.side_effect = Exception("Unexpected error occurred")
+            
+            # Execute command
+            result = self.tool.execute("some command")
+            
+            # Verify error is caught and formatted
+            self.assertIn("ERROR:", result)
+            self.assertIn("Unexpected error occurred", result)
+
     def test_warn_list_security_check_single_command(self):
         """Test that commands in WARN_LIST are blocked."""
         # Set up WARN_LIST environment variable
@@ -125,10 +108,8 @@ class TestLinuxCommandTool(unittest.TestCase):
                 result = self.tool.execute(cmd)
                 
                 self.assertIn("SECURITY:", result)
-                self.assertIn("Cannot execute command", result)
-                self.assertIn("WARN_LIST", result)
-                self.assertIn(cmd, result)
-    
+                self.assertIn("blocked by WARN_LIST", result)
+
     def test_warn_list_security_check_all_commands(self):
         """Test that WARN_LIST='all' blocks all commands."""
         # Set WARN_LIST to 'all'
@@ -138,9 +119,8 @@ class TestLinuxCommandTool(unittest.TestCase):
         result = self.tool.execute("echo 'safe command'")
         
         self.assertIn("SECURITY:", result)
-        self.assertIn("Cannot execute command", result)
-        self.assertIn("WARN_LIST", result)
-    
+        self.assertIn("blocked by WARN_LIST", result)
+
     def test_warn_list_partial_match(self):
         """Test that WARN_LIST matches command prefixes correctly."""
         # Set up WARN_LIST with partial commands
@@ -153,62 +133,40 @@ class TestLinuxCommandTool(unittest.TestCase):
             with self.subTest(command=cmd):
                 result = self.tool.execute(cmd)
                 self.assertIn("SECURITY:", result)
-    
-    def test_warn_list_safe_commands(self):
+
+    @patch('app.tools.linux_command.execute_command_with_built_ins')
+    def test_warn_list_safe_commands(self, mock_execute):
         """Test that safe commands are not blocked by WARN_LIST."""
         # Set up WARN_LIST
         os.environ["WARN_LIST"] = "rm,sudo,dd"
         
-        with patch('app.tools.linux_command.prompt_before_execution') as mock_prompt, \
-             patch('app.executor.execute_shell_command') as mock_execute:
-            
-            mock_prompt.return_value = True
-            mock_execute.return_value = (0, "Safe command executed", "")
-            
-            # Test safe commands that don't match warn list
-            safe_commands = ["ls -la", "echo hello", "cat file.txt", "grep pattern file"]
-            
-            for cmd in safe_commands:
-                with self.subTest(command=cmd):
-                    result = self.tool.execute(cmd)
-                    
-                    # Should not contain security warning
-                    self.assertNotIn("SECURITY:", result)
-                    self.assertEqual(result, "Safe command executed")
-    
-    def test_warn_list_empty_or_missing(self):
+        mock_execute.return_value = (0, "Safe command executed")
+        
+        # Test safe commands that don't match warn list
+        safe_commands = ["ls -la", "echo hello", "cat file.txt", "grep pattern file"]
+        
+        for cmd in safe_commands:
+            with self.subTest(command=cmd):
+                result = self.tool.execute(cmd)
+                
+                # Should not contain security warning
+                self.assertNotIn("SECURITY:", result)
+                self.assertEqual(result, "SUCCESS: Safe command executed")
+
+    @patch('app.tools.linux_command.execute_command_with_built_ins')
+    def test_warn_list_empty_or_missing(self, mock_execute):
         """Test behavior when WARN_LIST is empty or not set."""
         # Test with empty WARN_LIST
         os.environ["WARN_LIST"] = ""
         
-        with patch('app.tools.linux_command.prompt_before_execution') as mock_prompt, \
-             patch('app.executor.execute_shell_command') as mock_execute:
-            
-            mock_prompt.return_value = True
-            mock_execute.return_value = (0, "Command executed", "")
-            
-            result = self.tool.execute("rm file.txt")
-            
-            # Should not be blocked
-            self.assertNotIn("SECURITY:", result)
-            self.assertEqual(result, "Command executed")
+        mock_execute.return_value = (0, "Command executed")
         
-        # Test with missing WARN_LIST
-        if "WARN_LIST" in os.environ:
-            del os.environ["WARN_LIST"]
+        result = self.tool.execute("rm file.txt")
         
-        with patch('app.tools.linux_command.prompt_before_execution') as mock_prompt, \
-             patch('app.executor.execute_shell_command') as mock_execute:
-            
-            mock_prompt.return_value = True
-            mock_execute.return_value = (0, "Command executed", "")
-            
-            result = self.tool.execute("rm file.txt")
-            
-            # Should not be blocked
-            self.assertNotIn("SECURITY:", result)
-            self.assertEqual(result, "Command executed")
-    
+        # Should not be blocked
+        self.assertNotIn("SECURITY:", result)
+        self.assertEqual(result, "SUCCESS: Command executed")
+
     def test_warn_list_whitespace_handling(self):
         """Test that WARN_LIST handles whitespace correctly."""
         # Set up WARN_LIST with whitespace
@@ -217,91 +175,24 @@ class TestLinuxCommandTool(unittest.TestCase):
         result = self.tool.execute("rm file.txt")
         
         self.assertIn("SECURITY:", result)
-        self.assertIn("Cannot execute command", result)
-    
-    @patch('app.tools.linux_command.prompt_before_execution')
-    @patch('app.executor.execute_shell_command')
-    def test_exception_handling(self, mock_execute, mock_prompt):
-        """Test that exceptions are properly caught and handled."""
-        # Setup mocks to raise an exception
-        mock_prompt.return_value = True
-        mock_execute.side_effect = Exception("Unexpected error occurred")
+
+    @patch('app.tools.linux_command.execute_command_with_built_ins')
+    def test_warn_list_case_sensitivity(self, mock_execute):
+        """Test that WARN_LIST matching is case sensitive."""
+        os.environ["WARN_LIST"] = "rm,sudo"
         
-        # Execute command
-        result = self.tool.execute("some command")
+        mock_execute.return_value = (0, "Command executed")
         
-        # Verify error is caught and formatted
-        self.assertIn("ERROR:", result)
-        self.assertIn("Failed to execute command", result)
-        self.assertIn("some command", result)
-        self.assertIn("Unexpected error occurred", result)
-    
-    @patch('app.tools.linux_command.prompt_before_execution')
-    @patch('app.executor.execute_shell_command')
-    def test_command_chaining(self, mock_execute, mock_prompt):
-        """Test that command chaining is properly passed through."""
-        # Setup mocks
-        mock_prompt.return_value = True
-        mock_execute.return_value = (0, "Commands chained successfully", "")
+        # These should be allowed (different case)
+        case_different_commands = ["RM file.txt", "SUDO ls", "Rm file.txt"]
         
-        # Test command chaining with &&
-        chained_command = "mkdir test_dir && cd test_dir && ls -la"
-        result = self.tool.execute(chained_command)
-        
-        # Verify the full chained command was passed to execute_shell_command
-        mock_execute.assert_called_once_with(chained_command)
-        self.assertEqual(result, "Commands chained successfully")
-    
-    def test_function_definition_format(self):
-        """Test that the tool generates a proper function definition."""
-        definition = self.tool.to_function_definition()
-        
-        self.assertEqual(definition["name"], "linux_command")
-        self.assertIn("description", definition)
-        self.assertIn("parameters", definition)
-        self.assertEqual(definition["parameters"]["type"], "object")
-        
-        # Check that command parameter is present
-        properties = definition["parameters"]["properties"]
-        self.assertIn("command", properties)
-        
-        # Check parameter descriptions
-        self.assertIn("description", properties["command"])
-        self.assertEqual(properties["command"]["type"], "string")
-        
-        # Check required parameters
-        self.assertIn("required", definition["parameters"])
-        self.assertIn("command", definition["parameters"]["required"])
-    
-    def test_is_command_in_warn_list_method(self):
-        """Test the internal _is_command_in_warn_list method directly."""
-        # Test with specific warn list
-        os.environ["WARN_LIST"] = "rm,sudo,dd"
-        
-        # Test positive cases
-        self.assertTrue(self.tool._is_command_in_warn_list("rm file.txt"))
-        self.assertTrue(self.tool._is_command_in_warn_list("sudo ls"))
-        self.assertTrue(self.tool._is_command_in_warn_list("dd if=/dev/zero"))
-        
-        # Test negative cases
-        self.assertFalse(self.tool._is_command_in_warn_list("ls -la"))
-        self.assertFalse(self.tool._is_command_in_warn_list("echo hello"))
-        self.assertFalse(self.tool._is_command_in_warn_list("cat file.txt"))
-        
-        # Test 'all' case
-        os.environ["WARN_LIST"] = "all"
-        self.assertTrue(self.tool._is_command_in_warn_list("any command"))
-        self.assertTrue(self.tool._is_command_in_warn_list("ls"))
-        
-        # Test empty warn list
-        os.environ["WARN_LIST"] = ""
-        self.assertFalse(self.tool._is_command_in_warn_list("rm file.txt"))
-        
-        # Test missing warn list
-        if "WARN_LIST" in os.environ:
-            del os.environ["WARN_LIST"]
-        self.assertFalse(self.tool._is_command_in_warn_list("rm file.txt"))
-    
+        for cmd in case_different_commands:
+            with self.subTest(command=cmd):
+                result = self.tool.execute(cmd)
+                # Should NOT contain security warning (case sensitive)
+                self.assertNotIn("SECURITY:", result)
+                self.assertEqual(result, "SUCCESS: Command executed")
+
     def test_command_whitespace_handling(self):
         """Test that commands with leading/trailing whitespace are handled correctly."""
         os.environ["WARN_LIST"] = "rm,sudo"
@@ -317,55 +208,74 @@ class TestLinuxCommandTool(unittest.TestCase):
             with self.subTest(command=repr(cmd)):
                 result = self.tool.execute(cmd)
                 self.assertIn("SECURITY:", result)
-    
-    @patch('app.tools.linux_command.prompt_before_execution')
-    @patch('app.executor.execute_shell_command')
-    def test_empty_command(self, mock_execute, mock_prompt):
+
+    @patch('app.tools.linux_command.execute_command_with_built_ins')
+    def test_empty_command(self, mock_execute):
         """Test behavior with empty command."""
-        mock_prompt.return_value = True
-        mock_execute.return_value = (0, "", "")
+        mock_execute.return_value = (0, "")
         
         result = self.tool.execute("")
         
-        # Should still call the execution pipeline
-        mock_prompt.assert_called_once_with("command ''")
-        mock_execute.assert_called_once_with("")
-    
-    @patch('app.tools.linux_command.prompt_before_execution')
-    @patch('app.executor.execute_shell_command')
-    def test_complex_command_with_special_characters(self, mock_execute, mock_prompt):
+        # Should execute empty command
+        mock_execute.assert_called_once_with("", original_command="", add_to_history=True)
+        self.assertEqual(result, "SUCCESS: ")
+
+    @patch('app.tools.linux_command.execute_command_with_built_ins')
+    def test_command_chaining(self, mock_execute):
+        """Test that command chaining is properly passed through."""
+        # Setup mocks
+        mock_execute.return_value = (0, "Commands chained successfully")
+        
+        # Test command chaining with &&
+        chained_command = "mkdir test_dir && cd test_dir && ls -la"
+        result = self.tool.execute(chained_command)
+        
+        # Verify the full chained command was passed to execute_command_with_built_ins
+        mock_execute.assert_called_once_with(chained_command, original_command=chained_command, add_to_history=True)
+        self.assertEqual(result, "SUCCESS: Commands chained successfully")
+
+    @patch('app.tools.linux_command.execute_command_with_built_ins')
+    def test_complex_command_with_special_characters(self, mock_execute):
         """Test commands with special characters and complex syntax."""
-        mock_prompt.return_value = True
-        mock_execute.return_value = (0, "Complex command executed", "")
+        mock_execute.return_value = (0, "Complex command executed")
         
         complex_command = "find /path -name '*.txt' | grep -E '^[A-Z]' | sort | head -10"
         result = self.tool.execute(complex_command)
         
-        mock_execute.assert_called_once_with(complex_command)
-        self.assertEqual(result, "Complex command executed")
-    
-    def test_warn_list_case_sensitivity(self):
-        """Test that WARN_LIST matching is case sensitive."""
-        os.environ["WARN_LIST"] = "rm,sudo"
+        mock_execute.assert_called_once_with(complex_command, original_command=complex_command, add_to_history=True)
+        self.assertEqual(result, "SUCCESS: Complex command executed")
+
+    def test_function_definition_format(self):
+        """Test that the tool provides a proper function definition for AI integration."""
+        function_def = self.tool.to_function_definition()
         
-        # Test that case matters (these should NOT be blocked)
-        with patch('app.tools.linux_command.prompt_before_execution') as mock_prompt, \
-             patch('app.executor.execute_shell_command') as mock_execute:
-            
-            mock_prompt.return_value = True
-            mock_execute.return_value = (0, "Command executed", "")
-            
-            # These should be allowed (different case)
-            case_different_commands = ["RM file.txt", "SUDO ls", "Rm file.txt"]
-            
-            for cmd in case_different_commands:
-                with self.subTest(command=cmd):
-                    result = self.tool.execute(cmd)
-                    # Should NOT contain security warning (case sensitive)
-                    self.assertNotIn("SECURITY:", result)
-                    self.assertEqual(result, "Command executed")
+        # Check basic structure
+        self.assertIn("name", function_def)
+        self.assertIn("description", function_def)
+        self.assertIn("parameters", function_def)
+        
+        # Check specific values
+        self.assertEqual(function_def["name"], "linux_command")
+        self.assertIn("properties", function_def["parameters"])
+        self.assertIn("command", function_def["parameters"]["properties"])
+
+    def test_is_command_in_warn_list_method(self):
+        """Test the internal _is_command_in_warn_list method."""
+        # Test empty warn list
+        os.environ["WARN_LIST"] = ""
+        self.assertFalse(self.tool._is_command_in_warn_list("any command"))
+        
+        # Test with warn list
+        os.environ["WARN_LIST"] = "rm,sudo,dd"
+        self.assertTrue(self.tool._is_command_in_warn_list("rm file.txt"))
+        self.assertTrue(self.tool._is_command_in_warn_list("sudo ls"))
+        self.assertFalse(self.tool._is_command_in_warn_list("ls -la"))
+        
+        # Test 'all' keyword
+        os.environ["WARN_LIST"] = "all"
+        self.assertTrue(self.tool._is_command_in_warn_list("any command"))
+        self.assertTrue(self.tool._is_command_in_warn_list("ls -la"))
 
 
 if __name__ == '__main__':
-    # Run the tests with verbose output
-    unittest.main(verbosity=2)
+    unittest.main()

@@ -685,7 +685,6 @@ def execute_command(command):
             return -1, "Command failed with non-zero exit code but no error output"
         else:
             # Command succeeded with no error - return success
-            click.echo(output) if output else None
             return 0, output
 
     except KeyboardInterrupt:

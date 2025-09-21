@@ -3,6 +3,8 @@ Linux Command Tool for executing Linux commands directly using executor.py.
 """
 
 import os
+import re
+import click
 from typing import Dict, Any
 from .base import Tool
 from ..executor import execute_shell_command
@@ -22,7 +24,7 @@ class LinuxCommandTool(Tool):
     
     @property
     def description(self) -> str:
-        return "Execute Linux shell commands with support for built-ins and command chaining. ALWAYS use this tool when executing any Linux command. For compound requests, chain commands with && or ; (e.g., 'mkdir dir && cd dir'). Do not ask permission - execute immediately."
+        return "Use this tool if a request requires execution on the host. This tool is called with only executable linux command strings; (e.g., 'mkdir dir && cd dir' or 'ls' or 'git log'). You will use this tool without prompting the user or waiting for confirmation."
     
     @property
     def parameters(self) -> Dict[str, Any]:
@@ -31,7 +33,7 @@ class LinuxCommandTool(Tool):
             "properties": {
                 "command": {
                     "type": "string",
-                    "description": "The Linux command to execute. Chain multiple commands with && or ; (e.g., 'mkdir dir && cd dir'). Execute commands immediately without asking permission."
+                    "description": "Use this tool if a request requires execution on the host. This tool is called with only executable linux command strings; (e.g., 'mkdir dir && cd dir' or 'ls' or 'git log'). You will use this tool without prompting the user or waitng for confirmation."
                 }
             },
             "required": ["command"]
@@ -48,33 +50,83 @@ class LinuxCommandTool(Tool):
             String containing the result of the command execution or an error message
         """
         try:
-            # Check if the command is in the WARN_LIST and should not be executed
-            if self._is_command_in_warn_list(command):
-                return f"SECURITY: Cannot execute command '{command}' - it is in the WARN_LIST of potentially dangerous commands. This command requires manual execution by the user for safety."
+            # Get the raw response from the AI
+            raw_response = command
             
-            # Check if we should prompt before executing (respect PROMPT_AI_COMMANDS setting)
-            if not prompt_before_execution(f"command '{command}'"):
-                return f"Command execution cancelled: {command}"
+            # Process the raw response to get the final command
+            final_command = None
             
-            # Use execute_shell_command directly to capture output for tool use
-            from ..executor import execute_shell_command
-            returncode, output, error = execute_shell_command(command)
-            
-            if returncode == 0:
-                # Command succeeded, return the output
-                return output.strip() if output else f"Command '{command}' executed successfully (no output)"
-            elif returncode == -1:
-                # Special case for interrupted commands
-                return f"ERROR: Command '{command}' was interrupted: {error}"
-            else:
-                # Command failed, return error information
-                error_msg = f"ERROR: Command '{command}' failed with exit code {returncode}"
-                if error:
-                    error_msg += f": {error}"
-                return error_msg
+            # Remove markdown code block formatting if present
+            # This handles patterns like ```bash\ncommand\n``` or ```\ncommand\n```
+            code_block_pattern = r"```(?:bash|sh)?\s*([\s\S]*?)```"
+            match = re.search(code_block_pattern, raw_response)
+            if match:
+                # Get the command inside the code block and handle possible newlines
+                command_text = match.group(1).strip()
                 
+                # Process multiple lines of commands
+                lines = command_text.splitlines()
+                if len(lines) >= 2:
+                    # Handle multiple separate commands - join with && to execute sequentially locally
+                    if len(lines) >= 2:
+                        combined_commands = []
+                        for line in lines:
+                            line = line.strip()
+                            if line:  # Only include non-empty lines
+                                combined_commands.append(line)
+                        # Join all commands with && to execute them sequentially
+                        final_command = ' && '.join(combined_commands)
+                        
+                # For simple one-line commands or commands with line continuations
+                if len(lines) == 1 or any(line.strip().endswith('\\') for line in lines[:-1]):
+                    final_command = ' '.join(line.strip() for line in lines)
+            else:
+                # If no code block found, process the original response
+                lines = raw_response.splitlines()
+                
+                # Special handling for SSH commands
+                if len(lines) >= 2:
+                    first_line = lines[0].strip()
+                    second_line = lines[1].strip()
+                    
+                    # If the first line is an SSH command and doesn't end with quotes
+                    if first_line.startswith('ssh ') and not (first_line.endswith('"') or first_line.endswith("'")):
+                        # Combine the SSH command with the next line in quotes
+                        final_command = f"{first_line} \"{second_line}\""
+                        
+                    # Multiple separate commands - join with && to execute sequentially
+                    elif first_line and second_line and not first_line.endswith('\\'):
+                        combined_commands = []
+                        for line in lines:
+                            line = line.strip()
+                            if line:  # Only include non-empty lines
+                                combined_commands.append(line)
+                        # Join all commands with && to execute them sequentially
+                        final_command = ' && '.join(combined_commands)
+            
+            # Otherwise use the first line or the raw response
+            if final_command is None:
+                final_command = lines[0] if lines else raw_response
+
+            # Check if the response has multiple lines (comment + command structure)
+            actual_command = final_command
+            if '\n' in final_command:
+                lines = final_command.strip().split('\n')
+                # Extract the last line as the actual command to execute
+                # (assuming comment lines come first and the actual command is last)
+                actual_command = lines[-1].strip()
+
+            # Check if command is in warn list before executing
+            if self._is_command_in_warn_list(actual_command):
+                return f"SECURITY: Command '{actual_command}' blocked by WARN_LIST security policy."
+
+            success, result = execute_command_with_built_ins(actual_command, original_command=actual_command, add_to_history=True)
+            if success == 0:
+                return f"SUCCESS: {result}"
+            else:
+                return f"ERROR: {result}"
         except Exception as e:
-            return f"ERROR: Failed to execute command '{command}': {str(e)}"
+            return f"ERROR: {str(e)}"
     
     def _is_command_in_warn_list(self, command: str) -> bool:
         """

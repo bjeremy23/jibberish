@@ -310,6 +310,8 @@ def _build_additional_context(command, partner, tool_context):
             "content": f"Provide accurate technical explanations while maintaining the character of {partner}."
         })
     
+    additional_context = add_specialized_contexts(command, additional_context)
+    
     # Add tool availability context
     tool_context_msg = generate_tool_context_message()
     if tool_context_msg:
@@ -453,7 +455,7 @@ def ask_question(command, temp=0.5):
     Have a small contextual chat with the AI, with tool support.
     Uses a two-phase approach: first execute tools, then generate response with tool context.
     """
-    return _ask_question_with_tools(command, temp, max_tool_iterations=4)
+    return _ask_question_with_tools(command, temp, max_tool_iterations=3)
 
 def _ask_question_with_tools(command, temp=0.5, max_tool_iterations=4):
     """
@@ -466,7 +468,7 @@ def _ask_question_with_tools(command, temp=0.5, max_tool_iterations=4):
     
     # Load the current conversation history at the start
     messages = load_chat_history()
-    
+
     for iteration in range(max_tool_iterations):
         # Debug: Show iteration info
         if is_debug_enabled():
