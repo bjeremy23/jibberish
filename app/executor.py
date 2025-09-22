@@ -630,7 +630,7 @@ def execute_command(command):
                         
                         if handled:
                             # The built-in command was handled directly
-                            pass
+                            return 0, "Built-in command executed successfully"
                         elif new_command is not None:
                             # A new command was returned (e.g., from history or AI)
                             ret, msg = execute_command(new_command)
@@ -639,6 +639,12 @@ def execute_command(command):
                             ret, msg = execute_command(corrected_command)
 
                         return ret, msg
+                    else:
+                        # User chose not to execute the suggested command
+                        return -1, f"{cmd_name}: command not found"
+                else:
+                    # No similar command found
+                    return -1, f"{cmd_name}: command not found"
                         
             elif "No such file or directory" in error:
                 # When the file/directory path doesn't exist, echo the original error
@@ -659,7 +665,7 @@ def execute_command(command):
                         else:
                             click.echo(click.style("No explanation provided.", fg="red"))
 
-                    return -1, f"{error.rstrip()}"
+                return -1, f"{error.rstrip()}"
         elif returncode != 0:
             # Handle case where return code is non-zero but there's no error message
             # This should only happen if we really have no error output at all
