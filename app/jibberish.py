@@ -26,8 +26,8 @@ Usage: jibberish.py [OPTIONS]
 
   STANDALONE MODE OPTIONS:
     -v, --version        Display version information
-    -q, --question TEXT  Ask a question or perform tasks using tools - more tokens, less concise
-    -c, --command TEXT   Ask to generate a command - less tokens, more concise
+    -q, --question TEXT  Ask a question or perform tasks using tools - more tokens, more verbiage and detail
+    -c, --command TEXT   Ask to generate a command - less tokens, exact and concise
     -h, --help           Show this message and exit
 
   EXAMPLES:
@@ -83,8 +83,8 @@ def help():
     """
     click.echo(click.style("Commands:", fg="blue"))
     click.echo(click.style("  <command>         - Execute the command", fg="blue"))
-    click.echo(click.style("  #<command desc>   - Ask to generate a command - less tokens, more concise", fg="blue"))
-    click.echo(click.style("  ?<question>       - Ask a question or perform tasks using tools - more tokens, less concise", fg="blue"))
+    click.echo(click.style("  #<command desc>   - Ask to generate a command - less tokens, exact and concise", fg="blue"))
+    click.echo(click.style("  ?<question>       - Ask a question or perform tasks using tools - more tokens, more verbiage and detail", fg="blue"))
     click.echo(click.style("  exit, quit, q     - Exit the shell", fg="blue"))
     click.echo(click.style("  help              - help menu", fg="blue"))
 
