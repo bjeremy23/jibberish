@@ -5,8 +5,8 @@ For installation instructions, see [README-installation.md](README/README-instal
 
 ### Commands:
 - `<command>`                 - Execute a shell command
-- `#<command description>`    - Ask the AI to generate shell commands based on the user input
-- `?<question>`               - Ask a general question
+- `#<command description>`    - Ask to generate find a command - less tokens, more concise
+- `?<question>`               - Ask a question or perform tasks using tools - more tokens, less concise
 - `exit`, `quit`, `q`         - Exit the shell          
 - `help`                      - Help menu
 
