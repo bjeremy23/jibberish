@@ -729,8 +729,9 @@ def execute_chained_commands(command_chain, recursion_depth=0):
     
     # Process semicolons first, then &&
     # Check if there are semicolons in the command
-    ret = -1
-    msg = ""
+    ret = 0  # Initialize with success
+    msg = "Commands executed successfully"  # Initialize with success message
+    
     if ';' in command_chain:
         # Split command by semicolons first
         semicolon_parts = split_commands_respect_semicolons(command_chain)
@@ -750,7 +751,7 @@ def execute_chained_commands(command_chain, recursion_depth=0):
                 
                 if handled:
                     # Built-in command was executed, continue to next command
-                    pass  # Don't return, let the next command execute
+                    ret, msg = 0, "Built-in command executed successfully"
                 elif new_command is not None:
                     # A new command was returned (e.g., from history or AI), execute it
                     # Don't recursively process here to avoid recursion issues
@@ -762,6 +763,9 @@ def execute_chained_commands(command_chain, recursion_depth=0):
                     ret, msg = execute_command(part)
                     if ret == -1:
                         return -1, msg
+        
+        # Return the result of the last command in semicolon chain
+        return ret, msg
     else:
         # No semicolons, check if there are && chains (not pipes)
         if '&&' in command_chain and '|' not in command_chain:
@@ -778,7 +782,7 @@ def execute_chained_commands(command_chain, recursion_depth=0):
                 
                 if handled:
                     # Built-in command was executed, continue to next command
-                    pass  # Don't return, let the next command execute
+                    ret, msg = 0, "Built-in command executed successfully"
                 elif new_command is not None:
                     # A new command was returned (e.g., from history or AI), execute it
                     ret, msg = execute_command(new_command)
@@ -789,6 +793,9 @@ def execute_chained_commands(command_chain, recursion_depth=0):
                     ret, msg = execute_command(cmd)
                     if ret == -1:
                         return ret, msg
+            
+            # Return the result of the last command in && chain
+            return ret, msg
         else:
             # No complex chaining, just execute the command directly
             # This handles pipes (|) and simple commands

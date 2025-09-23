@@ -53,7 +53,7 @@ global_context = [
 chat_context = [
     {
         "role": "system",
-        "content": f"You are {partner}. You are brilliant, logical, precise and factual in your answers. Ensure your responses match the personality and style of {partner}. Your information should always be accurate and helpful."
+        "content": f"Ensure your responses match the personality and style of {partner}. Your information should always be accurate and helpful. Any response with a linux command should call the linux_command tool with a concise, efficient command that solve the user's problem"
     }
 ]
 
@@ -533,7 +533,7 @@ def _ask_question_with_tools(command, temp=0.5, max_tool_iterations=4):
                     
                     # Create a follow-up prompt that first asks the AI to assess completion
                     tools_used = [tc.get('name', 'unknown') for tc in tool_calls]
-                    command = f"You have executed {', '.join(tools_used)}. Review the original request and determine if it has been fully completed. If yes, provide a summary. If not, continue using appropriate tools to complete it: {original_command}. Do not repeat tasks."
+                    command = f"You have executed {', '.join(tools_used)}. Review the original request and determine if it has been fully completed. If yes, provide a summary. If not, continue using appropriate tools to complete it: {original_command}. Do not repeat the same command you just executed."
                     
                     if is_debug_enabled():
                         click.echo(click.style(f"[DEBUG] Continuing to next iteration with command: {command[:100]}...", fg="cyan"))
