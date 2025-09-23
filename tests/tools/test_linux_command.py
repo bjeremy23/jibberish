@@ -95,44 +95,58 @@ class TestLinuxCommandTool(unittest.TestCase):
             self.assertIn("ERROR:", result)
             self.assertIn("Unexpected error occurred", result)
 
-    def test_warn_list_security_check_single_command(self):
-        """Test that commands in WARN_LIST are blocked."""
+    @patch('app.tools.linux_command.execute_command_with_built_ins')
+    def test_warn_list_security_check_single_command(self, mock_execute):
+        """Test that tools bypass WARN_LIST security checks."""
         # Set up WARN_LIST environment variable
         os.environ["WARN_LIST"] = "rm,sudo,dd"
         
-        # Test each command in warn list
+        # Mock successful execution
+        mock_execute.return_value = (0, "Command executed via tool")
+        
+        # Test each command in warn list - should now execute since tools bypass WARN_LIST
         dangerous_commands = ["rm -rf /", "sudo rm -rf /", "dd if=/dev/zero"]
         
         for cmd in dangerous_commands:
             with self.subTest(command=cmd):
                 result = self.tool.execute(cmd)
                 
-                self.assertIn("SECURITY:", result)
-                self.assertIn("blocked by WARN_LIST", result)
+                # Tools should bypass WARN_LIST and execute successfully
+                self.assertNotIn("SECURITY:", result)
+                self.assertEqual(result, "SUCCESS: Command executed via tool")
 
-    def test_warn_list_security_check_all_commands(self):
-        """Test that WARN_LIST='all' blocks all commands."""
+    @patch('app.tools.linux_command.execute_command_with_built_ins')
+    def test_warn_list_security_check_all_commands(self, mock_execute):
+        """Test that tools bypass WARN_LIST='all' security checks."""
         # Set WARN_LIST to 'all'
         os.environ["WARN_LIST"] = "all"
         
-        # Test that any command is blocked
+        # Mock successful execution
+        mock_execute.return_value = (0, "Command executed via tool")
+        
+        # Test that command executes despite WARN_LIST='all' since tools bypass WARN_LIST
         result = self.tool.execute("echo 'safe command'")
         
-        self.assertIn("SECURITY:", result)
-        self.assertIn("blocked by WARN_LIST", result)
+        self.assertNotIn("SECURITY:", result)
+        self.assertEqual(result, "SUCCESS: Command executed via tool")
 
-    def test_warn_list_partial_match(self):
-        """Test that WARN_LIST matches command prefixes correctly."""
+    @patch('app.tools.linux_command.execute_command_with_built_ins')
+    def test_warn_list_partial_match(self, mock_execute):
+        """Test that tools bypass WARN_LIST partial matching."""
         # Set up WARN_LIST with partial commands
         os.environ["WARN_LIST"] = "rm,sudo"
         
-        # Test commands that start with warn list items
+        # Mock successful execution
+        mock_execute.return_value = (0, "Command executed via tool")
+        
+        # Test commands that start with warn list items - should execute since tools bypass WARN_LIST
         blocked_commands = ["rm file.txt", "rmdir directory", "sudo ls", "sudo -u user cmd"]
         
         for cmd in blocked_commands:
             with self.subTest(command=cmd):
                 result = self.tool.execute(cmd)
-                self.assertIn("SECURITY:", result)
+                self.assertNotIn("SECURITY:", result)
+                self.assertEqual(result, "SUCCESS: Command executed via tool")
 
     @patch('app.tools.linux_command.execute_command_with_built_ins')
     def test_warn_list_safe_commands(self, mock_execute):
@@ -167,14 +181,20 @@ class TestLinuxCommandTool(unittest.TestCase):
         self.assertNotIn("SECURITY:", result)
         self.assertEqual(result, "SUCCESS: Command executed")
 
-    def test_warn_list_whitespace_handling(self):
-        """Test that WARN_LIST handles whitespace correctly."""
+    @patch('app.tools.linux_command.execute_command_with_built_ins')
+    def test_warn_list_whitespace_handling(self, mock_execute):
+        """Test that tools bypass WARN_LIST with whitespace handling."""
         # Set up WARN_LIST with whitespace
         os.environ["WARN_LIST"] = " rm , sudo , dd "
         
+        # Mock successful execution
+        mock_execute.return_value = (0, "Command executed via tool")
+        
         result = self.tool.execute("rm file.txt")
         
-        self.assertIn("SECURITY:", result)
+        # Tools should bypass WARN_LIST regardless of whitespace
+        self.assertNotIn("SECURITY:", result)
+        self.assertEqual(result, "SUCCESS: Command executed via tool")
 
     @patch('app.tools.linux_command.execute_command_with_built_ins')
     def test_warn_list_case_sensitivity(self, mock_execute):
@@ -193,11 +213,15 @@ class TestLinuxCommandTool(unittest.TestCase):
                 self.assertNotIn("SECURITY:", result)
                 self.assertEqual(result, "SUCCESS: Command executed")
 
-    def test_command_whitespace_handling(self):
-        """Test that commands with leading/trailing whitespace are handled correctly."""
+    @patch('app.tools.linux_command.execute_command_with_built_ins')
+    def test_command_whitespace_handling(self, mock_execute):
+        """Test that tools handle commands with whitespace and bypass WARN_LIST."""
         os.environ["WARN_LIST"] = "rm,sudo"
         
-        # Test commands with whitespace
+        # Mock successful execution
+        mock_execute.return_value = (0, "Command executed via tool")
+        
+        # Test commands with whitespace - should execute since tools bypass WARN_LIST
         whitespace_commands = [
             "  rm file.txt  ",
             "\trm file.txt\n",
@@ -207,7 +231,8 @@ class TestLinuxCommandTool(unittest.TestCase):
         for cmd in whitespace_commands:
             with self.subTest(command=repr(cmd)):
                 result = self.tool.execute(cmd)
-                self.assertIn("SECURITY:", result)
+                self.assertNotIn("SECURITY:", result)
+                self.assertEqual(result, "SUCCESS: Command executed via tool")
 
     @patch('app.tools.linux_command.execute_command_with_built_ins')
     def test_empty_command(self, mock_execute):

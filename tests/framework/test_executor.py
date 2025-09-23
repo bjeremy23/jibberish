@@ -229,8 +229,9 @@ class TestCommand(unittest.TestCase):
     def test_warn_list_command(self):
         """Test execute_command with a command in the warn list."""
         print("Running test_warn_list_command")
-        # Set up a warn list environment variable
-        with patch.dict(os.environ, {"WARN_LIST": "rm"}):
+        # Set up a warn list environment variable and ensure AI prompting is disabled
+        # so that WARN_LIST prompting still works (avoiding double prompting)
+        with patch.dict(os.environ, {"WARN_LIST": "rm", "PROMPT_AI_COMMANDS": "false"}):
             executor.execute_command("rm file.txt")
             self.mock_input.assert_called_once()
             self.mock_shell_cmd.assert_called_once_with("rm file.txt")
@@ -241,11 +242,23 @@ class TestCommand(unittest.TestCase):
         print("Running test_warn_list_rejection")
         # Mock input to return "n" (rejection)
         self.mock_input.return_value = "n"
-        with patch.dict(os.environ, {"WARN_LIST": "rm"}):
+        # Set up environment to ensure WARN_LIST prompting works
+        with patch.dict(os.environ, {"WARN_LIST": "rm", "PROMPT_AI_COMMANDS": "false"}):
             executor.execute_command("rm file.txt")
             self.mock_input.assert_called_once()
             self.mock_shell_cmd.assert_not_called()
         print("test_warn_list_rejection passed!")
+
+    def test_warn_list_skipped_with_ai_prompting(self):
+        """Test that WARN_LIST prompting is skipped when PROMPT_AI_COMMANDS is true."""
+        print("Running test_warn_list_skipped_with_ai_prompting")
+        # When AI prompting is enabled, WARN_LIST should not prompt to avoid double prompting
+        with patch.dict(os.environ, {"WARN_LIST": "rm", "PROMPT_AI_COMMANDS": "true"}):
+            executor.execute_command("rm file.txt")
+            # Input should NOT be called since WARN_LIST prompting is skipped
+            self.mock_input.assert_not_called()
+            self.mock_shell_cmd.assert_called_once_with("rm file.txt")
+        print("test_warn_list_skipped_with_ai_prompting passed!")
 
 # Chained Commands Tests
 class TestChainedCommands(unittest.TestCase):

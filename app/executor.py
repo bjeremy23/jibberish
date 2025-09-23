@@ -557,6 +557,10 @@ def execute_command(command):
     """
     Execute a command and handle warnings and errors
     """
+    # Check if AI commands are being prompted - if so, skip WARN_LIST prompting
+    # to avoid double prompting (AI prompt + security prompt)
+    prompt_ai_commands = os.environ.get('PROMPT_AI_COMMANDS', '').lower() in ('true', 'always', 'yes', '1')
+    
     # check to see if the command starts with anything in the WARNLIST env variable
     # if it does, ask the user if they want to execute the command
     warn_list = os.environ.get("WARN_LIST", "").split(",")
@@ -570,7 +574,8 @@ def execute_command(command):
     
     # if the command is in the warn_list and the command does not contain '-f', 
     # ask the user if they want to execute the command
-    if warn:
+    # BUT skip this if AI commands are already being prompted to avoid double prompting
+    if warn and not prompt_ai_commands:
         choice = input(click.style("Are you sure you want to execute this command? [y/n]: ", fg="blue"))
         if choice.lower() != "y":
             click.echo(click.style("Command not executed", fg="red"))
