@@ -53,8 +53,8 @@ def split_commands_respect_quotes(command_chain):
 
 def split_commands_respect_semicolons(command_chain):
     """
-    Split command chain on ';' while respecting quotes.
-    This ensures that ';' inside quotes won't be treated as command separators.
+    Split command chain on ';' while respecting quotes and escapes.
+    This ensures that ';' inside quotes or escaped with '\;' won't be treated as command separators.
     """
     commands = []
     current_cmd = ""
@@ -65,8 +65,15 @@ def split_commands_respect_semicolons(command_chain):
     while i < len(command_chain):
         char = command_chain[i]
         
+        # Handle escape sequences
+        if char == '\\' and i + 1 < len(command_chain):
+            # Include both the backslash and the next character
+            current_cmd += char  # Add the backslash
+            i += 1  # Move to next character
+            if i < len(command_chain):
+                current_cmd += command_chain[i]  # Add the escaped character
         # Handle quotes
-        if char == "'" and not in_double_quote:
+        elif char == "'" and not in_double_quote:
             in_single_quote = not in_single_quote
             current_cmd += char
         elif char == '"' and not in_single_quote:
