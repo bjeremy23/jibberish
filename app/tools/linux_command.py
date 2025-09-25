@@ -116,6 +116,10 @@ class LinuxCommandTool(Tool):
                 # (assuming comment lines come first and the actual command is last)
                 actual_command = lines[-1].strip()
 
+            # Check if we should prompt before executing (respect original PROMPT_AI_COMMANDS setting)
+            if not prompt_before_execution(f"'{actual_command}'"):
+                return "Command execution cancelled by user"
+
             # Tools are AI-invoked, so we should skip WARN_LIST prompting to avoid 
             # blocking legitimate operations. Temporarily set PROMPT_AI_COMMANDS=true
             # during tool execution so that execute_command skips WARN_LIST prompting.

@@ -38,7 +38,13 @@ def prompt_before_execution(command_description="this command"):
         
     # Add an explicit newline and prompt message
     click.echo("")
-    choice = input(click.style(f"Execute {command_description}? [y/n]: ", fg="blue"))
+    try:
+        choice = input(click.style(f"Execute {command_description}? [y/n]: ", fg="blue"))
+    except KeyboardInterrupt:
+        # Handle Ctrl+C gracefully - don't exit the shell, just cancel the command
+        click.echo()  # Print newline after ^C
+        click.echo(click.style("Command execution cancelled", fg="yellow"))
+        return False
     
     sys.stdout.flush()
     if choice.lower() != 'y':
