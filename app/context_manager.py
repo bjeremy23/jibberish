@@ -72,13 +72,27 @@ kubernetes_context = [
     }
 ]
 
+# Directory navigation context keywords and definition
+cd_keywords = [
+    'cd', 'change directory', 'navigate', 'go to', 'move to', 'enter directory',
+    'switch to', 'directory', 'folder', 'path', 'chdir'
+]
+
+cd_context = [
+    {
+        "role": "system",
+        "content": "For directory navigation requests, ALWAYS use the linux_command tool with the 'cd' command to actually change directories. Finding a directory path is only the first step - you must then use 'cd' to navigate to it. When a user asks to 'go to', 'navigate to', or 'change to' a directory, execute the appropriate 'cd' command. You can chain commands like 'cd $(find . -name dirname -type d | head -1)' or use separate tool calls: first find the directory, then cd to it. The current working directory changes only when you execute a 'cd' command."
+    }
+]
+
 # Dictionary to map specialized contexts to their keywords
 context_map = {
     'ssh': {'keywords': ssh_keywords, 'context': ssh_context},
     'git': {'keywords': git_keywords, 'context': git_context},
     'network': {'keywords': network_keywords, 'context': network_context},
     'python': {'keywords': python_keywords, 'context': python_context},
-    'kubernetes': {'keywords': kubernetes_keywords, 'context': kubernetes_context}
+    'kubernetes': {'keywords': kubernetes_keywords, 'context': kubernetes_context},
+    'cd': {'keywords': cd_keywords, 'context': cd_context}
 }
 
 def add_specialized_contexts(command, base_context):

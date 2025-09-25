@@ -28,7 +28,7 @@ class LinuxCommandTool(Tool):
     
     @property
     def description(self) -> str:
-        return "Use this tool if a request requires execution on the host. This tool is called with only executable linux command strings; (e.g., 'mkdir dir && cd dir' or 'ls' or 'git log'). You will use this tool without prompting the user or waiting for confirmation."
+        return "All requests to use a linux command MUST use this tool. This tool is called with only executable linux command strings; (e.g., 'mkdir dir && cd dir' or 'ls' or 'git log'). You will use this tool without prompting the user or waiting for confirmation."
     
     @property
     def parameters(self) -> Dict[str, Any]:
@@ -37,7 +37,7 @@ class LinuxCommandTool(Tool):
             "properties": {
                 "command": {
                     "type": "string",
-                    "description": "Use this tool if a request requires execution on the host. This tool is called with only executable linux command strings; (e.g., 'mkdir dir && cd dir' or 'ls' or 'git log'). You will use this tool without prompting the user or waitng for confirmation."
+                    "description": "All requests to use a linux command MUST use this tool. This tool is called with only executable linux command strings; (e.g., 'mkdir dir && cd dir' or 'ls' or 'git log'). You will use this tool without prompting the user or waitng for confirmation."
                 }
             },
             "required": ["command"]
