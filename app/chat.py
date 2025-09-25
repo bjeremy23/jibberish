@@ -368,6 +368,9 @@ def _get_ai_response(messages, additional_context, temp):
                     temperature=temp
                 )
             break
+        except KeyboardInterrupt:
+            # Don't retry on Ctrl+C - just return None immediately
+            return None
         except Exception as e:
             click.echo(click.style(f"Connection error: {e}. Retrying...", fg="red"))
             time.sleep(2)
@@ -404,6 +407,12 @@ def _execute_tool_calls(tool_calls, tool_context):
                 tool_context.append(f"Tool {tool_name} output:\n{tool_output}")
                 tools_executed = True
                 click.echo(click.style(f"Tool {tool_name} completed", fg="green"))
+            except KeyboardInterrupt:
+                # Tool execution was interrupted - add info to context and re-raise
+                error_msg = f"Tool {tool_name} cancelled by user"
+                tool_context.append(error_msg)
+                click.echo(click.style(error_msg, fg="yellow"))
+                raise  # Re-raise to be caught by the calling function
             except Exception as e:
                 error_msg = f"Tool {tool_name} failed: {str(e)}"
                 tool_context.append(error_msg)
@@ -469,92 +478,104 @@ def _ask_question_with_tools(command, temp=0.5, max_tool_iterations=4):
     # Load the current conversation history at the start
     messages = load_chat_history()
 
-    for iteration in range(max_tool_iterations):
-        # Debug: Show iteration info
-        if is_debug_enabled():
-            click.echo(click.style(f"[DEBUG] Tool iteration {iteration + 1}/{max_tool_iterations}", fg="cyan"))
-        
-        # Build additional context for this iteration
-        additional_context = _build_additional_context(command, partner, tool_context)
-        
-        # Prepare the current message
-        current_message = {
-            "role": "user",
-            "content": command
-        }
-        
-        current_messages = messages + [current_message]
-        
-        # Use the context manager's temperature function, but default to the provided temp
-        if temp == 0.5:  # Only override if default was used
-            temp = determine_temperature(command)
-        
-        # add a debug to print the current message
-        if is_debug_enabled():
-            click.echo(click.style(f"[DEBUG] Current message: {current_message}", fg="yellow"))
-            click.echo(click.style(f"[DEBUG] additional context: {additional_context}", fg="yellow"))
-
-        # Get AI response
-        ai_response = _get_ai_response(current_messages, additional_context, temp)
-        if not ai_response:
-            return "Failed to connect to OpenAI API after multiple attempts."
-        
-        # Debug: Show the AI response
-        if is_debug_enabled():
-            click.echo(click.style(f"[DEBUG] AI Response: {ai_response}", fg="yellow"))
-        
-        # Check if the AI wants to use tools
-        should_use = TOOLS_AVAILABLE and ToolCallParser.should_use_tools(ai_response)
-        
-        # Debug: Show tool detection
-        if is_debug_enabled():
-            click.echo(click.style(f"[DEBUG] Should use tools: {should_use}", fg="yellow"))
-        
-        if should_use:
-            tool_calls = ToolCallParser.extract_tool_calls(ai_response)
-            
-            # Debug: Show extracted tool calls
+    try:
+        for iteration in range(max_tool_iterations):
+            # Debug: Show iteration info
             if is_debug_enabled():
-                click.echo(click.style(f"[DEBUG] Tool calls extracted: {len(tool_calls) if tool_calls else 0}", fg="yellow"))
-                if tool_calls:
-                    for i, tool_call in enumerate(tool_calls):
-                        click.echo(click.style(f"[DEBUG] Tool {i+1}: {tool_call.get('name', 'unknown')}", fg="yellow"))
+                click.echo(click.style(f"[DEBUG] Tool iteration {iteration + 1}/{max_tool_iterations}", fg="cyan"))
             
-            if tool_calls:
-                # Execute tool calls
-                tools_executed = _execute_tool_calls(tool_calls, tool_context)
+            # Build additional context for this iteration
+            additional_context = _build_additional_context(command, partner, tool_context)
+            
+            # Prepare the current message
+            current_message = {
+                "role": "user",
+                "content": command
+            }
+            
+            current_messages = messages + [current_message]
+            
+            # Use the context manager's temperature function, but default to the provided temp
+            if temp == 0.5:  # Only override if default was used
+                temp = determine_temperature(command)
+            
+            # add a debug to print the current message
+            if is_debug_enabled():
+                click.echo(click.style(f"[DEBUG] Current message: {current_message}", fg="yellow"))
+                click.echo(click.style(f"[DEBUG] additional context: {additional_context}", fg="yellow"))
+
+            # Get AI response
+            ai_response = _get_ai_response(current_messages, additional_context, temp)
+            if not ai_response:
+                return "Failed to connect to OpenAI API after multiple attempts."
+            
+            # Debug: Show the AI response
+            if is_debug_enabled():
+                click.echo(click.style(f"[DEBUG] AI Response: {ai_response}", fg="yellow"))
+            
+            # Check if the AI wants to use tools
+            should_use = TOOLS_AVAILABLE and ToolCallParser.should_use_tools(ai_response)
+            
+            # Debug: Show tool detection
+            if is_debug_enabled():
+                click.echo(click.style(f"[DEBUG] Should use tools: {should_use}", fg="yellow"))
+            
+            if should_use:
+                tool_calls = ToolCallParser.extract_tool_calls(ai_response)
                 
-                if tools_executed:
-                    # Clean up the AI response that contained the tool calls
-                    ai_response = _clean_ai_response(ai_response)
+                # Debug: Show extracted tool calls
+                if is_debug_enabled():
+                    click.echo(click.style(f"[DEBUG] Tool calls extracted: {len(tool_calls) if tool_calls else 0}", fg="yellow"))
+                    if tool_calls:
+                        for i, tool_call in enumerate(tool_calls):
+                            click.echo(click.style(f"[DEBUG] Tool {i+1}: {tool_call.get('name', 'unknown')}", fg="yellow"))
+                
+                if tool_calls:
+                    # Execute tool calls
+                    try:
+                        tools_executed = _execute_tool_calls(tool_calls, tool_context)
+                    except KeyboardInterrupt:
+                        click.echo()  # Print newline after ^C
+                        click.echo(click.style("Tool execution cancelled by user", fg="yellow"))
+                        return "Tool execution cancelled by user."
                     
-                    # Update conversation history
-                    _update_conversation_history(messages, current_message, ai_response, tool_calls)
-                    
-                    # Create a follow-up prompt that first asks the AI to assess completion
-                    tools_used = [tc.get('name', 'unknown') for tc in tool_calls]
-                    command = f"You have executed {', '.join(tools_used)}. Review the original request and determine if it has been fully completed. If yes, provide a summary. If not, continue using appropriate tools to complete it: {original_command}. Do not repeat the same command you just executed."
-                    
-                    if is_debug_enabled():
-                        click.echo(click.style(f"[DEBUG] Continuing to next iteration with command: {command[:100]}...", fg="cyan"))
-                    continue  # Go to next iteration with tool context
+                    if tools_executed:
+                        # Clean up the AI response that contained the tool calls
+                        ai_response = _clean_ai_response(ai_response)
+                        
+                        # Update conversation history
+                        _update_conversation_history(messages, current_message, ai_response, tool_calls)
+                        
+                        # Create a follow-up prompt that first asks the AI to assess completion
+                        tools_used = [tc.get('name', 'unknown') for tc in tool_calls]
+                        command = f"You have executed {', '.join(tools_used)}. Review the original request and determine if it has been fully completed. If yes, provide a summary. If not, continue using appropriate tools to complete it: {original_command}. Do not repeat the same command you just executed."
+                        
+                        if is_debug_enabled():
+                            click.echo(click.style(f"[DEBUG] Continuing to next iteration with command: {command[:100]}...", fg="cyan"))
+                        continue  # Go to next iteration with tool context
+            
+            # No tools in response - we're done, exit the loop
+            if is_debug_enabled():
+                click.echo(click.style(f"[DEBUG] No tools found in response, exiting loop", fg="cyan"))
+            break
         
-        # No tools in response - we're done, exit the loop
-        if is_debug_enabled():
-            click.echo(click.style(f"[DEBUG] No tools found in response, exiting loop", fg="cyan"))
-        break
+        # Clean up final response
+        ai_response = _clean_ai_response(ai_response)
+        
+        # Add final conversation to history
+        messages.append(current_message)
+        messages.append({
+            "role": "assistant", 
+            "content": ai_response
+        })
+        save_chat(messages)
+        return ai_response
     
-    # Clean up final response
-    ai_response = _clean_ai_response(ai_response)
-    
-    # Add final conversation to history
-    messages.append(current_message)
-    messages.append({
-        "role": "assistant", 
-        "content": ai_response
-    })
-    save_chat(messages)
-    return ai_response
+    except KeyboardInterrupt:
+        # Handle Ctrl+C during any part of the tool iteration loop
+        click.echo()  # Print newline after ^C
+        click.echo(click.style("Question processing cancelled by user", fg="yellow"))
+        return "Operation cancelled by user."
 
 
 

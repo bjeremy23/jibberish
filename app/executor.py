@@ -469,50 +469,67 @@ def run_in_non_interactive(command):
     stdout_done = False
     stderr_done = False
     
-    while not (stdout_done and stderr_done):
-        # Check stdout
-        try:
-            stdout_line = stdout_queue.get(block=False)
-            if stdout_line is None:
-                stdout_done = True
-            else:
-                click.echo(stdout_line, nl=False)
-                sys.stdout.flush()
-                collected_stdout.append(stdout_line)
-        except Empty:
-            pass
-        
-        # Check stderr
-        try:
-            stderr_line = stderr_queue.get(block=False)
-            if stderr_line is None:
-                stderr_done = True
-            else:
-                # Just collect stderr lines without printing immediately
-                # (we'll print them later to avoid duplication)
-                collected_stderr.append(stderr_line)
-        except Empty:
-            pass
-        
-        # If either queue is waiting for more output, give the process some time to produce it
-        if not (stdout_done and stderr_done):
-            # Sleep a tiny bit to avoid busy waiting
-            import time
-            time.sleep(0.01)
+    try:
+        while not (stdout_done and stderr_done):
+            # Check stdout
+            try:
+                stdout_line = stdout_queue.get(block=False)
+                if stdout_line is None:
+                    stdout_done = True
+                else:
+                    click.echo(stdout_line, nl=False)
+                    sys.stdout.flush()
+                    collected_stdout.append(stdout_line)
+            except Empty:
+                pass
             
-            # Check if process is done and both queues are empty
-            if process.poll() is not None and stdout_queue.empty() and stderr_queue.empty():
-                # Double check by calling communicate() to get any remaining output
-                final_stdout, final_stderr = process.communicate()
+            # Check stderr
+            try:
+                stderr_line = stderr_queue.get(block=False)
+                if stderr_line is None:
+                    stderr_done = True
+                else:
+                    # Just collect stderr lines without printing immediately
+                    # (we'll print them later to avoid duplication)
+                    collected_stderr.append(stderr_line)
+            except Empty:
+                pass
+            
+            # If either queue is waiting for more output, give the process some time to produce it
+            if not (stdout_done and stderr_done):
+                # Sleep a tiny bit to avoid busy waiting
+                import time
+                time.sleep(0.01)
                 
-                if final_stdout:
-                    click.echo(final_stdout, nl=False)
-                    collected_stdout.append(final_stdout)
-                if final_stderr:
-                    click.echo(click.style(final_stderr, fg="red"), nl=False)
-                    collected_stderr.append(final_stderr)
-                
-                break
+                # Check if process is done and both queues are empty
+                if process.poll() is not None and stdout_queue.empty() and stderr_queue.empty():
+                    # Double check by calling communicate() to get any remaining output
+                    final_stdout, final_stderr = process.communicate()
+                    
+                    if final_stdout:
+                        click.echo(final_stdout, nl=False)
+                        collected_stdout.append(final_stdout)
+                    if final_stderr:
+                        click.echo(click.style(final_stderr, fg="red"), nl=False)
+                        collected_stderr.append(final_stderr)
+                    
+                    break
+    except KeyboardInterrupt:
+        # User pressed Ctrl+C - clean up the subprocess
+        click.echo()  # Print newline after ^C
+        try:
+            process.terminate()
+            # Give it a moment to terminate gracefully
+            import time
+            time.sleep(0.1)
+            if process.poll() is None:
+                # If still running, force kill
+                process.kill()
+        except:
+            pass  # Process may already be dead
+        
+        # Return interrupted status
+        return 130, ''.join(collected_stdout), ''.join(collected_stderr) + "\nCommand interrupted by user"
     
     # Wait for process to finish and get return code
     return_code = process.wait()

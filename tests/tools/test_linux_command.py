@@ -324,6 +324,81 @@ class TestLinuxCommandTool(unittest.TestCase):
         self.assertTrue(self.tool._is_command_in_warn_list("any command"))
         self.assertTrue(self.tool._is_command_in_warn_list("ls -la"))
 
+    @patch('app.tools.linux_command.execute_command_with_built_ins')
+    def test_prompt_ai_commands_false_no_prompting(self, mock_execute):
+        """Test that when PROMPT_AI_COMMANDS=false, no prompting occurs."""
+        # Set PROMPT_AI_COMMANDS to false
+        os.environ["PROMPT_AI_COMMANDS"] = "false"
+        
+        mock_execute.return_value = (0, "Command executed without prompting")
+        
+        result = self.tool.execute("echo test")
+        
+        # Should execute without prompting
+        mock_execute.assert_called_once_with("echo test", original_command="echo test", add_to_history=True)
+        self.assertEqual(result, "SUCCESS: Command executed without prompting")
+
+    @patch('app.tools.linux_command.prompt_before_execution', return_value=True)
+    @patch('app.tools.linux_command.execute_command_with_built_ins')
+    def test_prompt_ai_commands_true_with_prompting(self, mock_execute, mock_prompt):
+        """Test that when PROMPT_AI_COMMANDS=true, prompting occurs."""
+        # Set PROMPT_AI_COMMANDS to true
+        os.environ["PROMPT_AI_COMMANDS"] = "true"
+        
+        mock_execute.return_value = (0, "Command executed with prompting")
+        
+        result = self.tool.execute("echo test")
+        
+        # Should prompt before executing
+        mock_prompt.assert_called_once_with("'echo test'")
+        mock_execute.assert_called_once_with("echo test", original_command="echo test", add_to_history=True)
+        self.assertEqual(result, "SUCCESS: Command executed with prompting")
+
+    @patch('app.tools.linux_command.prompt_before_execution', return_value=True)
+    @patch('app.tools.linux_command.execute_command_with_built_ins')
+    def test_prompt_ai_commands_unset_with_prompting(self, mock_execute, mock_prompt):
+        """Test that when PROMPT_AI_COMMANDS is unset, prompting occurs."""
+        # Ensure PROMPT_AI_COMMANDS is unset
+        if "PROMPT_AI_COMMANDS" in os.environ:
+            del os.environ["PROMPT_AI_COMMANDS"]
+        
+        mock_execute.return_value = (0, "Command executed with prompting")
+        
+        result = self.tool.execute("echo test")
+        
+        # Should prompt before executing (default behavior)
+        mock_prompt.assert_called_once_with("'echo test'")
+        mock_execute.assert_called_once_with("echo test", original_command="echo test", add_to_history=True)
+        self.assertEqual(result, "SUCCESS: Command executed with prompting")
+
+    @patch('app.tools.linux_command.execute_command_with_built_ins')
+    def test_prompt_ai_commands_false_case_insensitive(self, mock_execute):
+        """Test that PROMPT_AI_COMMANDS=FALSE (uppercase) also disables prompting."""
+        # Set PROMPT_AI_COMMANDS to FALSE (uppercase)
+        os.environ["PROMPT_AI_COMMANDS"] = "FALSE"
+        
+        mock_execute.return_value = (0, "Command executed without prompting")
+        
+        result = self.tool.execute("echo test")
+        
+        # Should execute without prompting (case insensitive)
+        mock_execute.assert_called_once_with("echo test", original_command="echo test", add_to_history=True)
+        self.assertEqual(result, "SUCCESS: Command executed without prompting")
+
+    @patch('app.tools.linux_command.prompt_before_execution', return_value=False)
+    @patch('app.tools.linux_command.execute_command_with_built_ins')
+    def test_prompt_rejection_cancels_execution(self, mock_execute, mock_prompt):
+        """Test that rejecting the prompt cancels command execution."""
+        # Set PROMPT_AI_COMMANDS to true to enable prompting
+        os.environ["PROMPT_AI_COMMANDS"] = "true"
+        
+        result = self.tool.execute("rm dangerous_file")
+        
+        # Should prompt and cancel execution when user rejects
+        mock_prompt.assert_called_once_with("'rm dangerous_file'")
+        mock_execute.assert_not_called()  # Should not execute when prompt is rejected
+        self.assertEqual(result, "Command execution cancelled by user")
+
 
 if __name__ == '__main__':
     unittest.main()

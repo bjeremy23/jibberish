@@ -3,6 +3,10 @@ Linux Command Tool for executing Linux commands directly using executor.py.
 """
 
 import os
+
+# Capture the user's PROMPT_AI_COMMANDS setting before any other imports that might modify it
+_USER_PROMPT_SETTING = os.environ.get('PROMPT_AI_COMMANDS', '').lower()
+
 import re
 import click
 from typing import Dict, Any
@@ -49,6 +53,9 @@ class LinuxCommandTool(Tool):
         Returns:
             String containing the result of the command execution or an error message
         """
+        # Capture the user's original PROMPT_AI_COMMANDS setting before any imports modify it
+        user_prompt_setting = _USER_PROMPT_SETTING
+        
         try:
             # Get the raw response from the AI
             raw_response = command
@@ -116,29 +123,21 @@ class LinuxCommandTool(Tool):
                 # (assuming comment lines come first and the actual command is last)
                 actual_command = lines[-1].strip()
 
-            # Check if we should prompt before executing (respect original PROMPT_AI_COMMANDS setting)
-            if not prompt_before_execution(f"'{actual_command}'"):
-                return "Command execution cancelled by user"
+            # Check if we should prompt before executing based on user's original setting
+            # Only prompt if user explicitly set PROMPT_AI_COMMANDS to enable prompting
+            if user_prompt_setting in ('true', 'always', 'yes', '1'):
+                if not prompt_before_execution(f"'{actual_command}'"):
+                    return "Command execution cancelled by user"
 
-            # Tools are AI-invoked, so we should skip WARN_LIST prompting to avoid 
-            # blocking legitimate operations. Temporarily set PROMPT_AI_COMMANDS=true
-            # during tool execution so that execute_command skips WARN_LIST prompting.
-            import os
-            original_prompt_setting = os.environ.get('PROMPT_AI_COMMANDS', '')
-            os.environ['PROMPT_AI_COMMANDS'] = 'true'
-            
+            # Execute the command directly
             try:
                 success, result = execute_command_with_built_ins(actual_command, original_command=actual_command, add_to_history=True)
                 if success == 0:
                     return f"SUCCESS: {result}"
                 else:
                     return f"ERROR: {result}"
-            finally:
-                # Restore original setting
-                if original_prompt_setting:
-                    os.environ['PROMPT_AI_COMMANDS'] = original_prompt_setting
-                else:
-                    os.environ.pop('PROMPT_AI_COMMANDS', None)
+            except Exception as e:
+                return f"ERROR: {str(e)}"
         except Exception as e:
             return f"ERROR: {str(e)}"
     
