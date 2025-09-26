@@ -561,7 +561,7 @@ def _ask_question_with_tools(command, temp=0.5, max_tool_iterations=4):
                         
                         # Create a follow-up prompt that asks the AI to display the tool results
                         tools_used = [tc.get('name', 'unknown') for tc in tool_calls]
-                        command = f"You have executed {', '.join(tools_used)}. Review the original request and determine if it has been fully completed. If yes, display the tool results to complete the user's request. If not, continue using appropriate tools to complete it: {original_command}. Show the actual output data rather than summarizing."
+                        command = f"TASK COMPLETED: You have successfully executed {', '.join(tools_used)} for the request '{original_command}'. The tools have run and produced output. Your job is now to display the results to the user. DO NOT suggest more commands or tools. Simply present the output that was generated."
                         
                         if is_debug_enabled():
                             click.echo(click.style(f"[DEBUG] Tool context length: {len(tool_context)}", fg="cyan"))
