@@ -58,61 +58,55 @@ class MCPClient:
         }
         
         try:
-            # Use docker exec -i to send JSON-RPC request to the MCP server's stdin
+            # Send JSON-RPC request to MCP server via stdin
+            request_json = json.dumps(request) + "\n"
+            
+            if is_debug_enabled():
+                print(f"[MCP DEBUG] Sending request: {request_json.strip()}")
+            
+            # Execute the MCP server directly and send JSON-RPC via stdin
             process = subprocess.Popen([
-                "docker", "exec", "-i", self.container_id, "sh", "-c", 
-                "cat"  # This won't work - need direct communication with the MCP process
+                "docker", "exec", "-i", self.container_id, 
+                "/usr/local/bin/mcp-kubernetes", "--transport", "stdio"
             ], stdin=subprocess.PIPE, stdout=subprocess.PIPE, 
                stderr=subprocess.PIPE, text=True)
             
-            # For now, simulate a successful tools/list response for testing
-            if method == "tools/list":
-                # Return some mock Kubernetes tools for testing
-                return {
-                    "tools": [
-                        {
-                            "name": "kubectl_cluster_resources",
-                            "description": "View Kubernetes resources with read-only operations",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "operation": {"type": "string", "description": "Operation: get, describe"},
-                                    "resource": {"type": "string", "description": "Resource type (pods, deployments, services)"},
-                                    "args": {"type": "string", "description": "Additional arguments"}
-                                },
-                                "required": ["operation", "resource", "args"]
-                            }
-                        },
-                        {
-                            "name": "kubectl_cluster_diagnostics", 
-                            "description": "Diagnose and debug Kubernetes resources",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "operation": {"type": "string", "description": "Operation: logs, events, top"},
-                                    "resource": {"type": "string", "description": "Resource type"},
-                                    "args": {"type": "string", "description": "Arguments"}
-                                },
-                                "required": ["operation", "resource", "args"]
-                            }
-                        },
-                        {
-                            "name": "kubectl_cluster_info",
-                            "description": "Get information about the Kubernetes cluster and API",
-                            "inputSchema": {
-                                "type": "object", 
-                                "properties": {
-                                    "operation": {"type": "string", "description": "Operation: cluster-info, api-resources"},
-                                    "resource": {"type": "string", "description": "Resource for explain operation"},
-                                    "args": {"type": "string", "description": "Additional flags"}
-                                },
-                                "required": ["operation", "resource", "args"]
-                            }
-                        }
-                    ]
-                }
+            # Send the request and get response
+            stdout, stderr = process.communicate(input=request_json, timeout=30)
             
-            return {}
+            if is_debug_enabled():
+                print(f"[MCP DEBUG] Response stdout: {stdout}")
+                print(f"[MCP DEBUG] Response stderr: {stderr}")
+            
+            if process.returncode != 0:
+                raise Exception(f"MCP server error (code {process.returncode}): {stderr}")
+            
+            # Parse response - MCP server may send multiple JSON objects
+            response_lines = [line.strip() for line in stdout.strip().split('\n') if line.strip()]
+            
+            for line in response_lines:
+                try:
+                    response = json.loads(line)
+                    # Look for response with matching ID
+                    if response.get("id") == request_id:
+                        if "error" in response:
+                            raise Exception(f"MCP server error: {response['error']}")
+                        return response.get("result", {})
+                except json.JSONDecodeError:
+                    if is_debug_enabled():
+                        print(f"[MCP DEBUG] Failed to parse line as JSON: {line}")
+                    continue
+            
+            # If no matching response found, try to return the first valid JSON response
+            for line in response_lines:
+                try:
+                    response = json.loads(line)
+                    if "result" in response:
+                        return response.get("result", {})
+                except json.JSONDecodeError:
+                    continue
+                    
+            raise Exception("No valid JSON-RPC response received from MCP server")
             
         except subprocess.TimeoutExpired:
             raise Exception("MCP request timeout")
@@ -139,9 +133,52 @@ class MCPClient:
                 print(f"[MCP DEBUG] Tool: {tool_name}")
                 print(f"[MCP DEBUG] Arguments: {arguments}")
             
-            # For now, simulate kubectl commands by running them directly
-            # This is a temporary implementation until we get proper JSON-RPC working
+            # Call the tool via JSON-RPC
+            result = self._send_jsonrpc_request("tools/call", {
+                "name": tool_name,
+                "arguments": arguments
+            })
             
+            # Extract the tool result from the MCP response
+            if isinstance(result, dict):
+                # MCP tool responses typically have content with text
+                if "content" in result:
+                    content = result["content"]
+                    if isinstance(content, list) and len(content) > 0:
+                        # Get the first content item
+                        first_content = content[0]
+                        if isinstance(first_content, dict) and "text" in first_content:
+                            tool_output = first_content["text"]
+                        else:
+                            tool_output = str(first_content)
+                    else:
+                        tool_output = str(content)
+                elif "text" in result:
+                    tool_output = result["text"]
+                else:
+                    tool_output = str(result)
+            else:
+                tool_output = str(result)
+            
+            if is_debug_enabled():
+                print(f"[MCP DEBUG] Tool result length: {len(tool_output)}")
+                print(f"[MCP DEBUG] Tool result first 300 chars: {repr(tool_output[:300])}")
+                
+            return tool_output
+                
+        except Exception as e:
+            # If MCP call fails, fall back to direct kubectl execution for backwards compatibility
+            if is_debug_enabled():
+                print(f"[MCP DEBUG] MCP call failed, falling back to direct execution: {e}")
+            
+            return self._fallback_kubectl_execution(tool_name, arguments)
+    
+    def _fallback_kubectl_execution(self, tool_name: str, arguments: Dict[str, Any]) -> str:
+        """
+        Fallback method that directly executes kubectl commands if MCP JSON-RPC fails
+        This maintains backwards compatibility with the previous implementation
+        """
+        try:
             if tool_name == "kubectl_cluster_resources":
                 operation = arguments.get("operation", "get")
                 resource = arguments.get("resource", "")
@@ -155,20 +192,11 @@ class MCPClient:
                 ] + cmd_args, capture_output=True, text=True, timeout=30)
                 
                 if result.returncode == 0:
-                    # Return stdout if it has content, otherwise check stderr for informational messages
-                    output = ""
-                    if result.stdout.strip():
-                        output = result.stdout
-                    elif result.stderr.strip():
-                        # kubectl sometimes puts informational messages in stderr even with returncode 0
-                        output = result.stderr
-                    else:
-                        output = "Command executed successfully but returned no output"
+                    output = result.stdout.strip() or result.stderr.strip() or "Command executed successfully but returned no output"
                     
                     # Add namespace context to help AI understand what namespace the results are from
                     namespace_context = ""
                     if "-n " in args or "--namespace " in args:
-                        # Extract the namespace from the args
                         import re
                         ns_match = re.search(r'-n\s+(\S+)|--namespace\s+(\S+)', args)
                         if ns_match:
@@ -177,13 +205,7 @@ class MCPClient:
                     elif operation == "get" and not any(ns_flag in args for ns_flag in ["-n", "--namespace", "--all-namespaces", "-A"]):
                         namespace_context = f"Kubectl {operation} {resource} results from default namespace:\n\n"
                     
-                    final_output = namespace_context + output
-                    
-                    if is_debug_enabled():
-                        print(f"[MCP DEBUG] Tool result length: {len(final_output)}")
-                        print(f"[MCP DEBUG] Tool result first 300 chars: {repr(final_output[:300])}")
-                        print(f"[MCP DEBUG] Tool result last 300 chars: {repr(final_output[-300:])}")
-                    return final_output
+                    return namespace_context + output
                 else:
                     return f"Error: {result.stderr}"
                     
@@ -208,14 +230,7 @@ class MCPClient:
                 ] + cmd_args, capture_output=True, text=True, timeout=30)
                 
                 if result.returncode == 0:
-                    # Return stdout if it has content, otherwise check stderr for informational messages
-                    output = ""
-                    if result.stdout.strip():
-                        output = result.stdout
-                    elif result.stderr.strip():
-                        output = result.stderr
-                    else:
-                        output = "Command executed successfully but returned no output"
+                    output = result.stdout.strip() or result.stderr.strip() or "Command executed successfully but returned no output"
                     
                     # Add context about what the diagnostic command was
                     context_prefix = f"Kubectl {operation}"
@@ -229,8 +244,7 @@ class MCPClient:
                             context_prefix += f" from namespace '{namespace}'"
                     context_prefix += " results:\n\n"
                     
-                    final_output = context_prefix + output
-                    return final_output
+                    return context_prefix + output
                 else:
                     return f"Error: {result.stderr}"
                     
@@ -258,20 +272,14 @@ class MCPClient:
                 ] + cmd_args, capture_output=True, text=True, timeout=30)
                 
                 if result.returncode == 0:
-                    # Return stdout if it has content, otherwise check stderr for informational messages
-                    if result.stdout.strip():
-                        return result.stdout
-                    elif result.stderr.strip():
-                        return result.stderr
-                    else:
-                        return "Command executed successfully but returned no output"
+                    return result.stdout.strip() or result.stderr.strip() or "Command executed successfully but returned no output"
                 else:
                     return f"Error: {result.stderr}"
             
-            return f"Tool {tool_name} not implemented yet"
+            return f"Tool {tool_name} not implemented in fallback mode"
                 
         except Exception as e:
-            return f"Error calling tool {tool_name}: {e}"
+            return f"Error calling tool {tool_name} (fallback): {e}"
     
     def _discover_tools(self):
         """Discover available tools from the MCP server"""
