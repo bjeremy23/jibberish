@@ -65,12 +65,49 @@ kubernetes_keywords = [
     'secret', 'statefulset', 'daemonset', 'persistent volume', 'pv', 'pvc'
 ]
 
-kubernetes_context = [
-    {
-        "role": "system", 
-        "content": "For Kubernetes-related commands, emphasize best practices like explicit namespace specification, using kubectl explain for resource discovery, and proper resource management. Suggest kubectl shortcuts and common troubleshooting patterns. Recommend proper YAML formatting for resources, and consider using kubectl apply with declarative configuration files instead of imperative commands for production environments."
-    }
-]
+def get_kubernetes_context():
+    """
+    Get Kubernetes context with tool preference based on availability.
+    Prefers MCP Kubernetes tools when available.
+    """
+    from app.tools import ToolRegistry
+    
+    # Check if MCP Kubernetes tools are available
+    available_tools = ToolRegistry.get_all_tools()
+    mcp_k8s_tools = [name for name in available_tools.keys() if name.startswith('k8s_')]
+    
+    if mcp_k8s_tools:
+        # MCP Kubernetes tools are available - prefer them
+        tool_list = ', '.join(mcp_k8s_tools)
+        return [
+            {
+                "role": "system",
+                "content": f"""For Kubernetes-related commands and queries, PRIORITIZE using the specialized MCP Kubernetes tools over the generic linux_command tool. 
+
+Available MCP Kubernetes tools: {tool_list}
+
+These tools provide:
+- k8s_kubectl_cluster_resources: View resources (get, describe operations) with rich output
+- k8s_kubectl_cluster_diagnostics: Debug and diagnose (logs, events, top) with structured analysis  
+- k8s_kubectl_cluster_info: Cluster information and API details with comprehensive data
+
+IMPORTANT: When displaying tool results, show the literal output from kubectl commands rather than summarizing. Users want to see the actual pod names, statuses, resource details, etc. Only summarize if the output is extremely long or the user specifically asks for a summary.
+
+Use these MCP tools for kubectl operations instead of linux_command when possible, as they provide much richer analysis and structured output. Only fall back to linux_command for kubectl operations if the specific functionality isn't covered by the MCP tools.
+
+For resource management, emphasize best practices like explicit namespace specification and proper YAML formatting. Consider using declarative configuration files for production environments."""
+            }
+        ]
+    else:
+        # No MCP tools available - use standard guidance
+        return [
+            {
+                "role": "system", 
+                "content": "For Kubernetes-related commands, emphasize best practices like explicit namespace specification, using kubectl explain for resource discovery, and proper resource management. Suggest kubectl shortcuts and common troubleshooting patterns. Recommend proper YAML formatting for resources, and consider using kubectl apply with declarative configuration files instead of imperative commands for production environments."
+            }
+        ]
+
+kubernetes_context = get_kubernetes_context()
 
 # Directory navigation context keywords and definition
 cd_keywords = [
@@ -91,7 +128,7 @@ context_map = {
     'git': {'keywords': git_keywords, 'context': git_context},
     'network': {'keywords': network_keywords, 'context': network_context},
     'python': {'keywords': python_keywords, 'context': python_context},
-    'kubernetes': {'keywords': kubernetes_keywords, 'context': kubernetes_context},
+    'kubernetes': {'keywords': kubernetes_keywords, 'context': get_kubernetes_context},
     'cd': {'keywords': cd_keywords, 'context': cd_context}
 }
 
@@ -115,7 +152,11 @@ def add_specialized_contexts(command, base_context):
     # Check each context for matching keywords
     for context_type, context_data in context_map.items():
         if any(keyword in command_lower for keyword in context_data['keywords']):
-            base_context.extend(context_data['context'])
+            context_content = context_data['context']
+            # Handle both static lists and dynamic functions
+            if callable(context_content):
+                context_content = context_content()
+            base_context.extend(context_content)
     
     return base_context
 

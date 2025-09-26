@@ -329,9 +329,20 @@ def _build_additional_context(command, partner, tool_context):
     if tool_context:
         context_msg = {
             "role": "system",
-            "content": f"Additional context from tools:\n\n{chr(10).join(tool_context)}"
+            "content": f"Additional context from tools:\n\n{chr(10).join(tool_context)}\n\nIMPORTANT: When presenting tool results to the user, display the literal output from the tools (especially kubectl data like pod listings, resource info, logs) rather than summarizing. Users typically want to see the actual command output with specific names, statuses, and details."
         }
         additional_context.append(context_msg)
+        
+        # Debug: Show what tool context is being added
+        try:
+            from app.utils import is_debug_enabled
+            if is_debug_enabled():
+                print(f"[DEBUG] Adding tool context: {len(tool_context)} items")
+                for i, ctx in enumerate(tool_context):
+                    print(f"[DEBUG] Context {i+1} length: {len(ctx)}")
+                    print(f"[DEBUG] Context {i+1} preview: {ctx[:300]}...")
+        except:
+            pass  # Ignore debug errors
     
     return additional_context
 
@@ -509,6 +520,8 @@ def _ask_question_with_tools(command, temp=0.5, max_tool_iterations=4):
             if not ai_response:
                 return "Failed to connect to OpenAI API after multiple attempts."
             
+
+            
             # Debug: Show the AI response
             if is_debug_enabled():
                 click.echo(click.style(f"[DEBUG] AI Response: {ai_response}", fg="yellow"))
@@ -546,11 +559,13 @@ def _ask_question_with_tools(command, temp=0.5, max_tool_iterations=4):
                         # Update conversation history
                         _update_conversation_history(messages, current_message, ai_response, tool_calls)
                         
-                        # Create a follow-up prompt that first asks the AI to assess completion
+                        # Create a follow-up prompt that asks the AI to display the tool results
                         tools_used = [tc.get('name', 'unknown') for tc in tool_calls]
-                        command = f"You have executed {', '.join(tools_used)}. Review the original request and determine if it has been fully completed. If yes, provide a summary. If not, continue using appropriate tools to complete it: {original_command}. Do not repeat the same command you just executed."
+                        command = f"You have executed {', '.join(tools_used)}. Review the original request and determine if it has been fully completed. If yes, display the tool results to complete the user's request. If not, continue using appropriate tools to complete it: {original_command}. Show the actual output data rather than summarizing."
                         
                         if is_debug_enabled():
+                            click.echo(click.style(f"[DEBUG] Tool context length: {len(tool_context)}", fg="cyan"))
+                            click.echo(click.style(f"[DEBUG] Tool context preview: {tool_context[0][:200] if tool_context else 'empty'}...", fg="cyan"))
                             click.echo(click.style(f"[DEBUG] Continuing to next iteration with command: {command[:100]}...", fg="cyan"))
                         continue  # Go to next iteration with tool context
             
