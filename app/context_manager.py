@@ -68,7 +68,7 @@ kubernetes_keywords = [
 def get_kubernetes_context():
     """
     Get Kubernetes context with tool preference based on availability.
-    Prefers MCP Kubernetes tools when available.
+    Prefers MCP Kubernetes tools when available, except for interactive exec commands.
     """
     from app.tools import ToolRegistry
     
@@ -93,7 +93,9 @@ These tools provide:
 
 IMPORTANT: When displaying tool results, show the literal output from kubectl commands rather than summarizing. Users want to see the actual pod names, statuses, resource details, etc. Only summarize if the output is extremely long or the user specifically asks for a summary.
 
-Use these MCP tools for kubectl operations instead of linux_command when possible, as they provide much richer analysis and structured output. Only fall back to linux_command for kubectl operations if the specific functionality isn't covered by the MCP tools.
+EXCEPTION - Interactive kubectl exec commands: For interactive kubectl exec sessions (like "log into", "exec into", "bash into", "shell into" a pod), ALWAYS use the linux_command tool instead of MCP tools. These commands require TTY support (-it flags) that MCP cannot provide. Use commands like "kubectl exec -it pod-name -- bash" directly through linux_command.
+
+Use these MCP tools for kubectl operations instead of linux_command when possible, as they provide much richer analysis and structured output. Only fall back to linux_command for kubectl operations if the specific functionality isn't covered by the MCP tools or for interactive exec sessions.
 
 For resource management, emphasize best practices like explicit namespace specification and proper YAML formatting. Consider using declarative configuration files for production environments."""
             }

@@ -67,7 +67,7 @@ class MCPClient:
             # Execute the MCP server directly and send JSON-RPC via stdin
             process = subprocess.Popen([
                 "docker", "exec", "-i", self.container_id, 
-                "/usr/local/bin/mcp-kubernetes", "--transport", "stdio"
+                "/usr/local/bin/mcp-kubernetes", "--transport", "stdio", "--access-level", "readwrite"
             ], stdin=subprocess.PIPE, stdout=subprocess.PIPE, 
                stderr=subprocess.PIPE, text=True)
             
