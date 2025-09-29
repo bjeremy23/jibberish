@@ -86,11 +86,6 @@ def get_kubernetes_context():
 
 Available MCP Kubernetes tools: {tool_list}
 
-These tools provide:
-- k8s_kubectl_cluster_resources: View resources (get, describe operations) with rich output
-- k8s_kubectl_cluster_diagnostics: Debug and diagnose (logs, events, top) with structured analysis  
-- k8s_kubectl_cluster_info: Cluster information and API details with comprehensive data
-
 IMPORTANT: When displaying tool results, show the literal output from kubectl commands rather than summarizing. Users want to see the actual pod names, statuses, resource details, etc. Only summarize if the output is extremely long or the user specifically asks for a summary.
 
 EXCEPTION - Interactive kubectl exec commands: For interactive kubectl exec sessions (like "log into", "exec into", "bash into", "shell into" a pod), ALWAYS use the linux_command tool instead of MCP tools. These commands require TTY support (-it flags) that MCP cannot provide. Use commands like "kubectl exec -it pod-name -- bash" directly through linux_command.
