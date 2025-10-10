@@ -11,6 +11,7 @@ import os
 import sys
 import io
 import click
+import readline
 from contextlib import contextmanager
 
 def should_prompt_ai_commands():
@@ -69,9 +70,7 @@ def execute_command_with_built_ins(command, original_command=None, add_to_histor
     try:
         # Import here to avoid circular imports
         from .executor import execute_command, execute_chained_commands, is_built_in
-        if add_to_history:
-            import readline
-            from . import history
+        from . import history  # Always import history since we use it in multiple places
         
         # Check if the command is a built-in command or requires special handling
         handled, new_command = is_built_in(command)
@@ -80,7 +79,11 @@ def execute_command_with_built_ins(command, original_command=None, add_to_histor
         if not handled and new_command is not None:
             # Add the generated command to history as well (for AI-generated commands)
             # This ensures both the original request and the generated command are in history
-            if add_to_history and original_command and original_command.startswith('#'):
+            # Also add to history if it's a tool-generated command
+            if add_to_history and (
+                (original_command and (original_command.startswith('#') or original_command.startswith('?'))) or
+                (original_command == "__TOOL_GENERATED__")  # Tool-generated command case
+            ):
                 readline.add_history(new_command)
                 # Apply history limit after adding a new command
                 history.limit_history_size()
@@ -89,18 +92,51 @@ def execute_command_with_built_ins(command, original_command=None, add_to_histor
             
             # Process the new command
             if '&&' in command or ';' in command:
-                return execute_chained_commands(command, 0)
+                ret_code, output = execute_chained_commands(command, 0)
+                # Add the executed command to history if it came from AI or tools
+                if add_to_history and (
+                    (original_command and (original_command.startswith('#') or original_command.startswith('?'))) or
+                    (original_command == "__TOOL_GENERATED__")  # Tool-generated command case
+                ):
+                    # Only add if not already in history (avoid duplicates)
+                    if readline.get_current_history_length() == 0 or readline.get_history_item(readline.get_current_history_length()) != command:
+                        readline.add_history(command)
+                        # Apply history limit after adding a new command
+                        history.limit_history_size()
+                return ret_code, output
             else:
                 # Check if the new command is a built-in
                 new_handled, another_command = is_built_in(command)
                 if not new_handled:
                     # Just execute the command directly
-                    return execute_command(command)
+                    ret_code, output = execute_command(command)
+                    # Add the executed command to history if it came from AI or tools
+                    if add_to_history and (
+                        (original_command and (original_command.startswith('#') or original_command.startswith('?'))) or
+                        (original_command == "__TOOL_GENERATED__")  # Tool-generated command case
+                    ):
+                        # Only add if not already in history (avoid duplicates)
+                        if readline.get_current_history_length() == 0 or readline.get_history_item(readline.get_current_history_length()) != command:
+                            readline.add_history(command)
+                            # Apply history limit after adding a new command
+                            history.limit_history_size()
+                    return ret_code, output
                 elif another_command is not None:
                     # Handle nested command returns (rare case)
                     click.echo(click.style(f"Executing nested command: {another_command}", fg="blue"))
                     # For complex commands with nested quotes, use proper escaping
-                    return execute_command(another_command)
+                    ret_code, output = execute_command(another_command)
+                    # Add the executed command to history if it came from AI or tools
+                    if add_to_history and (
+                        (original_command and (original_command.startswith('#') or original_command.startswith('?'))) or
+                        (original_command == "__TOOL_GENERATED__")  # Tool-generated command case
+                    ):
+                        # Only add if not already in history (avoid duplicates)
+                        if readline.get_current_history_length() == 0 or readline.get_history_item(readline.get_current_history_length()) != another_command:
+                            readline.add_history(another_command)
+                            # Apply history limit after adding a new command
+                            history.limit_history_size()
+                    return ret_code, output
                 else:
                     return True, "Command handled by built-in plugin"
         # If command was fully handled by a built-in, do nothing more
@@ -111,7 +147,18 @@ def execute_command_with_built_ins(command, original_command=None, add_to_histor
             return execute_chained_commands(command, 0)
         else:
             # we will execute the command in the case of a non-built-in command
-            return execute_command(command)
+            ret_code, output = execute_command(command)
+            # Add the executed command to history if it came from AI or tools
+            if add_to_history and (
+                (original_command and (original_command.startswith('#') or original_command.startswith('?'))) or
+                (original_command == "__TOOL_GENERATED__")  # Tool-generated command case
+            ):
+                # Only add if not already in history (avoid duplicates)
+                if readline.get_current_history_length() == 0 or readline.get_history_item(readline.get_current_history_length()) != command:
+                    readline.add_history(command)
+                    # Apply history limit after adding a new command
+                    history.limit_history_size()
+            return ret_code, output
             
     except Exception as e:
         error_msg = f"ERROR: Failed to execute command '{command}': {str(e)}"

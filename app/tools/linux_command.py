@@ -131,7 +131,8 @@ class LinuxCommandTool(Tool):
 
             # Execute the command directly
             try:
-                success, result = execute_command_with_built_ins(actual_command, original_command=actual_command, add_to_history=True)
+                # Use a special marker to indicate this is a tool-generated command
+                success, result = execute_command_with_built_ins(actual_command, original_command="__TOOL_GENERATED__", add_to_history=True)
                 if success == 0:
                     return f"SUCCESS: {result}"
                 else:
