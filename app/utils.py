@@ -251,7 +251,7 @@ def generate_tool_context_message():
 
 """ + chr(10).join(tool_descriptions) + """
 
-MANDATORY: You MUST use tools to complete requests that require reading files, writing files, or accessing external information. Do not explain what you will do - immediately use the tools.
+MANDATORY: You MUST use tools to complete requests that require reading files, writing files, or accessing external information, executing linux commands, or any taks that needs access to a cluster. Do not explain what you will do - immediately use the tools.
 
 REQUIRED FORMAT: When using tools, you MUST respond with this exact JSON format and nothing else:
 
