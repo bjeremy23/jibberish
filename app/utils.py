@@ -144,7 +144,18 @@ def execute_command_with_built_ins(command, original_command=None, add_to_histor
             return True, "Command handled by built-in plugin"
         # Check if the command contains && or ; for command chaining
         elif '&&' in command or ';' in command:
-            return execute_chained_commands(command, 0)
+            ret_code, output = execute_chained_commands(command, 0)
+            # Add the executed command to history if it came from AI or tools
+            if add_to_history and (
+                (original_command and (original_command.startswith('#') or original_command.startswith('?'))) or
+                (original_command == "__TOOL_GENERATED__")  # Tool-generated command case
+            ):
+                # Only add if not already in history (avoid duplicates)
+                if readline.get_current_history_length() == 0 or readline.get_history_item(readline.get_current_history_length()) != command:
+                    readline.add_history(command)
+                    # Apply history limit after adding a new command
+                    history.limit_history_size()
+            return ret_code, output
         else:
             # we will execute the command in the case of a non-built-in command
             ret_code, output = execute_command(command)
