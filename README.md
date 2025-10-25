@@ -9,7 +9,7 @@ Jibberish is an AI-powered Linux shell that revolutionizes command-line interact
 
 2. **MCP Server Integration** - Seamlessly integrate Model Context Protocol (MCP) servers to extend AI capabilities. Connect to Docker containers, local processes, or HTTP endpoints to add specialized tools like Kubernetes management, code analysis, custom made tools, and more.
 
-3. **Plugin Framework** - Extend the cli functionality with a powerful plugin system. Built-in plugins handle SSH, history, job control, and more. Create custom plugins to add domain-specific commands and behaviors to you shell.
+3. **Plugin Framework** - Extend the cli functionality with a powerful plugin system. Built-in plugins handle SSH, history, job control, and more. Create custom plugins to add domain-specific commands and behaviors to your shell.
 
 ---
 
