@@ -19,5 +19,11 @@
     ],
     "description": "Simple test MCP server with echo and add tools",
     "tool_prefix": "test"
+  },
+  "http-test": {
+    "enabled": false,
+    "command": "http://localhost:8080",
+    "description": "HTTP-based test MCP server",
+    "tool_prefix": "http"
   }
 }

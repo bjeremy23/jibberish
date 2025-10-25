@@ -5,6 +5,7 @@ Handles JSON-RPC communication via subprocess (Docker/local) or HTTP (URL)
 
 import subprocess
 import json
+import click
 import requests
 from typing import Dict, Any, Optional, List
 from .base import Tool
@@ -36,7 +37,7 @@ class MCPClient:
             # First, list available tools
             self._discover_tools()
         except Exception as e:
-            print(f"Warning: Failed to initialize MCP connection: {e}")
+            click.echo(click.style(f"Warning: Failed to initialize MCP connection: {e}", fg="red"))
             
     def _generate_request_id(self) -> str:
         """Generate unique request ID"""
@@ -74,7 +75,7 @@ class MCPClient:
             url = self.server_info.get('url')
             
             if is_debug_enabled():
-                print(f"[MCP DEBUG] Sending HTTP request to {url}: {json.dumps(request)}")
+                click.echo(click.style(f"[MCP DEBUG] Sending HTTP request to {url}: {json.dumps(request)}", fg="cyan"))
             
             response = requests.post(
                 url,
@@ -87,7 +88,7 @@ class MCPClient:
             result = response.json()
             
             if is_debug_enabled():
-                print(f"[MCP DEBUG] HTTP Response: {json.dumps(result)}")
+                click.echo(click.style(f"[MCP DEBUG] HTTP Response: {json.dumps(result)}", fg="cyan"))
             
             if "error" in result:
                 raise Exception(f"MCP server error: {result['error']}")
@@ -106,7 +107,7 @@ class MCPClient:
             request_json = json.dumps(request) + "\n"
             
             if is_debug_enabled():
-                print(f"[MCP DEBUG] Sending subprocess request: {request_json.strip()}")
+                click.echo(click.style(f"[MCP DEBUG] Sending subprocess request: {request_json.strip()}", fg="cyan"))
             
             # Get command from server_info
             cmd = self.server_info.get('command', [])
@@ -116,7 +117,7 @@ class MCPClient:
                 raise Exception("No command specified for MCP server")
             
             if is_debug_enabled():
-                print(f"[MCP DEBUG] Executing command: {' '.join(cmd)}")
+                click.echo(click.style(f"[MCP DEBUG] Executing command: {' '.join(cmd)}", fg="cyan"))
             
             # Execute the MCP server
             process = subprocess.Popen(
@@ -132,8 +133,8 @@ class MCPClient:
             stdout, stderr = process.communicate(input=request_json, timeout=30)
             
             if is_debug_enabled():
-                print(f"[MCP DEBUG] Response stdout: {stdout}")
-                print(f"[MCP DEBUG] Response stderr: {stderr}")
+                click.echo(click.style(f"[MCP DEBUG] Response stdout: {stdout}", fg="cyan"))
+                click.echo(click.style(f"[MCP DEBUG] Response stderr: {stderr}", fg="cyan"))
             
             if process.returncode != 0:
                 raise Exception(f"MCP server error (code {process.returncode}): {stderr}")
@@ -153,7 +154,7 @@ class MCPClient:
                         return response.get("result", {})
                 except json.JSONDecodeError:
                     if is_debug_enabled():
-                        print(f"[MCP DEBUG] Failed to parse line as JSON: {line}")
+                        click.echo(click.style(f"[MCP DEBUG] Failed to parse line as JSON: {line}", fg="yellow"))
                     continue
             
             # If no matching response found, try to return the first valid JSON response
@@ -189,8 +190,8 @@ class MCPClient:
         try:
             # Debug: Log the actual arguments being passed
             if is_debug_enabled():
-                print(f"[MCP DEBUG] Tool: {tool_name}")
-                print(f"[MCP DEBUG] Arguments: {arguments}")
+                click.echo(click.style(f"[MCP DEBUG] Tool: {tool_name}", fg="cyan"))
+                click.echo(click.style(f"[MCP DEBUG] Arguments: {arguments}", fg="cyan"))
             
             # Call the tool via JSON-RPC
             result = self._send_jsonrpc_request("tools/call", {
@@ -220,8 +221,8 @@ class MCPClient:
                 tool_output = str(result)
             
             if is_debug_enabled():
-                print(f"[MCP DEBUG] Tool result length: {len(tool_output)}")
-                print(f"[MCP DEBUG] Tool result first 300 chars: {repr(tool_output[:300])}")
+                click.echo(click.style(f"[MCP DEBUG] Tool result length: {len(tool_output)}", fg="cyan"))
+                click.echo(click.style(f"[MCP DEBUG] Tool result first 300 chars: {repr(tool_output[:300])}", fg="cyan"))
                 
             return tool_output
                 
@@ -246,10 +247,10 @@ class MCPClient:
                         }
                         
             if is_debug_enabled():
-                print(f"Discovered {len(self.available_tools)} MCP tools")
+                click.echo(click.style(f"Discovered {len(self.available_tools)} MCP tools", fg="green"))
             
         except Exception as e:
-            print(f"Warning: Could not discover MCP tools: {e}")
+            click.echo(click.style(f"Warning: Could not discover MCP tools: {e}", fg="red"))
             # Continue without tools rather than failing
     
     def list_tools(self) -> Dict[str, Dict[str, Any]]:
@@ -314,11 +315,11 @@ def create_mcp_tools(server_info: Dict[str, Any], server_config: MCPServerConfig
             proxy_tools.append(proxy_tool)
         
         if is_debug_enabled():
-            print(f"Created {len(proxy_tools)} MCP {server_config.name} proxy tools")
+            click.echo(click.style(f"Created {len(proxy_tools)} MCP {server_config.name} proxy tools", fg="green"))
         return proxy_tools
         
     except Exception as e:
-        print(f"Error creating MCP tools for {server_config.name}: {e}")
+        click.echo(click.style(f"Error creating MCP tools for {server_config.name}: {e}", fg="red"))
         return []
 
 
@@ -328,5 +329,5 @@ def create_mcp_kubernetes_tools(container_id: str) -> List[MCPProxyTool]:
     Deprecated: Create proxy tools for MCP Kubernetes server
     This function is kept for backwards compatibility but is no longer used
     """
-    print("Warning: create_mcp_kubernetes_tools is deprecated")
+    click.echo(click.style("Warning: create_mcp_kubernetes_tools is deprecated", fg="yellow"))
     return []
