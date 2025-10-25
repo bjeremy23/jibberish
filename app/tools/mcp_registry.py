@@ -5,6 +5,7 @@ Loads from .jbrsh configuration and provides discovery/management methods
 
 import os
 import json
+import click
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
 
@@ -93,14 +94,13 @@ class MCPServerRegistry:
                     self._parse_servers_config(mcp_servers_config)
                     return
                 except json.JSONDecodeError as e:
-                    print(f"Warning: Failed to parse {mcp_json_path}: {e}")
-                    print("Falling back to .jbrsh file...")
+                    click.echo(click.style(f"Warning: Failed to parse {mcp_json_path}: {e}", fg="red"))
             
             # Fall back to loading from ~/.jbrsh file
             jbrsh_path = os.path.expanduser('~/.jbrsh')
             
             if not os.path.exists(jbrsh_path):
-                print("Warning: Neither ~/.jbrsh-mcp-servers.json nor ~/.jbrsh file found. No MCP servers configured.")
+                click.echo(click.style("Warning: Neither ~/.jbrsh-mcp-servers.json nor ~/.jbrsh file found. No MCP servers configured.", fg="red"))
                 return
             
             # Read the file and look for MCP_SERVERS configuration
@@ -146,18 +146,18 @@ class MCPServerRegistry:
                         mcp_servers_config = json.loads(config_str)
                         break
                     except json.JSONDecodeError as e:
-                        print(f"Warning: Failed to parse MCP_SERVERS JSON: {e}")
-                        print(f"Config string was: {config_str[:200]}...")
+                        click.echo(click.style(f"Warning: Failed to parse MCP_SERVERS JSON: {e}", fg="red"))
+                        click.echo(click.style(f"Config string was: {config_str[:200]}...", fg="yellow"))
                         return
             
             if mcp_servers_config is None:
-                print("Info: No MCP_SERVERS configuration found in ~/.jbrsh")
+                click.echo(click.style("Info: No MCP_SERVERS configuration found in ~/.jbrsh", fg="yellow"))
                 return
             
             self._parse_servers_config(mcp_servers_config)
             
         except Exception as e:
-            print(f"Warning: Failed to load MCP server configurations: {e}")
+            click.echo(click.style(f"Warning: Failed to load MCP server configurations: {e}", fg="red"))
     
     def _parse_servers_config(self, mcp_servers_config: Any):
         """Parse and load server configurations from JSON data"""
@@ -174,7 +174,7 @@ class MCPServerRegistry:
                         server_config = MCPServerConfig.from_dict(server_data)
                         self.servers[server_config.name] = server_config
                     except Exception as e:
-                        print(f"Warning: Failed to parse MCP server config for '{server_name}': {e}")
+                        click.echo(click.style(f"Warning: Failed to parse MCP server config for '{server_name}': {e}", fg="red"))
                         
             elif isinstance(mcp_servers_config, list):
                 # Old format: [{config}, {config}, ...]
@@ -183,16 +183,16 @@ class MCPServerRegistry:
                         server_config = MCPServerConfig.from_dict(server_data)
                         self.servers[server_config.name] = server_config
                     except Exception as e:
-                        print(f"Warning: Failed to parse MCP server config: {e}")
+                        click.echo(click.style(f"Warning: Failed to parse MCP server config: {e}", fg="red"))
             else:
-                print("Warning: MCP_SERVERS must be a JSON object or array")
+                click.echo(click.style("Warning: MCP_SERVERS must be a JSON object or array", fg="red"))
             
             # Log loaded servers
             enabled_count = sum(1 for s in self.servers.values() if s.enabled)
-            print(f"Loaded {len(self.servers)} MCP server configurations ({enabled_count} enabled)")
+            click.echo(click.style(f"Loaded {len(self.servers)} MCP server configurations ({enabled_count} enabled)", fg="green"))
             
         except Exception as e:
-            print(f"Warning: Failed to parse MCP server configurations: {e}")
+            click.echo(click.style(f"Warning: Failed to parse MCP server configurations: {e}", fg="red"))
     
     def get_server(self, name: str) -> Optional[MCPServerConfig]:
         """Get server configuration by name"""

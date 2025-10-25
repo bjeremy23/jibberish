@@ -5,6 +5,7 @@ This module provides a framework for creating and using tools that can be called
 by the AI to gather additional context for more informed responses.
 """
 
+import click
 from .base import Tool, ToolRegistry
 from .file_reader import FileReaderTool
 from .file_writer import FileWriterTool
@@ -25,12 +26,9 @@ try:
     mcp_registry = get_mcp_registry()
     enabled_servers = mcp_registry.get_enabled_servers()
     
-    if not enabled_servers:
+    if enabled_servers:
         if is_debug_enabled():
-            print("No MCP servers configured or enabled")
-    else:
-        if is_debug_enabled():
-            print(f"Discovering {len(enabled_servers)} enabled MCP servers")
+            click.echo(click.style(f"Discovering {len(enabled_servers)} enabled MCP servers", fg="green"))
         
         # Discover all MCP servers
         mcp_manager = MCPServerManager()
@@ -38,7 +36,7 @@ try:
         
         if not running_servers:
             if is_debug_enabled():
-                print("No MCP servers discovered successfully")
+                click.echo(click.style("No MCP servers discovered successfully", fg="red"))
         else:
             # Register tools for each running MCP server
             for server_info in running_servers:
@@ -46,7 +44,7 @@ try:
                 conn_type = server_info['connection_type']
                 
                 if is_debug_enabled():
-                    print(f"Registering tools for MCP server: {server_config.name} ({conn_type})")
+                    click.echo(click.style(f"Registering tools for MCP server: {server_config.name} ({conn_type})", fg="green"))
                 
                 try:
                     # Create and register MCP proxy tools
@@ -55,13 +53,13 @@ try:
                     for tool in mcp_tools:
                         ToolRegistry.register(tool)
                     
-                    print(f"Registered {len(mcp_tools)} tools from MCP server '{server_config.name}'")
+                    click.echo(click.style(f"Registered {len(mcp_tools)} tools from MCP server '{server_config.name}'", fg="green"))
                     
                 except Exception as e:
-                    print(f"Warning: Failed to register tools for MCP server '{server_config.name}': {e}")
+                    click.echo(click.style(f"Warning: Failed to register tools for MCP server '{server_config.name}': {e}", fg="red"))
         
 except Exception as e:
-    print(f"Warning: Could not initialize MCP servers: {e}")
+    click.echo(f"Warning: Could not initialize MCP servers: {e}")
     import traceback
     if is_debug_enabled():
         traceback.print_exc()

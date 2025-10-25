@@ -6,9 +6,11 @@ Supports Docker run commands, local processes, and URL-based connections
 import subprocess
 import json
 import os
+import click
 import requests
 from typing import Dict, Any, Optional, List
 from .mcp_registry import get_mcp_registry, MCPServerConfig
+from ..utils import is_debug_enabled
 
 
 class MCPServerManager:
@@ -30,7 +32,7 @@ class MCPServerManager:
         for server_config in self.registry.get_enabled_servers():
             try:
                 if not server_config.command:
-                    print(f"Warning: Server '{server_config.name}' has no command specified, skipping")
+                    click.echo(click.style(f"Warning: Server '{server_config.name}' has no command specified, skipping", fg="yellow"))
                     continue
                 
                 server_info = self.discover_server(server_config)
@@ -38,9 +40,10 @@ class MCPServerManager:
                     all_servers.append(server_info)
                     self.discovered_servers[server_config.name] = server_info
             except Exception as e:
-                print(f"Failed to discover MCP server '{server_config.name}': {e}")
+                click.echo(click.style(f"Failed to discover MCP server '{server_config.name}': {e}", fg="red"))
         
-        print(f"Discovered {len(all_servers)} MCP servers")
+        if is_debug_enabled():
+            click.echo(click.style(f"Discovered {len(all_servers)} MCP servers", fg="green"))
         return all_servers
     
     def discover_server(self, server_config: MCPServerConfig) -> Optional[Dict[str, Any]]:
@@ -55,7 +58,8 @@ class MCPServerManager:
         """
         conn_type = server_config.get_connection_type()
         
-        print(f"Discovering MCP server '{server_config.name}' (type: {conn_type})")
+        if is_debug_enabled():
+            click.echo(click.style(f"Discovering MCP server '{server_config.name}' (type: {conn_type})", fg="cyan"))
         
         if conn_type == 'url':
             return self._discover_url_server(server_config)
@@ -64,7 +68,7 @@ class MCPServerManager:
         elif conn_type == 'local':
             return self._discover_local_server(server_config)
         else:
-            print(f"Unknown connection type for server '{server_config.name}'")
+            click.echo(click.style(f"Unknown connection type for server '{server_config.name}'", fg="red"))
             return None
     
     def _discover_url_server(self, server_config: MCPServerConfig) -> Optional[Dict[str, Any]]:
@@ -83,10 +87,12 @@ class MCPServerManager:
             # Quick connectivity check
             response = requests.head(url, timeout=5)
             # Any response (including errors) means server exists
-            print(f"URL server '{server_config.name}' is accessible at {url}")
+            if is_debug_enabled():
+                click.echo(click.style(f"URL server '{server_config.name}' is accessible at {url}", fg="green"))
         except Exception as e:
-            print(f"Warning: Could not connect to URL server '{server_config.name}' at {url}: {e}")
-            print(f"Will still attempt to use it for tool calls")
+            click.echo(click.style(f"Warning: Could not connect to URL server '{server_config.name}' at {url}: {e}", fg="yellow"))
+            if is_debug_enabled():
+                click.echo(click.style("Will still attempt to use it for tool calls", fg="yellow"))
         
         # Return connection info regardless of connectivity check
         # The actual tool calls will fail if server is truly unavailable
@@ -119,7 +125,8 @@ class MCPServerManager:
             
             # For Docker containers, we'll run them per-request
             # The command should include "docker run" with appropriate flags
-            print(f"Docker MCP server '{server_config.name}' configured: {' '.join(cmd[:4])}...")
+            if is_debug_enabled():
+                click.echo(click.style(f"Docker MCP server '{server_config.name}' configured: {' '.join(cmd[:4])}...", fg="green"))
             
             return {
                 'connection_type': 'docker',
@@ -131,7 +138,7 @@ class MCPServerManager:
             }
             
         except Exception as e:
-            print(f"Error configuring Docker MCP server '{server_config.name}': {e}")
+            click.echo(click.style(f"Error configuring Docker MCP server '{server_config.name}': {e}", fg="red"))
             return None
     
     def _discover_local_server(self, server_config: MCPServerConfig) -> Optional[Dict[str, Any]]:
@@ -154,7 +161,8 @@ class MCPServerManager:
                 env.update(server_config.env)
             
             # For local executables, we'll run them per-request
-            print(f"Local MCP server '{server_config.name}' configured: {' '.join(cmd)}")
+            if is_debug_enabled():
+                click.echo(click.style(f"Local MCP server '{server_config.name}' configured: {' '.join(cmd)}", fg="green"))
             
             return {
                 'connection_type': 'local',
@@ -166,7 +174,7 @@ class MCPServerManager:
             }
             
         except Exception as e:
-            print(f"Error configuring local MCP server '{server_config.name}': {e}")
+            click.echo(click.style(f"Error configuring local MCP server '{server_config.name}': {e}", fg="red"))
             return None
     
     def stop_all_servers(self):

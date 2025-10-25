@@ -482,7 +482,7 @@ def ask_question(command, temp=0.5):
     Have a small contextual chat with the AI, with tool support.
     Uses a two-phase approach: first execute tools, then generate response with tool context.
     """
-    return _ask_question_with_tools(command, temp, max_tool_iterations=4)
+    return _ask_question_with_tools(command, temp, max_tool_iterations=6)
 
 def _ask_question_with_tools(command, temp=0.5, max_tool_iterations=4):
     """
