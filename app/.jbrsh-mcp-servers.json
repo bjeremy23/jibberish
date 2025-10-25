@@ -11,4 +11,13 @@
     "description": "Kubernetes cluster management and kubectl operations",
     "tool_prefix": "k8s"
   },
+  "test": {
+    "enabled": false,
+    "command": "python3",
+    "args": [
+      "<LOCAL_PATH>/jibberish/tests/simple_mcp_server.py"
+    ],
+    "description": "Simple test MCP server with echo and add tools",
+    "tool_prefix": "test"
+  }
 }
