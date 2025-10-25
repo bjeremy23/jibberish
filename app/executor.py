@@ -597,7 +597,8 @@ def execute_command(command):
             break
     
     # if the command is in the warn_list, ask the user if they want to execute the command
-    if warn:
+    # Skip WARN_LIST prompting if AI commands are being prompted to avoid double prompting
+    if warn and not prompt_ai_commands:
         choice = input(click.style("Are you sure you want to execute this command? [y/n]: ", fg="blue"))
         if choice.lower() != "y":
             click.echo(click.style("Command not executed", fg="red"))

@@ -109,7 +109,7 @@ kubernetes_context = get_kubernetes_context()
 # Directory navigation context keywords and definition
 cd_keywords = [
     'cd', 'change directory', 'navigate', 'go to', 'move to', 'enter directory',
-    'switch to', 'directory', 'folder', 'path', 'chdir'
+    'switch to', 'chdir', 'cd into', 'navigate to'
 ]
 
 cd_context = [

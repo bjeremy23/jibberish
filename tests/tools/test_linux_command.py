@@ -41,7 +41,7 @@ class TestLinuxCommandTool(unittest.TestCase):
     def test_tool_properties(self):
         """Test that the tool has the correct properties."""
         self.assertEqual(self.tool.name, "linux_command")
-        self.assertIn("Use this tool if a request requires execution on the host", self.tool.description)
+        self.assertIn("All requests to use a linux command MUST use this tool", self.tool.description)
         self.assertIn("executable linux command strings", self.tool.description)
         
         # Check parameters structure
@@ -63,7 +63,7 @@ class TestLinuxCommandTool(unittest.TestCase):
         
         # Verify mocks were called correctly
         mock_prompt.assert_called_once_with("'echo 'hello world''")
-        mock_execute.assert_called_once_with("echo 'hello world'", original_command="echo 'hello world'", add_to_history=True)
+        mock_execute.assert_called_once_with("echo 'hello world'", original_command="__TOOL_GENERATED__", add_to_history=True)
         
         # Verify result
         self.assertEqual(result, "SUCCESS: Command executed successfully")
@@ -80,7 +80,7 @@ class TestLinuxCommandTool(unittest.TestCase):
         
         # Verify mocks were called correctly
         mock_prompt.assert_called_once_with("'ls /nonexistent/directory'")
-        mock_execute.assert_called_once_with("ls /nonexistent/directory", original_command="ls /nonexistent/directory", add_to_history=True)
+        mock_execute.assert_called_once_with("ls /nonexistent/directory", original_command="__TOOL_GENERATED__", add_to_history=True)
         
         # Verify result contains error message
         self.assertIn("ERROR", result)
@@ -261,7 +261,7 @@ class TestLinuxCommandTool(unittest.TestCase):
         
         # Should execute empty command
         mock_prompt.assert_called_once_with("''")
-        mock_execute.assert_called_once_with("", original_command="", add_to_history=True)
+        mock_execute.assert_called_once_with("", original_command="__TOOL_GENERATED__", add_to_history=True)
         self.assertEqual(result, "SUCCESS: ")
 
     @patch('app.tools.linux_command.prompt_before_execution', return_value=True)
@@ -277,7 +277,7 @@ class TestLinuxCommandTool(unittest.TestCase):
         
         # Verify the full chained command was passed to execute_command_with_built_ins
         mock_prompt.assert_called_once_with(f"'{chained_command}'")
-        mock_execute.assert_called_once_with(chained_command, original_command=chained_command, add_to_history=True)
+        mock_execute.assert_called_once_with(chained_command, original_command="__TOOL_GENERATED__", add_to_history=True)
         self.assertEqual(result, "SUCCESS: Commands chained successfully")
 
     @patch('app.tools.linux_command.prompt_before_execution', return_value=True)
@@ -290,7 +290,7 @@ class TestLinuxCommandTool(unittest.TestCase):
         result = self.tool.execute(complex_command)
         
         mock_prompt.assert_called_once_with(f"'{complex_command}'")
-        mock_execute.assert_called_once_with(complex_command, original_command=complex_command, add_to_history=True)
+        mock_execute.assert_called_once_with(complex_command, original_command="__TOOL_GENERATED__", add_to_history=True)
         self.assertEqual(result, "SUCCESS: Complex command executed")
 
     def test_function_definition_format(self):
@@ -335,7 +335,7 @@ class TestLinuxCommandTool(unittest.TestCase):
         result = self.tool.execute("echo test")
         
         # Should execute without prompting
-        mock_execute.assert_called_once_with("echo test", original_command="echo test", add_to_history=True)
+        mock_execute.assert_called_once_with("echo test", original_command="__TOOL_GENERATED__", add_to_history=True)
         self.assertEqual(result, "SUCCESS: Command executed without prompting")
 
     @patch('app.tools.linux_command.prompt_before_execution', return_value=True)
@@ -351,7 +351,7 @@ class TestLinuxCommandTool(unittest.TestCase):
         
         # Should prompt before executing
         mock_prompt.assert_called_once_with("'echo test'")
-        mock_execute.assert_called_once_with("echo test", original_command="echo test", add_to_history=True)
+        mock_execute.assert_called_once_with("echo test", original_command="__TOOL_GENERATED__", add_to_history=True)
         self.assertEqual(result, "SUCCESS: Command executed with prompting")
 
     @patch('app.tools.linux_command.prompt_before_execution', return_value=True)
@@ -368,7 +368,7 @@ class TestLinuxCommandTool(unittest.TestCase):
         
         # Should prompt before executing (default behavior)
         mock_prompt.assert_called_once_with("'echo test'")
-        mock_execute.assert_called_once_with("echo test", original_command="echo test", add_to_history=True)
+        mock_execute.assert_called_once_with("echo test", original_command="__TOOL_GENERATED__", add_to_history=True)
         self.assertEqual(result, "SUCCESS: Command executed with prompting")
 
     @patch('app.tools.linux_command.execute_command_with_built_ins')
@@ -382,7 +382,7 @@ class TestLinuxCommandTool(unittest.TestCase):
         result = self.tool.execute("echo test")
         
         # Should execute without prompting (case insensitive)
-        mock_execute.assert_called_once_with("echo test", original_command="echo test", add_to_history=True)
+        mock_execute.assert_called_once_with("echo test", original_command="__TOOL_GENERATED__", add_to_history=True)
         self.assertEqual(result, "SUCCESS: Command executed without prompting")
 
     @patch('app.tools.linux_command.prompt_before_execution', return_value=False)

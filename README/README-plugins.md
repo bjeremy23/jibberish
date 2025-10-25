@@ -163,6 +163,29 @@ The Jibberish shell includes several plugins that extend its functionality. This
     application startup procedures, and automating repetitive tasks.
     ```
 
+- **restart_mcp_command.py** - Reloads MCP server configurations and rediscovers all MCP servers
+  - Usage: `reload-mcp` or `restart-mcp`
+  - Example:
+    ```
+    /home/user# reload-mcp
+    Reloading MCP server configuration...
+    Loaded 2 MCP server configurations (2 enabled)
+    Discovering 2 enabled MCP servers...
+    Discovering MCP server 'kubernetes' (type: docker)
+    Docker MCP server 'kubernetes' configured: docker run -i --rm...
+    Discovering MCP server 'test' (type: local)
+    Local MCP server 'test' configured: python3 /home/brownjer/bin/jibberish/tests/simple_mcp_server.py
+    Discovered 2 MCP servers
+    Unregistered 8 existing MCP tools
+    Registered 6 tools from MCP server 'kubernetes'
+    Registered 2 tools from MCP server 'test'
+    
+    MCP reload complete: 2 servers, 8 tools registered
+    ```
+  - Use this command after editing `~/.jbrsh-mcp-servers.json` to reload changes
+  - Useful when starting/stopping MCP servers and need to refresh available tools
+  - Optional plugin (enabled by default)
+
 - **ssh_command.py** - Enhances SSH connections with additional features
   - Usage: `ssh user@hostname [command]`
   - Example:

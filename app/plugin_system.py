@@ -28,16 +28,14 @@ class BuiltinCommand(ABC):
     def __init__(self):
         """Initialize the plugin and check if it should be enabled"""
         # For optional plugins, check the environment variable
-
-        # pint the is_required and is_enabled
-       
-
         if not self.is_required:
             # Get the environment variable name for this plugin
             env_var_name = f"PLUGIN_{self.plugin_name.upper()}_ENABLED"
             # Check if the environment variable is set
             
-            env_var_value = os.environ.get(env_var_name, "n").lower()
+            # Default to the class's is_enabled value if env var not set
+            default_value = "y" if self.is_enabled else "n"
+            env_var_value = os.environ.get(env_var_name, default_value).lower()
             
             # Update is_enabled based on environment variable
             self.is_enabled = env_var_value in ["y", "yes", "true", "1"]

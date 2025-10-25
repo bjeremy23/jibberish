@@ -174,40 +174,11 @@ The file tools support:
 
 These tools integrate seamlessly with Jibberish's AI capabilities, allowing you to work with files using natural language rather than remembering complex command syntax.
 
-### MCP Kubernetes Integration
+### MCP Server Integration
 
-Jibberish now includes support for the Model Context Protocol (MCP) Kubernetes server, enabling sophisticated Kubernetes cluster interactions through natural language. When an MCP Kubernetes container is running locally, Jibberish automatically detects it and provides enhanced Kubernetes capabilities beyond basic kubectl commands.
+Jibberish supports the Model Context Protocol (MCP), allowing you to connect to multiple MCP servers that provide additional tools and capabilities. MCP servers can run locally as Docker containers, executables, or remote HTTP endpoints.
 
-Key features:
-- **Natural Language Kubernetes Operations**: Ask questions like "what's wrong with my nginx pod?" or "scale my deployment to 5 replicas"
-- **Automatic Tool Discovery**: Jibberish detects running MCP containers and registers their tools automatically
-- **Advanced Cluster Analysis**: Rich diagnostics, resource inspection, and troubleshooting capabilities
-- **Multiple Access Levels**: Supports readonly, readwrite, and admin access modes
-- **Enhanced Context**: Tools provide structured data that the AI can better interpret than basic command output
-
-#### Quick Setup:
-
-```bash
-# Start MCP Kubernetes container with your kubeconfig
-docker run -d \
-  --name mcp-kubernetes-server \
-  --mount type=bind,src=$HOME/.kube/config,dst=/home/mcp/.kube/config \
-  ghcr.io/azure/mcp-kubernetes:latest
-
-# Start Jibberish - it will automatically detect and use the MCP tools
-jibberish
-```
-
-#### Example Usage:
-
-```bash
-# Natural language Kubernetes queries work seamlessly
-/home/jbrsh# ? what is the status of my kubernetes cluster?
-/home/jbrsh# ? show me all failing pods and their events
-/home/jbrsh# ? analyze the resource usage of my application pods
-```
-
-For complete setup instructions, configuration options, troubleshooting, and detailed usage examples, see [README-mcp-kubernetes.md](README-mcp-kubernetes.md).
+For complete setup instructions, configuration options, server types, and detailed usage examples, see [README/README-mcp-servers.md](README/README-mcp-servers.md).
 
 ### Standalone Mode
 

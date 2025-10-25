@@ -1,0 +1,14 @@
+{
+  "kubernetes": {
+    "enabled": false,
+    "command": "docker",
+    "args": [
+      "run", "-i", "--rm",
+      "-v", "~/.kube/config:/home/mcp/.kube/config",
+      "ghcr.io/azure/mcp-kubernetes",
+      "--access-level", "readwrite"
+    ],
+    "description": "Kubernetes cluster management and kubectl operations",
+    "tool_prefix": "k8s"
+  },
+}
