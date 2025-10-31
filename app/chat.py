@@ -484,7 +484,7 @@ def ask_question(command, temp=0.5):
     """
     return _ask_question_with_tools(command, temp, max_tool_iterations=6)
 
-def _ask_question_with_tools(command, temp=0.5, max_tool_iterations=4):
+def _ask_question_with_tools(command, temp=0.5, max_tool_iterations=6):
     """
     Internal function that handles the tool execution loop.
     Phase 1: Execute any initial tool calls from AI response
@@ -566,9 +566,12 @@ def _ask_question_with_tools(command, temp=0.5, max_tool_iterations=4):
                         # Update conversation history
                         _update_conversation_history(messages, current_message, ai_response, tool_calls)
                         
-                        # Create a follow-up prompt that asks the AI to display the tool results
+                        # Reload messages from history to include the updated conversation
+                        messages = load_chat_history()
+                        
+                        # Create a follow-up prompt that allows the AI to call more tools or display results
                         tools_used = [tc.get('name', 'unknown') for tc in tool_calls]
-                        command = f"TASK COMPLETED: You have successfully executed {', '.join(tools_used)} for the request '{original_command}'. The tools have run and produced output. Your job is now to display the results to the user. DO NOT suggest more commands or tools. Do not display the output from the linux command tool."
+                        command = f"You have executed {', '.join(tools_used)} for the request '{original_command}'. The tool outputs are in the context. If you need to call more tools to complete the task, do so. Otherwise, present the results to the user."
                         
                         if is_debug_enabled():
                             click.echo(click.style(f"[DEBUG] Tool context length: {len(tool_context)}", fg="cyan"))

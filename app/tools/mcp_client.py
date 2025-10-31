@@ -161,6 +161,10 @@ class MCPClient:
             for line in response_lines:
                 try:
                     response = json.loads(line)
+                    # if debug enabled print the result
+                    if is_debug_enabled() and "result" in response:
+                        click.echo(click.style(f"[MCP DEBUG] Response result: {response['result']}", fg="cyan"))
+                        
                     if "result" in response:
                         return response.get("result", {})
                 except json.JSONDecodeError:
