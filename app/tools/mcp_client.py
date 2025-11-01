@@ -130,7 +130,7 @@ class MCPClient:
             )
             
             # Send the request and get response
-            stdout, stderr = process.communicate(input=request_json, timeout=30)
+            stdout, stderr = process.communicate(input=request_json, timeout=300)
             
             if is_debug_enabled():
                 click.echo(click.style(f"[MCP DEBUG] Response stdout: {stdout}", fg="cyan"))
