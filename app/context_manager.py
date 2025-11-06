@@ -168,6 +168,13 @@ def determine_temperature(command):
     Returns:
         float: The temperature value to use (between 0 and 1)
     """
+    # if the OPEN_API_MODEL contains "GPT-5", return 1.0 since thismodel does not support temperature adjustment
+    # get the env variable OPEN_API_MODEL
+    import os
+    OPEN_API_MODEL = os.getenv("OPEN_API_MODEL")
+    if "gpt-5" in OPEN_API_MODEL.lower():
+        return 1.0
+    
     if not command or not isinstance(command, str):
         return 0.5  # Default temperature
         
