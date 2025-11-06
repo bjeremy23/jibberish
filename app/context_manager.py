@@ -172,7 +172,7 @@ def determine_temperature(command):
     # get the env variable OPEN_API_MODEL
     import os
     OPEN_API_MODEL = os.getenv("OPEN_API_MODEL")
-    if "gpt-5" in OPEN_API_MODEL.lower():
+    if OPEN_API_MODEL and "gpt-5" in OPEN_API_MODEL.lower():
         return 1.0
     
     if not command or not isinstance(command, str):

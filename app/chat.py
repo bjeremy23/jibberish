@@ -88,7 +88,7 @@ def ask_why_failed(command, output):
 
     # Set temperature
     OPEN_API_MODEL = os.getenv("OPEN_API_MODEL")
-    if "gpt-5" in OPEN_API_MODEL:
+    if OPEN_API_MODEL and "gpt-5" in OPEN_API_MODEL.lower():
         temperature = 1.0
     else:
         temperature = 0.5
@@ -135,11 +135,7 @@ def find_similar_command(command_name):
     ]
     
     # Determine temperature based on query type
-    OPEN_API_MODEL = os.getenv("OPEN_API_MODEL")
-    if "gpt-5" in OPEN_API_MODEL:
-        temperature = 1.0
-    else:
-        temperature = 0.5
+    temperature = 1.0
     
     try:
         # Handle both new and legacy Azure OpenAI APIs
@@ -340,11 +336,11 @@ def _build_additional_context(command, partner, tool_context):
             "content": "URGENT: The user is demanding immediate file writing. You MUST use write_file tool NOW with the content you have. Do not read more files. Use this exact format: ```json\n{\"tool_calls\": [{\"name\": \"write_file\", \"arguments\": {\"filepath\": \"path\", \"content\": \"merged_content\"}}]}\n```"
         })
     
-    # Add previous tool context
+
     if tool_context:
         context_msg = {
             "role": "system",
-            "content": f"Additional context from tools:\n\n{chr(10).join(tool_context)}\n\nIMPORTANT: When presenting tool results to the user, display the literal output from the tools (especially kubectl data like pod listings, resource info, logs) rather than summarizing. Users typically want to see the actual command output with specific names, statuses, and details."
+            "content": f"Additional context from tools (for reference only - do NOT repeat):\n\n{chr(10).join(tool_context)}\n\nIMPORTANT: If the reulst are from linux_command_tool, just say 'done.' else summarize key findings, provide analysis, or proceed with the next action."
         }
         additional_context.append(context_msg)
         
@@ -511,6 +507,7 @@ def _ask_question_with_tools(command, temp=None, max_tool_iterations=6):
                 click.echo(click.style(f"[DEBUG] Tool iteration {iteration + 1}/{max_tool_iterations}", fg="cyan"))
             
             # Build additional context for this iteration
+            global partner
             additional_context = _build_additional_context(command, partner, tool_context)
             
             # Prepare the current message
@@ -579,7 +576,11 @@ def _ask_question_with_tools(command, temp=None, max_tool_iterations=6):
                         
                         # Create a follow-up prompt that allows the AI to call more tools or display results
                         tools_used = [tc.get('name', 'unknown') for tc in tool_calls]
-                        command = f"You have executed {', '.join(tools_used)} for the request '{original_command}'. The tool outputs are in the context. If you need to call more tools to complete the task, do so. Otherwise, present the results to the user."
+                        command = (
+                            f"You have executed {', '.join(tools_used)} for the request '{original_command}'. "
+                            "If you need to call more tools to complete the task, do so. "
+                            "Otherwise, provide insights or analysis based on the tool outputs."
+                        )
                         
                         if is_debug_enabled():
                             click.echo(click.style(f"[DEBUG] Tool context length: {len(tool_context)}", fg="cyan"))
