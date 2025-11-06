@@ -87,7 +87,11 @@ def ask_why_failed(command, output):
     )
 
     # Set temperature
-    temperature = 0.5
+    OPEN_API_MODEL = os.getenv("OPEN_API_MODEL")
+    if "gpt-5" in OPEN_API_MODEL:
+        temperature = 1.0
+    else:
+        temperature = 0.5
     
     try:
         # Handle both new and legacy Azure OpenAI APIs
@@ -131,7 +135,11 @@ def find_similar_command(command_name):
     ]
     
     # Determine temperature based on query type
-    temperature = 0.5
+    OPEN_API_MODEL = os.getenv("OPEN_API_MODEL")
+    if "gpt-5" in OPEN_API_MODEL:
+        temperature = 1.0
+    else:
+        temperature = 0.5
     
     try:
         # Handle both new and legacy Azure OpenAI APIs
@@ -477,14 +485,14 @@ def _update_conversation_history(messages, current_message, ai_response, tool_ca
     })
     save_chat(messages)
 
-def ask_question(command, temp=0.5):
+def ask_question(command, temp=None):
     """
     Have a small contextual chat with the AI, with tool support.
     Uses a two-phase approach: first execute tools, then generate response with tool context.
     """
     return _ask_question_with_tools(command, temp, max_tool_iterations=6)
 
-def _ask_question_with_tools(command, temp=0.5, max_tool_iterations=6):
+def _ask_question_with_tools(command, temp=None, max_tool_iterations=6):
     """
     Internal function that handles the tool execution loop.
     Phase 1: Execute any initial tool calls from AI response
@@ -514,7 +522,7 @@ def _ask_question_with_tools(command, temp=0.5, max_tool_iterations=6):
             current_messages = messages + [current_message]
             
             # Use the context manager's temperature function, but default to the provided temp
-            if temp == 0.5:  # Only override if default was used
+            if temp is None:  # Only override if default was used
                 temp = determine_temperature(command)
             
             # add a debug to print the current message
