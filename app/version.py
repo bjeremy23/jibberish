@@ -6,5 +6,5 @@ across the entire Jibberish project.
 """
 
 # Define version information
-__version__ = "25.9.26"
-VERSION_NAME = "Lambkin"
+__version__ = "26.1.27"
+VERSION_NAME = "ManeCoon"

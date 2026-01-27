@@ -38,6 +38,53 @@ Instead of remembering complex syntax, describe what you want to do:
 find /var/log -type f -size +100M -exec ls -lh {} \; | sort -k5,5hr
 ```
 
+#### Output Recall - Work with Previous Results
+
+Jibberish automatically remembers the output from your recent commands. You can reference previous outputs using natural language or special syntax:
+
+```bash
+# First, list some files
+/home/jbrsh# ls *.log
+error.log  access.log  debug.log
+
+# Now reference "that output" or "those files" in your next command
+/home/jbrsh# #compress those files into an archive
+tar -czvf logs.tar.gz error.log access.log debug.log
+```
+
+You can also use explicit references:
+- `$_` or `@0` - the most recent command output
+- `@1` - the second most recent output
+- `@2`, `@3`, etc. - older outputs
+
+```bash
+/home/jbrsh# find . -name "*.tmp" -type f
+./cache/old.tmp
+./temp/session.tmp
+
+/home/jbrsh# #delete the files from @0
+rm ./cache/old.tmp ./temp/session.tmp
+```
+
+To see what outputs are available for reference, use the `outputs` command:
+
+```bash
+/home/jbrsh# outputs
+
+Available Command Outputs (3 stored):
+--------------------------------------------------
+  @0 or $_     → ls *.py
+  @1           → find . -name "*.log"
+  @2           → cat config.yaml
+
+Usage: Reference these in commands with #compress @0 or ?analyze those files
+Tip: Use 'outputs -v' for verbose output preview
+```
+
+Use `outputs -v` to see a preview of the actual output content, or just type `@` as a quick shortcut.
+
+This feature lets you naturally chain operations without copy-pasting output or using complex pipes.
+
 #### Complex Commands with Environment Variables
 
 Jibberish can leverage environment variables defined in your `~/.jbrsh` file to streamline complex commands:

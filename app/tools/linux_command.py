@@ -123,6 +123,12 @@ class LinuxCommandTool(Tool):
                 # (assuming comment lines come first and the actual command is last)
                 actual_command = lines[-1].strip()
 
+            # Sanitize command: remove any remaining newlines/carriage returns that could cause
+            # "syntax error: unexpected end of file" in bash
+            actual_command = actual_command.replace('\r\n', ' ').replace('\n', ' ').replace('\r', ' ')
+            # Collapse multiple spaces into one
+            actual_command = ' '.join(actual_command.split())
+
             # Check if we should prompt before executing based on user's original setting
             # Only prompt if user explicitly set PROMPT_AI_COMMANDS to enable prompting
             if user_prompt_setting in ('true', 'always', 'yes', '1'):

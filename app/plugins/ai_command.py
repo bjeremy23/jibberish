@@ -66,6 +66,12 @@ class AICommandPlugin(BuiltinCommand):
             # It's just a comment, don't execute
             click.echo(click.style("AI response was a comment, not executing", fg="yellow"))
             return True
+        
+        # Sanitize command: remove any remaining newlines/carriage returns that could cause
+        # "syntax error: unexpected end of file" in bash
+        to_execute = to_execute.replace('\r\n', ' ').replace('\n', ' ').replace('\r', ' ')
+        # Collapse multiple spaces into one
+        to_execute = ' '.join(to_execute.split())
             
         # Check if we should prompt before executing
         if not prompt_before_execution("this command"):

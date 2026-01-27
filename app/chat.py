@@ -25,6 +25,12 @@ from app.utils import (
     get_base_messages,
     update_base_messages
 )
+from app.output_history import (
+    get_output_context_for_ai,
+    has_output_reference,
+    parse_output_reference,
+    get_last_output
+)
 
 # Import the tool system
 try:
@@ -176,6 +182,21 @@ def ask_ai(command):
     # Use the context manager to add specialized contexts based on the command
     context = add_specialized_contexts(command, context)
     
+    # Check if user is referencing previous command outputs
+    # Keywords like "that", "those", "the output", "from above" suggest output reference
+    output_keywords = ['that', 'those', 'the output', 'from above', 'previous', 'last output', 
+                       'the result', 'these files', 'those files', '$_', '@0', '@1', '@2', '@3']
+    needs_output_context = any(kw in command.lower() for kw in output_keywords) or has_output_reference(command)
+    
+    # Add output history context if there are references or contextual keywords
+    if needs_output_context:
+        output_context = get_output_context_for_ai(max_entries=3)
+        if output_context:
+            context.append({
+                "role": "system",
+                "content": f"The user may be referring to previous command outputs. Here is the recent output history:\n\n{output_context}\n\nUse this context to understand what 'that', 'those', 'the output', etc. refer to."
+            })
+    
     # Create a copy of base_messages from utils to work with
     current_messages = get_base_messages().copy()
     
@@ -276,6 +297,11 @@ def ask_ai(command):
             if final_command is None:
                 final_command = lines[0] if lines else raw_response
         
+        # Sanitize command: remove any remaining newlines/carriage returns that could cause
+        # "syntax error: unexpected end of file" in bash when executed
+        final_command = final_command.replace('\r\n', ' ').replace('\n', ' ').replace('\r', ' ')
+        # Collapse multiple spaces into one
+        final_command = ' '.join(final_command.split())
         
         # Add the new conversation pair
         new_pair = [
@@ -322,6 +348,20 @@ def _build_additional_context(command, partner, tool_context):
         })
     
     additional_context = add_specialized_contexts(command, additional_context)
+    
+    # Check if user is referencing previous command outputs
+    output_keywords = ['that', 'those', 'the output', 'from above', 'previous', 'last output', 
+                       'the result', 'these files', 'those files', '$_', '@0', '@1', '@2', '@3']
+    needs_output_context = any(kw in command.lower() for kw in output_keywords) or has_output_reference(command)
+    
+    # Add output history context if there are references or contextual keywords
+    if needs_output_context:
+        output_context = get_output_context_for_ai(max_entries=3)
+        if output_context:
+            additional_context.append({
+                "role": "system",
+                "content": f"The user may be referring to previous command outputs. Here is the recent output history:\n\n{output_context}\n\nUse this context to understand what 'that', 'those', 'the output', etc. refer to."
+            })
     
     # Add tool availability context
     tool_context_msg = generate_tool_context_message()

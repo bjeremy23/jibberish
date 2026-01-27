@@ -10,6 +10,7 @@ if parent_dir not in sys.path:
 
 from app import chat
 from app.built_ins import is_built_in
+from app.output_history import store_output
 
 # Forward declaration for circular reference
 
@@ -718,7 +719,9 @@ def execute_command(command):
                         click.echo(click.style("No explanation provided.", fg="red"))
             return -1, "Command failed with non-zero exit code but no error output"
         else:
-            # Command succeeded with no error - return success
+            # Command succeeded with no error - store output and return success
+            if output and output.strip():
+                store_output(command, output, returncode)
             return 0, output
 
     except KeyboardInterrupt:
