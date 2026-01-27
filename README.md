@@ -5,7 +5,7 @@
 
 Jibberish is an AI-powered Linux shell that revolutionizes command-line interaction with three key features:
 
-1. **Natural Language CLI** - Forget complex syntax. Describe what you want in plain English and get executable commands instantly. Use `#` for quick command generation or `?` for detailed questions and tasks.
+1. **Natural Language CLI** - Forget complex syntax. Describe what you want in plain English and get executable commands instantly. Use `?` to invoke the chat for queries that leverage MCP servers or built-in tools like file read/write. Use `#` as a lightweight shortcut to generate specific Linux commands without incurring extra token usage.
 
 2. **MCP Server Integration** - Seamlessly integrate Model Context Protocol (MCP) servers to extend AI capabilities. Connect to Docker containers, local processes, or HTTP endpoints to add specialized tools like Kubernetes management, code analysis, custom made tools, and more.
 
