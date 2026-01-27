@@ -85,6 +85,8 @@ def help():
     click.echo(click.style("  <command>              - Execute the command", fg="blue"))
     click.echo(click.style("  ?<question>            - Ask a question or perform tasks using tools - more tokens, more verbiage and detail", fg="blue"))
     click.echo(click.style("  #<command desc>        - Ask to generate a command - less tokens, exact and concise, no tools", fg="blue"))
+    click.echo(click.style("  explain <command>      - Explain a Linux command without executing it", fg="blue"))
+    click.echo(click.style("  outputs                - View stored command outputs for reference", fg="blue"))
     click.echo(click.style("  exit, quit, q          - Exit the shell", fg="blue"))
     click.echo(click.style("  help                   - help menu", fg="blue"))
 

@@ -107,7 +107,7 @@ Suggestions based on directory:
 
 ---
 
-## 5. `explain` Command for Learning — Educational
+## 5. `explain` Command for Learning — Educational ✅ Completed
 
 A lightweight command to explain any Linux command without executing:
 
@@ -131,11 +131,25 @@ A lightweight command to explain any Linux command without executing:
 - Could parse man pages locally as fallback
 - Consider caching common explanations
 
+**Implemented:**
+- Created `app/plugins/explain_command.py` with ExplainCommandPlugin
+- Lightweight AI call with focused system prompt (no tools, no chat history)
+- Low temperature (0.2) for consistent, factual explanations
+- Limited to 500 tokens for concise responses
+- Added `tests/plugins/test_explain_command.py` with 9 unit tests
+- Updated README.md with documentation and examples
+
 ---
 
 ## Priority Recommendation
 
-Start with **#1 (Output Recall)** — it's the most impactful for workflow efficiency and aligns with the philosophy of natural language interaction. Users often want to "do something with that" after a command runs.
+~~Start with **#1 (Output Recall)** — it's the most impactful for workflow efficiency and aligns with the philosophy of natural language interaction. Users often want to "do something with that" after a command runs.~~
+
+**Completed:** Features #1 (Output Recall) and #5 (Explain Command) have been implemented.
+
+**Next recommendations:**
+- **#2 (Parameterized Aliases)** - Medium effort, good user value
+- **#3 (Consolidate History Commands)** - Code cleanup/simplification
 
 ---
 

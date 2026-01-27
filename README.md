@@ -19,6 +19,8 @@ For installation instructions, see [README-installation.md](README/README-instal
 - `<command>`                 - Execute a shell command
 - `#<command description>`    - Ask to generate a command - less tokens, exact and concise
 - `?<question>`               - Ask a question or perform tasks using tools - more tokens, more verbiage and detail
+- `explain <command>`         - Explain a Linux command without executing it
+- `outputs`                   - View stored command outputs for reference
 - `exit`, `quit`, `q`         - Exit the shell          
 - `help`                      - Help menu
 
@@ -141,6 +143,29 @@ You can mix regular commands with AI-assisted commands:
 free -h && df -h
 
 ```
+
+#### Explain Command - Learn While You Work
+
+Need to understand what a command does before running it? Use `explain` to get a breakdown of any Linux command:
+
+```bash
+/home/jbrsh# explain tar -xzvf archive.tar.gz
+
+Command: tar -xzvf archive.tar.gz
+--------------------------------------------------
+tar - Archive utility for creating and extracting compressed archives
+
+Flags:
+  -x  Extract files from archive
+  -z  Filter through gzip (decompress)
+  -v  Verbose output (show files being extracted)
+  -f  Use archive file (must be followed by filename)
+
+Arguments:
+  archive.tar.gz  The compressed archive file to extract
+```
+
+This is a lightweight command that doesn't invoke tools or use extra tokens - just a focused explanation of the command syntax.
 
 #### Error Handling and Explanation
 
