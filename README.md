@@ -293,6 +293,41 @@ python jibberish.py -h
 
 The standalone mode is designed to be clean and concise, outputting only the relevant information without any debug or environment loading messages.
 
+### Parameterized Aliases
+
+Jibberish extends the standard alias system with parameterized placeholders, allowing you to create reusable command templates:
+
+```bash
+# Define an alias with a placeholder
+/home/jbrsh# alias port='lsof -i :{1}'
+
+# Use it with an argument
+/home/jbrsh# port 8080
+# Expands to: lsof -i :8080
+
+# Define an alias with multiple placeholders
+/home/jbrsh# alias klog='kubectl logs -n {1} {2} --tail=100'
+/home/jbrsh# klog production my-pod
+# Expands to: kubectl logs -n production my-pod --tail=100
+
+# Use default values for optional arguments
+/home/jbrsh# alias connect='ssh {1:-localhost} -p {2:-22}'
+/home/jbrsh# connect                    # ssh localhost -p 22
+/home/jbrsh# connect myserver           # ssh myserver -p 22
+/home/jbrsh# connect myserver 2222      # ssh myserver -p 2222
+
+# Use {*} to capture all arguments
+/home/jbrsh# alias say='echo {*}'
+/home/jbrsh# say hello world            # echo hello world
+```
+
+**Placeholder Syntax:**
+- `{1}`, `{2}`, `{3}` - Positional arguments (1-indexed)
+- `{1:-default}` - Use "default" if argument not provided
+- `{*}` or `{@}` - All arguments
+
+Traditional aliases without placeholders continue to work normally, appending any extra arguments at the end.
+
 ### Configuration
 
 For detailed instructions on setting up your API credentials and configuring Jibberish, see [README/README-ai-setup.md](README/README-ai-setup.md).

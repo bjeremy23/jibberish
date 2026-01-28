@@ -64,10 +64,11 @@ class TestAliasCommands(unittest.TestCase):
         self.assertFalse(self.alias_cmd.can_handle("ls"), 
                        "Should not handle 'ls'")
         
-        # Set up an alias and test handling it
+        # Alias invocations are handled by executor.py's expand_aliases(),
+        # not by the alias plugin. Plugin only handles 'alias' management.
         alias_command.aliases["ll"] = "ls -la"
-        self.assertTrue(self.alias_cmd.can_handle("ll"), 
-                      "Should handle alias 'll'")
+        self.assertFalse(self.alias_cmd.can_handle("ll"), 
+                      "Should not handle alias invocation 'll' (handled by executor)")
     
     def test_execute_set_alias(self):
         """Test setting an alias."""
@@ -96,14 +97,19 @@ class TestAliasCommands(unittest.TestCase):
                     "Output should contain 'll' alias")
     
     def test_execute_use_alias(self):
-        """Test using an alias."""
+        """Test that alias invocations are handled by executor, not plugin.
+        
+        Note: Alias invocations like 'll' are expanded by executor.py's 
+        expand_aliases() function, not by the alias plugin. The alias plugin
+        only handles 'alias' management commands (set, list, remove).
+        See tests/plugins/test_alias_expansion.py for alias expansion tests.
+        """
         # Set up an alias
         alias_command.aliases["ll"] = "ls -l"
         
-        # Execute the alias command
-        result, cmd = self.alias_cmd.execute("ll")
-        self.assertFalse(result, f"Expected False but got {result}")
-        self.assertEqual(cmd, "ls -l", f"Expected 'ls -l' but got '{cmd}'")
+        # The alias plugin should not handle alias invocations
+        self.assertFalse(self.alias_cmd.can_handle("ll"),
+                        "Alias invocations should be handled by executor")
     
     def test_save_load_aliases(self):
         """Test saving and loading aliases."""

@@ -56,15 +56,14 @@ class AliasCommand(BuiltinCommand):
     def can_handle(self, command):
         """Check if this plugin can handle the command"""
         command = command.strip()
-        return command == "alias" or command.startswith("alias ") or command.startswith("alias |") or command in aliases
+        # Only handle 'alias' management commands, not alias invocations
+        # Alias invocations are handled by expand_aliases() in executor.py
+        cmd_parts = command.split()
+        first_word = cmd_parts[0] if cmd_parts else ""
+        return command == "alias" or command.startswith("alias ") or command.startswith("alias |")
     
     def execute(self, command):
-        """Handle alias commands or replace with aliased command"""
-        # If command matches an existing alias, replace it with the aliased command
-        if command.strip() in aliases:
-            aliased_command = aliases[command.strip()]
-            return False, aliased_command
-        
+        """Handle alias commands (listing, setting, removing aliases)"""
         # Parse and handle alias commands
         cmd = command.strip()
         if cmd == "alias" or cmd.startswith("alias |"):

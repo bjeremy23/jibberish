@@ -166,5 +166,118 @@ class TestAliasExpansion(unittest.TestCase):
         self.assertEqual(command, "ls -CF | grep --color=auto test")
 
 
+class TestParameterizedAliasExpansion(unittest.TestCase):
+    """Test parameterized alias expansion with {1}, {2}, etc. placeholders"""
+
+    def setUp(self):
+        """Setup test environment with parameterized aliases."""
+        # Create a temporary aliases file
+        self.temp_aliases_file = tempfile.NamedTemporaryFile(delete=False)
+        
+        # Mock the path to the aliases file in the alias_command module
+        self.aliases_file_patcher = mock.patch(
+            'app.plugins.alias_command.ALIASES_FILE',
+            self.temp_aliases_file.name
+        )
+        self.aliases_file_mock = self.aliases_file_patcher.start()
+
+        # Mock subprocess.Popen to avoid executing actual commands
+        self.popen_patcher = mock.patch('subprocess.Popen')
+        self.mock_popen = self.popen_patcher.start()
+        self.mock_popen.return_value = MockProcess(stdout="Test output", returncode=0)
+        
+        # Import the module inside the test to ensure our patches take effect
+        import app.plugins.alias_command
+        self.alias_module = app.plugins.alias_command
+        
+        # Set up parameterized aliases for testing
+        self.alias_module.aliases = {
+            "port": "lsof -i :{1}",
+            "klog": "kubectl logs -n {1} {2}",
+            "greet": "echo Hello, {1:-World}!",
+            "connect": "ssh {1:-localhost} -p {2:-22}",
+            "allargs": "echo {*}",
+            "simple": "ls -la"  # Traditional non-parameterized alias
+        }
+
+    def tearDown(self):
+        """Clean up test environment."""
+        self.aliases_file_patcher.stop()
+        self.popen_patcher.stop()
+        os.unlink(self.temp_aliases_file.name)
+    
+    def _get_executed_command(self):
+        """Helper to extract the command from Popen call."""
+        call_args = self.mock_popen.call_args
+        if 'args' in call_args[1]:
+            return call_args[1]['args']
+        else:
+            return call_args[0][0]
+
+    @mock.patch('click.echo')
+    def test_single_parameter_substitution(self, mock_echo):
+        """Test alias with single {1} parameter."""
+        execute_shell_command("port 8080")
+        command = self._get_executed_command()
+        self.assertEqual(command, "lsof -i :8080")
+
+    @mock.patch('click.echo')
+    def test_multiple_parameter_substitution(self, mock_echo):
+        """Test alias with multiple {1} {2} parameters."""
+        execute_shell_command("klog production my-pod")
+        command = self._get_executed_command()
+        self.assertEqual(command, "kubectl logs -n production my-pod")
+
+    @mock.patch('click.echo')
+    def test_default_value_used_when_arg_missing(self, mock_echo):
+        """Test alias with default value when argument not provided."""
+        execute_shell_command("greet")
+        command = self._get_executed_command()
+        self.assertEqual(command, "echo Hello, World!")
+
+    @mock.patch('click.echo')
+    def test_default_value_overridden_when_arg_provided(self, mock_echo):
+        """Test alias with default value when argument IS provided."""
+        execute_shell_command("greet Alice")
+        command = self._get_executed_command()
+        self.assertEqual(command, "echo Hello, Alice!")
+
+    @mock.patch('click.echo')
+    def test_multiple_defaults(self, mock_echo):
+        """Test alias with multiple default values."""
+        execute_shell_command("connect")
+        command = self._get_executed_command()
+        self.assertEqual(command, "ssh localhost -p 22")
+
+    @mock.patch('click.echo')
+    def test_partial_defaults(self, mock_echo):
+        """Test alias where some args provided, others use defaults."""
+        execute_shell_command("connect myserver")
+        command = self._get_executed_command()
+        self.assertEqual(command, "ssh myserver -p 22")
+
+    @mock.patch('click.echo')
+    def test_all_args_wildcard(self, mock_echo):
+        """Test alias with {*} to capture all arguments."""
+        execute_shell_command("allargs one two three")
+        command = self._get_executed_command()
+        self.assertEqual(command, "echo one two three")
+
+    @mock.patch('click.echo')
+    def test_traditional_alias_still_works(self, mock_echo):
+        """Test that traditional aliases (no placeholders) still append args."""
+        execute_shell_command("simple /home")
+        command = self._get_executed_command()
+        self.assertEqual(command, "ls -la /home")
+
+    @mock.patch('click.echo')
+    def test_missing_arg_no_default_becomes_empty(self, mock_echo):
+        """Test that missing args without defaults become empty strings."""
+        execute_shell_command("klog production")
+        command = self._get_executed_command()
+        # {2} should become empty since no second arg and no default
+        self.assertEqual(command, "kubectl logs -n production")
+
+
 if __name__ == '__main__':
     unittest.main()

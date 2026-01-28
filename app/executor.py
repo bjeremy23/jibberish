@@ -158,8 +158,68 @@ def is_cmd_interactive(command):
     
     return is_interactive
 
+
+def expand_parameterized_alias(alias_value, args):
+    """
+    Expand parameterized placeholders in an alias value.
+    
+    Supports:
+    - {1}, {2}, etc. - Positional arguments
+    - {1:-default} - Default value if argument not provided
+    - {*} or {@} - All remaining arguments
+    
+    Args:
+        alias_value: The alias definition possibly containing {n} placeholders
+        args: List of arguments provided when the alias was invoked
+        
+    Returns:
+        str: The expanded alias with placeholders replaced
+    """
+    import re
+    
+    result = alias_value
+    
+    # Check if alias has any parameterized placeholders
+    if '{' not in alias_value:
+        # No placeholders, append all args at the end (traditional behavior)
+        if args:
+            return f"{alias_value} {' '.join(args)}"
+        return alias_value
+    
+    # Handle {*} or {@} - all arguments
+    if '{*}' in result or '{@}' in result:
+        all_args = ' '.join(args) if args else ''
+        result = result.replace('{*}', all_args).replace('{@}', all_args)
+    
+    # Handle {n:-default} patterns (with default values)
+    pattern_with_default = r'\{(\d+):-([^}]*)\}'
+    for match in re.finditer(pattern_with_default, alias_value):
+        placeholder = match.group(0)
+        index = int(match.group(1)) - 1  # Convert to 0-based index
+        default = match.group(2)
+        
+        if index < len(args):
+            result = result.replace(placeholder, args[index])
+        else:
+            result = result.replace(placeholder, default)
+    
+    # Handle {n} patterns (without default values)
+    pattern_simple = r'\{(\d+)\}'
+    for match in re.finditer(pattern_simple, result):
+        placeholder = match.group(0)
+        index = int(match.group(1)) - 1  # Convert to 0-based index
+        
+        if index < len(args):
+            result = result.replace(placeholder, args[index])
+        else:
+            # No argument provided and no default - leave empty or show warning
+            result = result.replace(placeholder, '')
+    
+    return result.strip()
+
+
 def expand_aliases(command):
-    """ Expand aliases if present"""
+    """ Expand aliases if present, including parameterized aliases with {1}, {2}, etc."""
     try:
         # First try to import the alias plugin
         from app.plugins.alias_command import get_aliases
@@ -181,26 +241,20 @@ def expand_aliases(command):
                 if part_parts and part_parts[0] in aliases:
                     # Replace the alias with its definition
                     alias_value = aliases[part_parts[0]]
+                    args = part_parts[1:] if len(part_parts) > 1 else []
                     
                     # Check for recursive alias expansion - avoid expanding if alias value starts with same name
                     if alias_value.startswith(f"{part_parts[0]} "):
                         # This is a problematic pattern like "ls='ls -CF --color=always'"
                         # Only use the options part of the alias to avoid recursive expansion
                         alias_options = alias_value[len(part_parts[0]):].strip()
-                        if len(part_parts) > 1:
-                            # Alias with arguments
-                            expanded_part = f"{part_parts[0]} {alias_options} {' '.join(part_parts[1:])}"
+                        if args:
+                            expanded_part = f"{part_parts[0]} {alias_options} {' '.join(args)}"
                         else:
-                            # Alias with no arguments
                             expanded_part = f"{part_parts[0]} {alias_options}"
                     else:
-                        # Normal alias that doesn't cause recursive expansion
-                        if len(part_parts) > 1:
-                            # Alias with arguments
-                            expanded_part = f"{alias_value} {' '.join(part_parts[1:])}"
-                        else:
-                            # Alias with no arguments
-                            expanded_part = alias_value
+                        # Use parameterized expansion
+                        expanded_part = expand_parameterized_alias(alias_value, args)
                     
                     expanded_parts.append(expanded_part)
                     part_expanded = True
@@ -221,14 +275,20 @@ def expand_aliases(command):
             if command_parts and command_parts[0] in aliases:
                 # Replace the alias with its definition
                 alias_value = aliases[command_parts[0]]
+                args = command_parts[1:] if len(command_parts) > 1 else []
                 
-                # Replace only the first word (the command) with the alias value
-                if len(command_parts) > 1:
-                    # Alias with arguments
-                    expanded_command = f"{alias_value} {' '.join(command_parts[1:])}"
+                # Check for recursive alias expansion - avoid expanding if alias value starts with same name
+                if alias_value.startswith(f"{command_parts[0]} "):
+                    # This is a problematic pattern like "ls='ls -CF --color=always'"
+                    # Only use the options part of the alias to avoid recursive expansion
+                    alias_options = alias_value[len(command_parts[0]):].strip()
+                    if args:
+                        expanded_command = f"{command_parts[0]} {alias_options} {' '.join(args)}"
+                    else:
+                        expanded_command = f"{command_parts[0]} {alias_options}"
                 else:
-                    # Alias with no arguments
-                    expanded_command = alias_value
+                    # Use parameterized expansion
+                    expanded_command = expand_parameterized_alias(alias_value, args)
                 
                 # Update the command with the expanded alias
                 command = expanded_command

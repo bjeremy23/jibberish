@@ -4,7 +4,7 @@ Feature suggestions to improve the CLI user experience.
 
 ---
 
-## 1. Command Output Recall with `$_` or `@n` Syntax ⭐ High Impact - [x] COMPLETED
+## 1. Command Output Recall with `$_` or `@n` Syntax ⭐ High Impact - ✅ Completed
 
 Allow users to reference output from previous commands without re-running them:
 
@@ -31,7 +31,7 @@ The feature is now available. Command outputs are automatically stored and can b
 
 ---
 
-## 2. Parameterized Aliases with Placeholders — Medium Impact
+## 2. Parameterized Aliases with Placeholders ✅ Completed
 
 Extend the alias system to support parameter substitution:
 
@@ -52,6 +52,13 @@ Extend the alias system to support parameter substitution:
 - Parse `{1}`, `{2}`, etc. placeholders in alias definitions
 - Support optional default values: `{1:-default}`
 - Update `alias_command.py` to handle expansion
+
+**Implemented:**
+- Added `expand_parameterized_alias()` function in `app/executor.py`
+- Updated `expand_aliases()` to use parameterized expansion
+- Supports `{1}`, `{2}`, `{1:-default}`, and `{*}` for all args
+- Added 9 new tests in `tests/plugins/test_alias_expansion.py`
+- Added documentation section in README.md
 
 ---
 
