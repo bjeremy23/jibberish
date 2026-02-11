@@ -468,7 +468,19 @@ def _execute_tool_calls(tool_calls, tool_context):
                 tool_output = tool.execute(**tool_args)
                 tool_context.append(f"Tool {tool_name} output:\n{tool_output}")
                 tools_executed = True
-                click.echo(click.style(f"Tool {tool_name} completed", fg="green"))
+                
+                # Check if tool returned a stop processing signal
+                if tool_output in ["COMMAND_EXECUTED_STOP_PROCESSING", "COMMAND_CANCELLED_STOP_PROCESSING"]:
+                    # Clear the tool context to prevent AI response
+                    tool_context.clear()
+                    if tool_output == "COMMAND_CANCELLED_STOP_PROCESSING":
+                        tool_context.append("CANCELLED")
+                    else:
+                        tool_context.append("EXECUTED")
+                
+                # Only show completion message if debug is enabled
+                if is_debug_enabled():
+                    click.echo(click.style(f"Tool {tool_name} completed", fg="green"))
             except KeyboardInterrupt:
                 # Tool execution was interrupted - add info to context and re-raise
                 error_msg = f"Tool {tool_name} cancelled by user"
@@ -605,6 +617,13 @@ def _ask_question_with_tools(command, temp=None, max_tool_iterations=6):
                         return "Tool execution cancelled by user."
                     
                     if tools_executed:
+                        # Check if any tool requested to stop processing
+                        if tool_context and (tool_context[-1] == "EXECUTED" or tool_context[-1] == "CANCELLED"):
+                            if tool_context[-1] == "CANCELLED":
+                                return ""  # Return empty string for cancelled commands
+                            else:
+                                return ""  # Return empty string for executed commands (output already shown)
+
                         # Clean up the AI response that contained the tool calls
                         ai_response = _clean_ai_response(ai_response)
                         

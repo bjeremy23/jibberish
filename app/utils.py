@@ -44,12 +44,16 @@ def prompt_before_execution(command_description="this command"):
     except KeyboardInterrupt:
         # Handle Ctrl+C gracefully - don't exit the shell, just cancel the command
         click.echo()  # Print newline after ^C
-        click.echo(click.style("Command execution cancelled", fg="yellow"))
+        # Don't show cancellation message if called from linux_command tool
+        if not os.environ.get('JIBBERISH_TOOL_CONTEXT'):
+            click.echo(click.style("Command execution cancelled", fg="yellow"))
         return False
     
     sys.stdout.flush()
     if choice.lower() != 'y':
-        click.echo(click.style("Command execution cancelled", fg="yellow"))
+        # Don't show cancellation message if called from linux_command tool
+        if not os.environ.get('JIBBERISH_TOOL_CONTEXT'):
+            click.echo(click.style("Command execution cancelled", fg="yellow"))
         return False
     
     return True

@@ -132,17 +132,23 @@ class LinuxCommandTool(Tool):
             # Check if we should prompt before executing based on user's original setting
             # Only prompt if user explicitly set PROMPT_AI_COMMANDS to enable prompting
             if user_prompt_setting in ('true', 'always', 'yes', '1'):
-                if not prompt_before_execution(f"'{actual_command}'"):
-                    return "Command execution cancelled by user"
+                # Set tool context flag to suppress cancellation messages
+                os.environ['JIBBERISH_TOOL_CONTEXT'] = '1'
+                try:
+                    if not prompt_before_execution(f"'{actual_command}'"):
+                        return "COMMAND_CANCELLED_STOP_PROCESSING"
+                finally:
+                    # Clean up the flag
+                    if 'JIBBERISH_TOOL_CONTEXT' in os.environ:
+                        del os.environ['JIBBERISH_TOOL_CONTEXT']
 
             # Execute the command directly
             try:
                 # Use a special marker to indicate this is a tool-generated command
                 success, result = execute_command_with_built_ins(actual_command, original_command="__TOOL_GENERATED__", add_to_history=True)
-                if success == 0:
-                    return f"SUCCESS: {result}"
-                else:
-                    return f"ERROR: {result}"
+                
+                # Return a special marker that tells the AI not to provide additional response
+                return "COMMAND_EXECUTED_STOP_PROCESSING"
             except Exception as e:
                 return f"ERROR: {str(e)}"
         except Exception as e:

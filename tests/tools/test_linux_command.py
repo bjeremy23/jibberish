@@ -65,8 +65,8 @@ class TestLinuxCommandTool(unittest.TestCase):
         mock_prompt.assert_called_once_with("'echo 'hello world''")
         mock_execute.assert_called_once_with("echo 'hello world'", original_command="__TOOL_GENERATED__", add_to_history=True)
         
-        # Verify result
-        self.assertEqual(result, "SUCCESS: Command executed successfully")
+        # Verify result - new behavior returns stop processing signal
+        self.assertEqual(result, "COMMAND_EXECUTED_STOP_PROCESSING")
 
     @patch('app.tools.linux_command.prompt_before_execution', return_value=True)
     @patch('app.tools.linux_command.execute_command_with_built_ins')
@@ -82,9 +82,8 @@ class TestLinuxCommandTool(unittest.TestCase):
         mock_prompt.assert_called_once_with("'ls /nonexistent/directory'")
         mock_execute.assert_called_once_with("ls /nonexistent/directory", original_command="__TOOL_GENERATED__", add_to_history=True)
         
-        # Verify result contains error message
-        self.assertIn("ERROR", result)
-        self.assertIn("Command failed: No such file or directory", result)
+        # Verify result - new behavior returns stop processing signal for all executions
+        self.assertEqual(result, "COMMAND_EXECUTED_STOP_PROCESSING")
 
     @patch('app.tools.linux_command.prompt_before_execution', return_value=True)
     def test_exception_handling(self, mock_prompt):
@@ -120,7 +119,7 @@ class TestLinuxCommandTool(unittest.TestCase):
                 
                 # Tools should bypass WARN_LIST and execute successfully
                 self.assertNotIn("SECURITY:", result)
-                self.assertEqual(result, "SUCCESS: Command executed via tool")
+                self.assertEqual(result, "COMMAND_EXECUTED_STOP_PROCESSING")
 
     @patch('app.tools.linux_command.prompt_before_execution', return_value=True)
     @patch('app.tools.linux_command.execute_command_with_built_ins')
@@ -137,7 +136,7 @@ class TestLinuxCommandTool(unittest.TestCase):
         
         mock_prompt.assert_called_once_with("'echo 'safe command''")
         self.assertNotIn("SECURITY:", result)
-        self.assertEqual(result, "SUCCESS: Command executed via tool")
+        self.assertEqual(result, "COMMAND_EXECUTED_STOP_PROCESSING")
 
     @patch('app.tools.linux_command.prompt_before_execution', return_value=True)
     @patch('app.tools.linux_command.execute_command_with_built_ins')
@@ -156,7 +155,7 @@ class TestLinuxCommandTool(unittest.TestCase):
             with self.subTest(command=cmd):
                 result = self.tool.execute(cmd)
                 self.assertNotIn("SECURITY:", result)
-                self.assertEqual(result, "SUCCESS: Command executed via tool")
+                self.assertEqual(result, "COMMAND_EXECUTED_STOP_PROCESSING")
 
     @patch('app.tools.linux_command.prompt_before_execution', return_value=True)
     @patch('app.tools.linux_command.execute_command_with_built_ins')
@@ -176,7 +175,7 @@ class TestLinuxCommandTool(unittest.TestCase):
                 
                 # Should not contain security warning
                 self.assertNotIn("SECURITY:", result)
-                self.assertEqual(result, "SUCCESS: Safe command executed")
+                self.assertEqual(result, "COMMAND_EXECUTED_STOP_PROCESSING")
 
     @patch('app.tools.linux_command.prompt_before_execution', return_value=True)
     @patch('app.tools.linux_command.execute_command_with_built_ins')
@@ -192,7 +191,7 @@ class TestLinuxCommandTool(unittest.TestCase):
         mock_prompt.assert_called_once_with("'rm file.txt'")
         # Should not be blocked
         self.assertNotIn("SECURITY:", result)
-        self.assertEqual(result, "SUCCESS: Command executed")
+        self.assertEqual(result, "COMMAND_EXECUTED_STOP_PROCESSING")
 
     @patch('app.tools.linux_command.prompt_before_execution', return_value=True)
     @patch('app.tools.linux_command.execute_command_with_built_ins')
@@ -209,7 +208,7 @@ class TestLinuxCommandTool(unittest.TestCase):
         mock_prompt.assert_called_once_with("'rm file.txt'")
         # Tools should bypass WARN_LIST regardless of whitespace
         self.assertNotIn("SECURITY:", result)
-        self.assertEqual(result, "SUCCESS: Command executed via tool")
+        self.assertEqual(result, "COMMAND_EXECUTED_STOP_PROCESSING")
 
     @patch('app.tools.linux_command.prompt_before_execution', return_value=True)
     @patch('app.tools.linux_command.execute_command_with_built_ins')
@@ -227,7 +226,7 @@ class TestLinuxCommandTool(unittest.TestCase):
                 result = self.tool.execute(cmd)
                 # Should NOT contain security warning (case sensitive)
                 self.assertNotIn("SECURITY:", result)
-                self.assertEqual(result, "SUCCESS: Command executed")
+                self.assertEqual(result, "COMMAND_EXECUTED_STOP_PROCESSING")
 
     @patch('app.tools.linux_command.prompt_before_execution', return_value=True)
     @patch('app.tools.linux_command.execute_command_with_built_ins')
@@ -249,7 +248,7 @@ class TestLinuxCommandTool(unittest.TestCase):
             with self.subTest(command=repr(cmd)):
                 result = self.tool.execute(cmd)
                 self.assertNotIn("SECURITY:", result)
-                self.assertEqual(result, "SUCCESS: Command executed via tool")
+                self.assertEqual(result, "COMMAND_EXECUTED_STOP_PROCESSING")
 
     @patch('app.tools.linux_command.prompt_before_execution', return_value=True)
     @patch('app.tools.linux_command.execute_command_with_built_ins')
@@ -262,7 +261,7 @@ class TestLinuxCommandTool(unittest.TestCase):
         # Should execute empty command
         mock_prompt.assert_called_once_with("''")
         mock_execute.assert_called_once_with("", original_command="__TOOL_GENERATED__", add_to_history=True)
-        self.assertEqual(result, "SUCCESS: ")
+        self.assertEqual(result, "COMMAND_EXECUTED_STOP_PROCESSING")
 
     @patch('app.tools.linux_command.prompt_before_execution', return_value=True)
     @patch('app.tools.linux_command.execute_command_with_built_ins')
@@ -278,7 +277,7 @@ class TestLinuxCommandTool(unittest.TestCase):
         # Verify the full chained command was passed to execute_command_with_built_ins
         mock_prompt.assert_called_once_with(f"'{chained_command}'")
         mock_execute.assert_called_once_with(chained_command, original_command="__TOOL_GENERATED__", add_to_history=True)
-        self.assertEqual(result, "SUCCESS: Commands chained successfully")
+        self.assertEqual(result, "COMMAND_EXECUTED_STOP_PROCESSING")
 
     @patch('app.tools.linux_command.prompt_before_execution', return_value=True)
     @patch('app.tools.linux_command.execute_command_with_built_ins')
@@ -291,7 +290,7 @@ class TestLinuxCommandTool(unittest.TestCase):
         
         mock_prompt.assert_called_once_with(f"'{complex_command}'")
         mock_execute.assert_called_once_with(complex_command, original_command="__TOOL_GENERATED__", add_to_history=True)
-        self.assertEqual(result, "SUCCESS: Complex command executed")
+        self.assertEqual(result, "COMMAND_EXECUTED_STOP_PROCESSING")
 
     def test_function_definition_format(self):
         """Test that the tool provides a proper function definition for AI integration."""
@@ -336,7 +335,7 @@ class TestLinuxCommandTool(unittest.TestCase):
         
         # Should execute without prompting
         mock_execute.assert_called_once_with("echo test", original_command="__TOOL_GENERATED__", add_to_history=True)
-        self.assertEqual(result, "SUCCESS: Command executed without prompting")
+        self.assertEqual(result, "COMMAND_EXECUTED_STOP_PROCESSING")
 
     @patch('app.tools.linux_command.prompt_before_execution', return_value=True)
     @patch('app.tools.linux_command.execute_command_with_built_ins')
@@ -352,7 +351,7 @@ class TestLinuxCommandTool(unittest.TestCase):
         # Should prompt before executing
         mock_prompt.assert_called_once_with("'echo test'")
         mock_execute.assert_called_once_with("echo test", original_command="__TOOL_GENERATED__", add_to_history=True)
-        self.assertEqual(result, "SUCCESS: Command executed with prompting")
+        self.assertEqual(result, "COMMAND_EXECUTED_STOP_PROCESSING")
 
     @patch('app.tools.linux_command.prompt_before_execution', return_value=True)
     @patch('app.tools.linux_command.execute_command_with_built_ins')
@@ -369,7 +368,7 @@ class TestLinuxCommandTool(unittest.TestCase):
         # Should prompt before executing (default behavior)
         mock_prompt.assert_called_once_with("'echo test'")
         mock_execute.assert_called_once_with("echo test", original_command="__TOOL_GENERATED__", add_to_history=True)
-        self.assertEqual(result, "SUCCESS: Command executed with prompting")
+        self.assertEqual(result, "COMMAND_EXECUTED_STOP_PROCESSING")
 
     @patch('app.tools.linux_command.execute_command_with_built_ins')
     def test_prompt_ai_commands_false_case_insensitive(self, mock_execute):
@@ -383,7 +382,7 @@ class TestLinuxCommandTool(unittest.TestCase):
         
         # Should execute without prompting (case insensitive)
         mock_execute.assert_called_once_with("echo test", original_command="__TOOL_GENERATED__", add_to_history=True)
-        self.assertEqual(result, "SUCCESS: Command executed without prompting")
+        self.assertEqual(result, "COMMAND_EXECUTED_STOP_PROCESSING")
 
     @patch('app.tools.linux_command.prompt_before_execution', return_value=False)
     @patch('app.tools.linux_command.execute_command_with_built_ins')
@@ -397,7 +396,7 @@ class TestLinuxCommandTool(unittest.TestCase):
         # Should prompt and cancel execution when user rejects
         mock_prompt.assert_called_once_with("'rm dangerous_file'")
         mock_execute.assert_not_called()  # Should not execute when prompt is rejected
-        self.assertEqual(result, "Command execution cancelled by user")
+        self.assertEqual(result, "COMMAND_CANCELLED_STOP_PROCESSING")
 
 
 if __name__ == '__main__':
