@@ -30,7 +30,7 @@ class FileReaderTool(Tool):
                 },
                 "max_lines": {
                     "type": "integer",
-                    "description": "Maximum number of lines to read. If not specified, reads entire file. Useful for large files.",
+                    "description": "Maximum number of lines to read. If not specified, reads entire file (auto-truncated to 500 lines for files over 1MB). Useful for large files.",
                     "default": None
                 },
                 "start_line": {
@@ -77,38 +77,44 @@ class FileReaderTool(Tool):
             
             # Get file info
             file_size = os.path.getsize(expanded_path)
-            
-            # Warn about very large files
-            if file_size > 1024 * 1024:  # 1MB
-                return f"ERROR: File '{filepath}' is very large ({file_size} bytes). Please specify max_lines parameter to limit output."
-            
-            with open(expanded_path, 'r', encoding='utf-8', errors='replace') as f:
-                lines = f.readlines()
-            
-            # Apply line filtering
-            total_lines = len(lines)
-            
-            # Adjust start_line to 0-based indexing
+
+            # For large files without line limits, auto-truncate instead of refusing
+            MAX_RETURN_LINES = 500
+            truncated = False
+            if file_size > 1024 * 1024 and max_lines is None:
+                max_lines = MAX_RETURN_LINES
+                truncated = True
+
+            # Stream lines lazily to avoid loading entire large files into memory
+            total_lines = 0
+            selected_lines = []
             start_idx = max(0, start_line - 1)
-            
+
+            with open(expanded_path, 'r', encoding='utf-8', errors='replace') as f:
+                for i, line in enumerate(f):
+                    total_lines = i + 1
+                    if i < start_idx:
+                        continue
+                    if max_lines is not None and len(selected_lines) >= max_lines:
+                        continue
+                    selected_lines.append(line)
+
             if start_idx >= total_lines:
                 return f"ERROR: start_line {start_line} is beyond the file length ({total_lines} lines)."
-            
-            # Select lines based on parameters
-            if max_lines is not None:
-                end_idx = min(total_lines, start_idx + max_lines)
-                selected_lines = lines[start_idx:end_idx]
-            else:
-                selected_lines = lines[start_idx:]
-            
+
             # Format the result
             content = ''.join(selected_lines)
-            
+
             # Add metadata header
             result_lines = len(selected_lines)
             metadata = f"=== File: {filepath} ===\n"
-            metadata += f"=== Lines {start_line}-{start_idx + result_lines} of {total_lines} total ===\n\n"
-            
+            metadata += f"=== Lines {start_line}-{start_idx + result_lines} of {total_lines} total ===\n"
+
+            if truncated:
+                metadata += f"=== [Truncated: showing first {MAX_RETURN_LINES} lines. Use start_line/max_lines to read more.] ===\n"
+
+            metadata += "\n"
+
             return metadata + content
             
         except UnicodeDecodeError:

@@ -29,11 +29,11 @@ class TestFileReaderTool(unittest.TestCase):
         # Create a temporary directory for testing
         self.temp_dir = tempfile.mkdtemp()
         
-        # Create a large test file for size testing
+        # Create a large test file that exceeds the 1MB threshold
         self.large_file = tempfile.NamedTemporaryFile(mode='w', delete=False)
-        # Write content that would exceed 1MB threshold (simulate large file)
-        large_content = "Large file content line\n" * 1000
-        self.large_file.write(large_content)
+        # Each line is ~30 bytes, so 50000 lines = ~1.5MB (over 1MB threshold)
+        for i in range(50000):
+            self.large_file.write(f"Large file content line {i + 1}\n")
         self.large_file.close()
     
     def tearDown(self):
@@ -229,12 +229,50 @@ class TestFileReaderTool(unittest.TestCase):
     def test_zero_max_lines(self):
         """Test behavior with max_lines=0."""
         result = self.tool.execute(filepath=self.temp_file.name, max_lines=0)
-        
+
         # Should return metadata but no content
         self.assertIn("=== File:", result)
         self.assertIn("Lines 1-0 of 5", result)
         # Should not contain any of the actual file content
         self.assertNotIn("Line 1", result)
+
+    def test_large_file_auto_truncates(self):
+        """Test that large files without max_lines are auto-truncated to 500 lines."""
+        # Verify the file is actually over 1MB
+        self.assertGreater(os.path.getsize(self.large_file.name), 1024 * 1024)
+
+        result = self.tool.execute(filepath=self.large_file.name)
+
+        # Should succeed, not error
+        self.assertNotIn("ERROR:", result)
+        self.assertIn("=== File:", result)
+        # Should show truncation notice
+        self.assertIn("Truncated", result)
+        self.assertIn("500 lines", result)
+        # Should contain the first line but not line 501
+        self.assertIn("Large file content line 1", result)
+        self.assertNotIn("Large file content line 501", result)
+
+    def test_large_file_with_max_lines(self):
+        """Test that large files with explicit max_lines read successfully."""
+        result = self.tool.execute(filepath=self.large_file.name, max_lines=10)
+
+        # Should succeed without truncation notice
+        self.assertNotIn("ERROR:", result)
+        self.assertNotIn("Truncated", result)
+        self.assertIn("Large file content line 1", result)
+        self.assertIn("Large file content line 10", result)
+        self.assertNotIn("Large file content line 11", result)
+
+    def test_large_file_with_start_line(self):
+        """Test reading from a deep offset in a large file."""
+        result = self.tool.execute(filepath=self.large_file.name, start_line=10000, max_lines=5)
+
+        self.assertNotIn("ERROR:", result)
+        self.assertIn("Large file content line 10000", result)
+        self.assertIn("Large file content line 10004", result)
+        self.assertNotIn("Large file content line 10005", result)
+        self.assertIn("Lines 10000-10004 of 50000", result)
 
 
 if __name__ == '__main__':
