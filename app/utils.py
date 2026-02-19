@@ -368,7 +368,6 @@ def load_chat_history():
     """
     Load chat from the global history, returning the recent conversation messages
     """
-    global chat_history
     
     # Return the current conversation history
     # We want the last noof_questions pairs (each pair is 2 entries: user + assistant)

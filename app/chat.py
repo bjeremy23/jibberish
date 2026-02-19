@@ -559,7 +559,6 @@ def _ask_question_with_tools(command, temp=None, max_tool_iterations=6):
                 click.echo(click.style(f"[DEBUG] Tool iteration {iteration + 1}/{max_tool_iterations}", fg="cyan"))
             
             # Build additional context for this iteration
-            global partner
             additional_context = _build_additional_context(command, partner, tool_context)
             
             # Prepare the current message
