@@ -26,6 +26,7 @@ setup(
         "click>=8.0.0",
         "openai>=1.0.0",
         "psutil>=7.0.0",
+        "requests>=2.28.0",
     ],
     extras_require={
         "azure": [

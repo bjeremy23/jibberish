@@ -51,6 +51,7 @@ class TestLinuxCommandTool(unittest.TestCase):
         self.assertIn("required", params)
         self.assertEqual(params["required"], ["command"])
     
+    @patch('app.tools.linux_command._USER_PROMPT_SETTING', 'true')
     @patch('app.tools.linux_command.prompt_before_execution', return_value=True)
     @patch('app.tools.linux_command.execute_command_with_built_ins')
     def test_successful_command_execution(self, mock_execute, mock_prompt):
@@ -68,6 +69,7 @@ class TestLinuxCommandTool(unittest.TestCase):
         # Verify result - new behavior returns stop processing signal
         self.assertEqual(result, "COMMAND_EXECUTED_STOP_PROCESSING")
 
+    @patch('app.tools.linux_command._USER_PROMPT_SETTING', 'true')
     @patch('app.tools.linux_command.prompt_before_execution', return_value=True)
     @patch('app.tools.linux_command.execute_command_with_built_ins')
     def test_failed_command_execution(self, mock_execute, mock_prompt):
@@ -85,6 +87,7 @@ class TestLinuxCommandTool(unittest.TestCase):
         # Verify result - new behavior returns stop processing signal for all executions
         self.assertEqual(result, "COMMAND_EXECUTED_STOP_PROCESSING")
 
+    @patch('app.tools.linux_command._USER_PROMPT_SETTING', 'true')
     @patch('app.tools.linux_command.prompt_before_execution', return_value=True)
     def test_exception_handling(self, mock_prompt):
         """Test that exceptions are properly caught and handled."""
@@ -121,6 +124,7 @@ class TestLinuxCommandTool(unittest.TestCase):
                 self.assertNotIn("SECURITY:", result)
                 self.assertEqual(result, "COMMAND_EXECUTED_STOP_PROCESSING")
 
+    @patch('app.tools.linux_command._USER_PROMPT_SETTING', 'true')
     @patch('app.tools.linux_command.prompt_before_execution', return_value=True)
     @patch('app.tools.linux_command.execute_command_with_built_ins')
     def test_warn_list_security_check_all_commands(self, mock_execute, mock_prompt):
@@ -177,6 +181,7 @@ class TestLinuxCommandTool(unittest.TestCase):
                 self.assertNotIn("SECURITY:", result)
                 self.assertEqual(result, "COMMAND_EXECUTED_STOP_PROCESSING")
 
+    @patch('app.tools.linux_command._USER_PROMPT_SETTING', 'true')
     @patch('app.tools.linux_command.prompt_before_execution', return_value=True)
     @patch('app.tools.linux_command.execute_command_with_built_ins')
     def test_warn_list_empty_or_missing(self, mock_execute, mock_prompt):
@@ -193,6 +198,7 @@ class TestLinuxCommandTool(unittest.TestCase):
         self.assertNotIn("SECURITY:", result)
         self.assertEqual(result, "COMMAND_EXECUTED_STOP_PROCESSING")
 
+    @patch('app.tools.linux_command._USER_PROMPT_SETTING', 'true')
     @patch('app.tools.linux_command.prompt_before_execution', return_value=True)
     @patch('app.tools.linux_command.execute_command_with_built_ins')
     def test_warn_list_whitespace_handling(self, mock_execute, mock_prompt):
@@ -250,6 +256,7 @@ class TestLinuxCommandTool(unittest.TestCase):
                 self.assertNotIn("SECURITY:", result)
                 self.assertEqual(result, "COMMAND_EXECUTED_STOP_PROCESSING")
 
+    @patch('app.tools.linux_command._USER_PROMPT_SETTING', 'true')
     @patch('app.tools.linux_command.prompt_before_execution', return_value=True)
     @patch('app.tools.linux_command.execute_command_with_built_ins')
     def test_empty_command(self, mock_execute, mock_prompt):
@@ -263,6 +270,7 @@ class TestLinuxCommandTool(unittest.TestCase):
         mock_execute.assert_called_once_with("", original_command="__TOOL_GENERATED__", add_to_history=True)
         self.assertEqual(result, "COMMAND_EXECUTED_STOP_PROCESSING")
 
+    @patch('app.tools.linux_command._USER_PROMPT_SETTING', 'true')
     @patch('app.tools.linux_command.prompt_before_execution', return_value=True)
     @patch('app.tools.linux_command.execute_command_with_built_ins')
     def test_command_chaining(self, mock_execute, mock_prompt):
@@ -279,6 +287,7 @@ class TestLinuxCommandTool(unittest.TestCase):
         mock_execute.assert_called_once_with(chained_command, original_command="__TOOL_GENERATED__", add_to_history=True)
         self.assertEqual(result, "COMMAND_EXECUTED_STOP_PROCESSING")
 
+    @patch('app.tools.linux_command._USER_PROMPT_SETTING', 'true')
     @patch('app.tools.linux_command.prompt_before_execution', return_value=True)
     @patch('app.tools.linux_command.execute_command_with_built_ins')
     def test_complex_command_with_special_characters(self, mock_execute, mock_prompt):
@@ -337,6 +346,7 @@ class TestLinuxCommandTool(unittest.TestCase):
         mock_execute.assert_called_once_with("echo test", original_command="__TOOL_GENERATED__", add_to_history=True)
         self.assertEqual(result, "COMMAND_EXECUTED_STOP_PROCESSING")
 
+    @patch('app.tools.linux_command._USER_PROMPT_SETTING', 'true')
     @patch('app.tools.linux_command.prompt_before_execution', return_value=True)
     @patch('app.tools.linux_command.execute_command_with_built_ins')
     def test_prompt_ai_commands_true_with_prompting(self, mock_execute, mock_prompt):
@@ -353,20 +363,18 @@ class TestLinuxCommandTool(unittest.TestCase):
         mock_execute.assert_called_once_with("echo test", original_command="__TOOL_GENERATED__", add_to_history=True)
         self.assertEqual(result, "COMMAND_EXECUTED_STOP_PROCESSING")
 
-    @patch('app.tools.linux_command.prompt_before_execution', return_value=True)
     @patch('app.tools.linux_command.execute_command_with_built_ins')
-    def test_prompt_ai_commands_unset_with_prompting(self, mock_execute, mock_prompt):
-        """Test that when PROMPT_AI_COMMANDS is unset, prompting occurs."""
+    def test_prompt_ai_commands_unset_no_prompting(self, mock_execute):
+        """Test that when PROMPT_AI_COMMANDS is unset, no prompting occurs."""
         # Ensure PROMPT_AI_COMMANDS is unset
         if "PROMPT_AI_COMMANDS" in os.environ:
             del os.environ["PROMPT_AI_COMMANDS"]
-        
-        mock_execute.return_value = (0, "Command executed with prompting")
-        
+
+        mock_execute.return_value = (0, "Command executed without prompting")
+
         result = self.tool.execute("echo test")
-        
-        # Should prompt before executing (default behavior)
-        mock_prompt.assert_called_once_with("'echo test'")
+
+        # Should execute without prompting (_USER_PROMPT_SETTING captured as '' at import time)
         mock_execute.assert_called_once_with("echo test", original_command="__TOOL_GENERATED__", add_to_history=True)
         self.assertEqual(result, "COMMAND_EXECUTED_STOP_PROCESSING")
 
@@ -384,6 +392,7 @@ class TestLinuxCommandTool(unittest.TestCase):
         mock_execute.assert_called_once_with("echo test", original_command="__TOOL_GENERATED__", add_to_history=True)
         self.assertEqual(result, "COMMAND_EXECUTED_STOP_PROCESSING")
 
+    @patch('app.tools.linux_command._USER_PROMPT_SETTING', 'true')
     @patch('app.tools.linux_command.prompt_before_execution', return_value=False)
     @patch('app.tools.linux_command.execute_command_with_built_ins')
     def test_prompt_rejection_cancels_execution(self, mock_execute, mock_prompt):
