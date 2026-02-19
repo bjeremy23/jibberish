@@ -6,34 +6,40 @@ from app.version import __version__, VERSION_NAME
 from app.utils import silence_stdout, is_debug_enabled
 
 # Load environment variables - always load them, but only print if debug is enabled
-with open(os.path.expanduser("~/.jbrsh")) as env:
-    for line in env:
-        line = line.strip()
-        # Skip empty lines or comments
-        if not line or line.startswith("//") or line.startswith("#"):
-            continue
-        # Only try to split if there's an equal sign
-        if "=" in line:
-            key, value = line.split("=", 1)  # Split only on the first =
-            key = key.strip()
-            
-            # Special handling for GIT_CONFIG_PARAMETERS which needs quoted value
-            if key == "GIT_CONFIG_PARAMETERS":
-                # Extract the actual value while preserving inner quotes
-                if value.startswith('"') and value.endswith('"'):
-                    value = value[1:-1]  # Remove outer double quotes only
-                os.environ[key] = value
-                if is_debug_enabled():
-                    print(f"Environment variable {key}={value}")
-            else:
-                # Standard processing for other variables - remove quotes if present
-                value = value.strip('"\'')
-                os.environ[key] = value
-                if is_debug_enabled():
-                    print(f"Set {key} to {value}")
-    
-    if is_debug_enabled():
-        print("Environment variables loaded from ~/.jbrsh\n")
+_jbrsh_path = os.path.expanduser("~/.jbrsh")
+_jbrsh_missing = not os.path.exists(_jbrsh_path)
+if _jbrsh_missing:
+    import sys
+    print(f"Warning: Configuration file ~/.jbrsh not found. AI functionality will not be available.", file=sys.stderr)
+if not _jbrsh_missing:
+    with open(_jbrsh_path) as env:
+        for line in env:
+            line = line.strip()
+            # Skip empty lines or comments
+            if not line or line.startswith("//") or line.startswith("#"):
+                continue
+            # Only try to split if there's an equal sign
+            if "=" in line:
+                key, value = line.split("=", 1)  # Split only on the first =
+                key = key.strip()
+
+                # Special handling for GIT_CONFIG_PARAMETERS which needs quoted value
+                if key == "GIT_CONFIG_PARAMETERS":
+                    # Extract the actual value while preserving inner quotes
+                    if value.startswith('"') and value.endswith('"'):
+                        value = value[1:-1]  # Remove outer double quotes only
+                    os.environ[key] = value
+                    if is_debug_enabled():
+                        print(f"Environment variable {key}={value}")
+                else:
+                    # Standard processing for other variables - remove quotes if present
+                    value = value.strip('"\'')
+                    os.environ[key] = value
+                    if is_debug_enabled():
+                        print(f"Set {key} to {value}")
+
+        if is_debug_enabled():
+            print("Environment variables loaded from ~/.jbrsh\n")
 
 ai_choice = os.environ.get('AI_CHOICE', 'openai').lower()
 if ai_choice not in ["openai", "azure"]:
@@ -122,8 +128,15 @@ if ai_choice == "azure":
             model = os.environ['AZURE_OPENAI_DEPLOYMENT_NAME']
 else:
     # Standard OpenAI client
-    client = openai.OpenAI(
-        api_key=os.environ['OPEN_API_KEY']
-    )
-    model =  os.environ['OPEN_API_MODEL']
+    if os.environ.get('OPEN_API_KEY'):
+        client = openai.OpenAI(
+            api_key=os.environ['OPEN_API_KEY']
+        )
+        model = os.environ.get('OPEN_API_MODEL', 'gpt-4')
+    else:
+        if _jbrsh_missing:
+            import sys
+            print(f"Warning: Configuration file ~/.jbrsh not found. API client not initialized.", file=sys.stderr)
+        client = None
+        model = None
 
