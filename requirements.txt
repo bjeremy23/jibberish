@@ -2,6 +2,7 @@
 click>=8.0.0
 openai>=1.0.0
 psutil>=7.0.0  # Required for job_control_command.py (known working version)
+requests>=2.28.0
 
 # Optional dependencies - For Azure OpenAI support
 # Uncomment the following lines to install Azure OpenAI support
