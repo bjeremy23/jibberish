@@ -129,34 +129,6 @@ def transform_multiline(command_chain):
     # Remove empty lines and join the lines back
     return '\n'.join(line for line in lines if line)
 
-def is_cmd_interactive(command):
-    """
-    Check if the command is interactive based on the INTERACTIVE_LIST environment variable
-    """
-
-    default_interactive = "vi,vim,nano,emacs,less,more,top,htop,tail -f,watch"
-    interactive_list = os.environ.get("INTERACTIVE_LIST", default_interactive)
-    interactive_commands = [cmd.strip() for cmd in interactive_list.split(",") if cmd.strip()]  # Clean up the list
-    
-    # Check if the command is interactive - check for interactive commands anywhere in the pipeline
-    # This handles cases like "cat file | more" where "more" is not the first command
-    is_interactive = False
-    
-    # First check if the main command is interactive
-    cmd_name = command.strip().split()[0] if command.strip().split() else ""
-    if any(cmd_name == ic or cmd_name.endswith('/' + ic) for ic in interactive_commands):
-        is_interactive = True
-
-    # If not, check if any part of a pipeline is interactive
-    if not is_interactive and '|' in command:
-        pipeline_parts = command.split('|')
-        for part in pipeline_parts:
-            part_cmd = part.strip().split()[0] if part.strip().split() else ""
-            if any(part_cmd == ic or part_cmd.endswith('/' + ic) for ic in interactive_commands):
-                is_interactive = True
-                break
-    
-    return is_interactive
 
 
 def expand_parameterized_alias(alias_value, args):
@@ -379,234 +351,260 @@ def run_in_background(command):
         click.echo(click.style(f"Error running command in background: {e}", fg="red"))
         return -1, "", str(e)
 
-def run_in_interactive(command):
+def run_with_pty(command):
     """
-    Run a command in interactive mode
-    """
-    # Use subprocess for interactive applications instead of os.system
-    # This gives us more control over the process execution
-    import signal
-    
-    # Store original SIGINT handler
-    original_sigint = signal.getsignal(signal.SIGINT)
-    
-    def custom_sigint_handler(sig, frame):
-        # Restore original SIGINT handler
-        signal.signal(signal.SIGINT, original_sigint)
-        click.echo(click.style("\nInteractive command interrupted by user (Ctrl+C)", fg="yellow"))
-        return
-    
-    try:
-        # Set our custom interrupt handler
-        signal.signal(signal.SIGINT, custom_sigint_handler)
-        
-        # Run the interactive command with subprocess
-        try:
-            process = subprocess.Popen(
-                command,
-                shell=True,
-                executable='/bin/bash'
-            )
-        except (OSError, FileNotFoundError) as e:
-            # Handle stale file handle - current directory is invalid
-            click.echo(click.style(f"Warning: Current directory is invalid (stale file handle). Switching to home directory.", fg="yellow"))
-            try:
-                home_dir = os.path.expanduser("~")
-                os.chdir(home_dir)
-                click.echo(click.style(f"Changed working directory to: {home_dir}", fg="yellow"))
-                # Retry the command in the home directory
-                process = subprocess.Popen(
-                    command,
-                    shell=True,
-                    executable='/bin/bash'
-                )
-            except Exception as retry_error:
-                # Restore original handler before returning
-                signal.signal(signal.SIGINT, original_sigint)
-                return -1, "", f"Failed to execute command even after changing to home directory: {retry_error}"
-        
-        # Wait for command to complete
-        return_code = process.wait()
-        
-        # Restore the original signal handler
-        signal.signal(signal.SIGINT, original_sigint)
-        
-        return return_code, "", ""
-    except KeyboardInterrupt:
-        # This will be caught if CTRL+C is pressed while not in subprocess
-        click.echo(click.style("\nInteractive command interrupted by user (Ctrl+C)", fg="yellow"))
-        # Restore original handler
-        signal.signal(signal.SIGINT, original_sigint)
-        return -1, "", "Aborted by user"
-    except Exception as e:
-        # Restore original handler before propagating
-        signal.signal(signal.SIGINT, original_sigint)
-        raise e
+    Run a command using a pseudo-terminal (PTY) for stdout/stdin so that
+    TUI and curses programs (vim, htop, less, etc.) work correctly without
+    needing an INTERACTIVE_LIST.  stderr is captured via a pipe and returned
+    to the caller so that execute_command can still perform error detection
+    ("command not found", "did you mean …", etc.) unchanged.
 
-def run_in_non_interactive(command):
+    Falls back to pipe-based execution when stdin is not a real TTY (e.g.
+    scripted / piped usage).
     """
-    Run a command in non-interactive mode
-    """
-    # Use the simplest and most reliable approach: communicate() with a separate thread
-    # for outputting lines as they come in
-    from queue import Queue, Empty
+    import pty
+    import select
+    import termios
+    import tty
+    import struct
+    import fcntl
+    import signal
     from threading import Thread
-    
-    # Queue for collecting output
-    stdout_queue = Queue()
-    stderr_queue = Queue()
-    
-    # Set environment variables to force color output
+
+    # ------------------------------------------------------------------
+    # Build the child environment (colour forcing, pager suppression)
+    # ------------------------------------------------------------------
     env = os.environ.copy()
-    
-    # Check if FORCE_COLOR_OUTPUT is set in .jbrsh
     force_colors = os.environ.get("FORCE_COLOR_OUTPUT", "true").lower() in ["true", "yes", "1"]
-    
-    # Only apply color forcing if enabled (default is true)
     if force_colors:
-        # Apply color forcing variables if not already set in .jbrsh
         color_vars = {
             'FORCE_COLOR': os.environ.get('FORCE_COLOR', '1'),
             'CLICOLOR_FORCE': os.environ.get('CLICOLOR_FORCE', '1'),
             'CLICOLOR': os.environ.get('CLICOLOR', '1'),
             'COLORTERM': os.environ.get('COLORTERM', 'truecolor'),
             'TERM': os.environ.get('TERM', 'xterm-256color'),
+            # Prevent git (and similar tools) from opening a pager
             'GIT_PAGER': os.environ.get('GIT_PAGER', 'cat'),
             'GIT_CONFIG_PARAMETERS': os.environ.get('GIT_CONFIG_PARAMETERS', "'color.ui=always'"),
-            'GREP_OPTIONS': os.environ.get('GREP_OPTIONS', '--color=always'),
-            'LS_COLORS': os.environ.get('LS_COLORS', 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33')
+            'LS_COLORS': os.environ.get('LS_COLORS', 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33'),
         }
-        
-        # Apply the color variables to the environment
         for var, value in color_vars.items():
-            if value:  # Only set if there's a value
+            if value:
                 env[var] = value
-    
-    # Start process with pipes and the enhanced environment
-    try:
-        process = subprocess.Popen(
+
+    # ------------------------------------------------------------------
+    # Non-TTY fallback – pipe-based, same as the old non-interactive path
+    # ------------------------------------------------------------------
+    if not sys.stdin.isatty():
+        from queue import Queue, Empty
+        stdout_queue: Queue = Queue()
+        stderr_queue: Queue = Queue()
+
+        def _make_process():
+            return subprocess.Popen(
+                command, shell=True, executable='/bin/bash',
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                bufsize=1, text=True, env=env,
+            )
+
+        try:
+            process = _make_process()
+        except (OSError, FileNotFoundError):
+            click.echo(click.style("Warning: Current directory is invalid. Switching to home directory.", fg="yellow"))
+            try:
+                os.chdir(os.path.expanduser("~"))
+                process = _make_process()
+            except Exception as exc:
+                return -1, "", f"Failed to execute command: {exc}"
+
+        def _reader(pipe, queue):
+            try:
+                with pipe:
+                    for line in iter(pipe.readline, ''):
+                        queue.put(line)
+            finally:
+                queue.put(None)
+
+        Thread(target=_reader, args=[process.stdout, stdout_queue], daemon=True).start()
+        Thread(target=_reader, args=[process.stderr, stderr_queue], daemon=True).start()
+
+        collected_stdout, collected_stderr = [], []
+        stdout_done = stderr_done = False
+        try:
+            while not (stdout_done and stderr_done):
+                try:
+                    line = stdout_queue.get(block=False)
+                    if line is None:
+                        stdout_done = True
+                    else:
+                        click.echo(line, nl=False)
+                        sys.stdout.flush()
+                        collected_stdout.append(line)
+                except Empty:
+                    pass
+                try:
+                    line = stderr_queue.get(block=False)
+                    if line is None:
+                        stderr_done = True
+                    else:
+                        collected_stderr.append(line)
+                except Empty:
+                    pass
+                if not (stdout_done and stderr_done):
+                    import time
+                    time.sleep(0.01)
+                    if process.poll() is not None and stdout_queue.empty() and stderr_queue.empty():
+                        final_out, final_err = process.communicate()
+                        if final_out:
+                            click.echo(final_out, nl=False)
+                            collected_stdout.append(final_out)
+                        if final_err:
+                            collected_stderr.append(final_err)
+                        break
+        except KeyboardInterrupt:
+            click.echo()
+            try:
+                process.terminate()
+                import time
+                time.sleep(0.1)
+                if process.poll() is None:
+                    process.kill()
+            except Exception:
+                pass
+            return 130, ''.join(collected_stdout), ''.join(collected_stderr) + "\nCommand interrupted by user"
+
+        return_code = process.wait()
+        return return_code, ''.join(collected_stdout), ''.join(collected_stderr)
+
+    # ------------------------------------------------------------------
+    # PTY path – stdin IS a real TTY
+    # ------------------------------------------------------------------
+    def _open_pty_and_spawn():
+        """Create a PTY pair and spawn the subprocess."""
+        master_fd, slave_fd = pty.openpty()
+        try:
+            cols, rows = os.get_terminal_size()
+            fcntl.ioctl(slave_fd, termios.TIOCSWINSZ, struct.pack('HHHH', rows, cols, 0, 0))
+        except Exception:
+            pass
+
+        proc = subprocess.Popen(
             command,
             shell=True,
             executable='/bin/bash',
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            bufsize=1,
-            text=True,
-            env=env
+            stdin=slave_fd,
+            stdout=slave_fd,
+            stderr=subprocess.PIPE,   # stderr captured separately
+            close_fds=True,
+            env=env,
+            preexec_fn=os.setsid,     # own process group → Ctrl+C propagates correctly
         )
-    except (OSError, FileNotFoundError) as e:
-        # Handle stale file handle - current directory is invalid
-        click.echo(click.style(f"Warning: Current directory is invalid (stale file handle). Switching to home directory.", fg="yellow"))
+        os.close(slave_fd)            # parent doesn't need the slave end
+        return master_fd, proc
+
+    try:
+        master_fd, process = _open_pty_and_spawn()
+    except (OSError, FileNotFoundError):
+        click.echo(click.style("Warning: Current directory is invalid. Switching to home directory.", fg="yellow"))
         try:
-            home_dir = os.path.expanduser("~")
-            os.chdir(home_dir)
-            click.echo(click.style(f"Changed working directory to: {home_dir}", fg="yellow"))
-            # Retry the command in the home directory
-            process = subprocess.Popen(
-                command,
-                shell=True,
-                executable='/bin/bash',
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                bufsize=1,
-                text=True,
-                env=env
-            )
-        except Exception as retry_error:
-            # If we still can't execute, return an error
-            return -1, "", f"Failed to execute command even after changing to home directory: {retry_error}"
-    
-    # Function to read from pipes and put lines into queues
-    def reader(pipe, queue):
+            os.chdir(os.path.expanduser("~"))
+            master_fd, process = _open_pty_and_spawn()
+        except Exception as exc:
+            return -1, "", f"Failed to execute command: {exc}"
+
+    stdin_fd = sys.stdin.fileno()
+
+    # Capture stderr in a background thread without displaying it
+    # (execute_command will handle display + error interpretation)
+    collected_stderr: list = []
+
+    def _read_stderr(pipe):
         try:
             with pipe:
-                for line in iter(pipe.readline, ''):
-                    queue.put(line)
-        finally:
-            queue.put(None)  # Signal that reading is done
-            
-    # Start reader threads
-    Thread(target=reader, args=[process.stdout, stdout_queue], daemon=True).start()
-    Thread(target=reader, args=[process.stderr, stderr_queue], daemon=True).start()
-    
-    # Collect all output
-    collected_stdout = []
-    collected_stderr = []
-    
-    # Process output from both queues until both are done
-    stdout_done = False
-    stderr_done = False
-    
-    try:
-        while not (stdout_done and stderr_done):
-            # Check stdout
-            try:
-                stdout_line = stdout_queue.get(block=False)
-                if stdout_line is None:
-                    stdout_done = True
-                else:
-                    click.echo(stdout_line, nl=False)
-                    sys.stdout.flush()
-                    collected_stdout.append(stdout_line)
-            except Empty:
-                pass
-            
-            # Check stderr
-            try:
-                stderr_line = stderr_queue.get(block=False)
-                if stderr_line is None:
-                    stderr_done = True
-                else:
-                    # Just collect stderr lines without printing immediately
-                    # (we'll print them later to avoid duplication)
-                    collected_stderr.append(stderr_line)
-            except Empty:
-                pass
-            
-            # If either queue is waiting for more output, give the process some time to produce it
-            if not (stdout_done and stderr_done):
-                # Sleep a tiny bit to avoid busy waiting
-                import time
-                time.sleep(0.01)
-                
-                # Check if process is done and both queues are empty
-                if process.poll() is not None and stdout_queue.empty() and stderr_queue.empty():
-                    # Double check by calling communicate() to get any remaining output
-                    final_stdout, final_stderr = process.communicate()
-                    
-                    if final_stdout:
-                        click.echo(final_stdout, nl=False)
-                        collected_stdout.append(final_stdout)
-                    if final_stderr:
-                        click.echo(click.style(final_stderr, fg="red"), nl=False)
-                        collected_stderr.append(final_stderr)
-                    
-                    break
-    except KeyboardInterrupt:
-        # User pressed Ctrl+C - clean up the subprocess
-        click.echo()  # Print newline after ^C
+                for line in iter(pipe.readline, b''):
+                    collected_stderr.append(line.decode('utf-8', errors='replace'))
+        except Exception:
+            pass
+
+    Thread(target=_read_stderr, args=[process.stderr], daemon=True).start()
+
+    # Switch the real terminal to raw mode so every keypress goes straight
+    # to the PTY (Ctrl+C, arrow keys, etc. all work as expected)
+    old_settings = termios.tcgetattr(stdin_fd)
+    tty.setraw(stdin_fd)
+
+    # Propagate window-resize events to the child's PTY
+    original_sigwinch = signal.getsignal(signal.SIGWINCH)
+
+    def _handle_sigwinch(sig, frame):
         try:
-            process.terminate()
-            # Give it a moment to terminate gracefully
-            import time
-            time.sleep(0.1)
-            if process.poll() is None:
-                # If still running, force kill
-                process.kill()
-        except:
-            pass  # Process may already be dead
-        
-        # Return interrupted status
-        return 130, ''.join(collected_stdout), ''.join(collected_stderr) + "\nCommand interrupted by user"
-    
-    # Wait for process to finish and get return code
+            cols, rows = os.get_terminal_size()
+            fcntl.ioctl(master_fd, termios.TIOCSWINSZ, struct.pack('HHHH', rows, cols, 0, 0))
+        except Exception:
+            pass
+
+    signal.signal(signal.SIGWINCH, _handle_sigwinch)
+
+    collected_stdout: list = []
+
+    def _restore():
+        try:
+            termios.tcsetattr(stdin_fd, termios.TCSADRAIN, old_settings)
+        except Exception:
+            pass
+        signal.signal(signal.SIGWINCH, original_sigwinch)
+        try:
+            os.close(master_fd)
+        except OSError:
+            pass
+
+    try:
+        while True:
+            try:
+                r, _, _ = select.select([master_fd, stdin_fd], [], [], 0.05)
+            except (ValueError, OSError):
+                break
+
+            for fd in r:
+                if fd == master_fd:
+                    try:
+                        data = os.read(master_fd, 4096)
+                        if data:
+                            sys.stdout.buffer.write(data)
+                            sys.stdout.buffer.flush()
+                            collected_stdout.append(data.decode('utf-8', errors='replace'))
+                    except OSError:
+                        # EIO: slave side closed (process exited)
+                        break
+                elif fd == stdin_fd:
+                    try:
+                        data = os.read(stdin_fd, 1024)
+                        if data:
+                            os.write(master_fd, data)
+                    except OSError:
+                        break
+
+            if process.poll() is not None:
+                # Drain any output the process wrote just before exiting
+                try:
+                    while True:
+                        r2, _, _ = select.select([master_fd], [], [], 0.1)
+                        if not r2:
+                            break
+                        data = os.read(master_fd, 4096)
+                        if not data:
+                            break
+                        sys.stdout.buffer.write(data)
+                        sys.stdout.buffer.flush()
+                        collected_stdout.append(data.decode('utf-8', errors='replace'))
+                except OSError:
+                    pass
+                break
+    finally:
+        _restore()
+
     return_code = process.wait()
-    
-    # Join all the output
-    stdout_content = ''.join(collected_stdout)
-    stderr_content = ''.join(collected_stderr)
-    
-    return return_code, stdout_content, stderr_content
+    return return_code, ''.join(collected_stdout), ''.join(collected_stderr)
 
 def execute_shell_command(command):
     """
@@ -619,20 +617,14 @@ def execute_shell_command(command):
     # Expand alias if present
     command = expand_aliases(command)
 
-    # Check if the command is interactive
-    is_interactive = is_cmd_interactive(command)
-
     try:
         # First check if command explicitly requests background execution with &
         force_background = command.strip().endswith('&')
-        
-        # If command ends with &, always run in background regardless of type
+
         if force_background:
             return run_in_background(command)
-        elif is_interactive:
-            return run_in_interactive(command)
         else:
-            return run_in_non_interactive(command)
+            return run_with_pty(command)
     except KeyboardInterrupt:
         return -1, "", "Aborted by user"
     except Exception as e:

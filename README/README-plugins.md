@@ -148,7 +148,7 @@ The Jibberish shell includes several plugins that extend its functionality. This
     [2] Running in background: tail -f logfile.txt (PID: 12346)
     ```
   - Use `fg %2` to bring a specific job to the foreground
-  - Configure which apps run interactively via `INTERACTIVE_LIST` in `.jbrsh`
+  - All commands automatically run through a PTY, so TUI apps (vim, htop, etc.) work without any configuration
 
 - **question_command.py** - Processes questions starting with `?` and provides AI-generated answers
   - Usage: `?what is a shell script?`
