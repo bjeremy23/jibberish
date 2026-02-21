@@ -36,8 +36,8 @@ WARN_LIST="rm, rmdir, mv, cp, ln, chmod, chown, chgrp, kill, pkill, killall, shu
 # false = Execute AI generated commands immediately
 PROMPT_AI_COMMANDS=true
 
-# true = Prompt for more AI assisted information on returned errors
-# false = Display stdout or stderr only
+# true = Suppress prompting for more AI assisted information on returned errors
+# false = Display prompt with error information and option for more AI assistance
 IGNORE_ERRORS=true
 
 # The default AI partner for chat (default: "Jarvis")
