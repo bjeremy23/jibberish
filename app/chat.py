@@ -12,13 +12,14 @@ contexts based on command keywords.
 """
 
 from app import api
-import time 
-import click 
+import difflib
+import time
+import click
 import re
 import os
 from app.context_manager import add_specialized_contexts, determine_temperature
 from app.utils import (
-    generate_tool_context_message, 
+    generate_tool_context_message,
     is_debug_enabled,
     save_chat,
     load_chat_history,
@@ -121,56 +122,156 @@ def ask_why_failed(command, output):
         click.echo(click.style(f"Error when explaining command failure: {e}", fg="red"))
         return None
 
+# Cache for PATH executable names: (path_env_value, [name, ...])
+# Avoids re-scanning PATH on every "command not found" event.
+_path_exec_cache: tuple | None = None
+
+
 def find_similar_command(command_name):
     """
-    Find a similar command when a command is not found
-    Args:
-        command_name (str): The command that was not found
+    Find a similar command when a command is not found.
+
+    Search order (all local, so suggestions always exist on this machine):
+      1. Executables in the current directory  (only when command starts with ./)
+      2. Currently defined aliases
+      3. Executables found anywhere in PATH
+
+    If the best local candidate scores >= 0.6 similarity (difflib
+    SequenceMatcher ratio), it is returned immediately.  That threshold
+    corresponds to the user's "90% confidence" bar – anything below it is
+    too speculative for a local guess.
+
+    When no local candidate clears the bar, fall back to an AI call.
+    The alias names are included in the AI prompt so the AI knows what is
+    actually available on this system.
+
     Returns:
-        str: A suggestion for a similar command, or None if no suggestions
+        list[str]: candidate command names sorted best-first (may be empty).
     """
+    global _path_exec_cache
+
+    SIMILARITY_THRESHOLD = 0.6   # tune here if needed
+
+    # Separate the ./ prefix so we match bare names against candidates
+    has_dot_slash = command_name.startswith('./')
+    bare_name = command_name[2:] if has_dot_slash else command_name
+
+    candidates: list[str] = []
+
+    # ------------------------------------------------------------------
+    # 1. Current directory executables  (only relevant for ./ commands)
+    # ------------------------------------------------------------------
+    if has_dot_slash:
+        try:
+            for entry in os.scandir(os.getcwd()):
+                if entry.is_file() and os.access(entry.path, os.X_OK):
+                    candidates.append(entry.name)
+        except OSError:
+            pass
+
+    # ------------------------------------------------------------------
+    # 2. Defined aliases
+    # ------------------------------------------------------------------
+    alias_names: list[str] = []
+    try:
+        from app.plugins.alias_command import get_aliases
+        alias_names = list(get_aliases().keys())
+        if not has_dot_slash:
+            candidates.extend(alias_names)
+    except (ImportError, Exception):
+        pass
+
+    # ------------------------------------------------------------------
+    # 3. PATH executables  (skip for ./ commands – user wants a local file)
+    #    Results are cached by PATH value so the filesystem walk only
+    #    happens once per session (or whenever PATH changes).
+    # ------------------------------------------------------------------
+    if not has_dot_slash:
+        current_path = os.environ.get('PATH', '')
+        if _path_exec_cache is None or _path_exec_cache[0] != current_path:
+            path_names: list[str] = []
+            for path_dir in current_path.split(os.pathsep):
+                try:
+                    for entry in os.scandir(path_dir):
+                        # entry.is_file() uses d_type (free on Linux); skip
+                        # os.access so we avoid one extra syscall per file.
+                        # A non-executable file in a bin dir is rare and
+                        # harmless to include as a typo-match candidate.
+                        if entry.is_file():
+                            path_names.append(entry.name)
+                except OSError:
+                    pass
+            _path_exec_cache = (current_path, path_names)
+
+        seen: set[str] = set(candidates)
+        for name in _path_exec_cache[1]:
+            if name not in seen:
+                candidates.append(name)
+                seen.add(name)
+
+    # ------------------------------------------------------------------
+    # Score candidates and return all local matches above the threshold
+    # (up to 5, sorted best-first by difflib)
+    # ------------------------------------------------------------------
+    matches = difflib.get_close_matches(bare_name, candidates, n=5,
+                                        cutoff=SIMILARITY_THRESHOLD)
+    suggestions = [
+        ('./' + m) if has_dot_slash else m
+        for m in matches
+        if (('./' + m) if has_dot_slash else m).lower() != command_name.lower()
+    ]
+    if suggestions:
+        return suggestions
+
+    # ------------------------------------------------------------------
+    # No confident local match – fall back to the AI
+    # Include alias names so the model knows what is actually installed
+    # ------------------------------------------------------------------
+    alias_context = (
+        f" Available aliases: {', '.join(alias_names[:30])}."
+        if alias_names else ""
+    )
+
     messages = [
         {
             "role": "system",
-            "content": "You are a Linux command expert. When given a misspelled or invalid command, suggest the most likely correct command. Respond with ONLY the corrected command, nothing else."
+            "content": (
+                "You are a Linux command expert. When given a misspelled or "
+                "invalid command, suggest the most likely correct command. "
+                "Respond with ONLY the corrected command name, nothing else."
+            ),
         },
         {
             "role": "user",
-            "content": f"I tried to run the command '{command_name}' but it wasn't found. What's the most likely correct command? Respond with ONLY the command name."
-        }
+            "content": (
+                f"I tried to run '{command_name}' but it wasn't found."
+                f"{alias_context} What command did I likely mean? "
+                "Respond with ONLY the command name."
+            ),
+        },
     ]
-    
-    # Determine temperature based on query type
-    temperature = 1.0
-    
+
     try:
-        # Handle both new and legacy Azure OpenAI APIs
         if hasattr(api.client, 'chat'):
-            # New OpenAI API (v1.0.0+)
             response = api.client.chat.completions.create(
                 model=api.model,
                 messages=messages,
-                temperature=temperature
+                temperature=0.3,
             )
         else:
-            # Legacy OpenAI API (pre-v1.0.0)
             response = api.client.ChatCompletion.create(
-                engine=api.model,  # For Azure legacy API, use engine instead of model
+                engine=api.model,
                 messages=messages,
-                temperature=temperature
+                temperature=0.3,
             )
-            
-        # Extract the response content
-        suggested_command = response.choices[0].message.content.strip()
-        
-        # If the suggested command is the same as the original, don't suggest it
-        if suggested_command.lower() == command_name.lower():
-            return None
-            
-        return suggested_command
+
+        suggested = response.choices[0].message.content.strip()
+        if suggested.lower() == command_name.lower():
+            return []
+        return [suggested]
     except Exception as e:
         click.echo(click.style(f"Error when finding similar command: {e}", fg="red"))
-        return None
+        return []
     
 def ask_ai(command):
     """

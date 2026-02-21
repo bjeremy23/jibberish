@@ -696,35 +696,49 @@ def execute_command(command):
                 # This is specifically when the command itself doesn't exist
                 cmd_name = command.strip().split()[0] if command.strip() else "Command"
                 click.echo(click.style(f"{cmd_name}: command not found", fg="red"))
-                
-                # Try to find a similar command
-                similar_cmd = chat.find_similar_command(cmd_name)
-                if similar_cmd:
-                    # Create the full corrected command by replacing just the command name
-                    corrected_command = command.replace(cmd_name, similar_cmd, 1)
-                    
-                    # Ask user if they want to execute the suggested command (showing the full corrected command)
-                    choice = input(click.style(f"Did you mean '{corrected_command}'? Run this command instead? [y/n]: ", fg="yellow"))
-                    if choice.lower() == "y":
-                        # Execute the suggested command, but check if it's a built-in first
-                        handled, new_command = is_built_in(corrected_command)
-                        
-                        if handled:
-                            # The built-in command was handled directly
-                            return 0, "Built-in command executed successfully"
-                        elif new_command is not None:
-                            # A new command was returned (e.g., from history or AI)
-                            ret, msg = execute_command(new_command)
-                        else:
-                            # Execute external command
-                            ret, msg = execute_command(corrected_command)
 
-                        return ret, msg
+                # find_similar_command returns a list sorted best-first.
+                # Local PATH/alias matches are tried first; AI is the fallback.
+                similar_cmds = chat.find_similar_command(cmd_name)
+
+                def _run_corrected(similar_cmd):
+                    """Replace the bad command name and execute the corrected command."""
+                    corrected_command = command.replace(cmd_name, similar_cmd, 1)
+                    handled, new_command = is_built_in(corrected_command)
+                    if handled:
+                        return 0, "Built-in command executed successfully"
+                    elif new_command is not None:
+                        return execute_command(new_command)
                     else:
-                        # User chose not to execute the suggested command
+                        return execute_command(corrected_command)
+
+                if len(similar_cmds) == 1:
+                    # Single suggestion – ask yes/no
+                    corrected_command = command.replace(cmd_name, similar_cmds[0], 1)
+                    choice = input(click.style(
+                        f"Did you mean '{corrected_command}'? Run this command instead? [y/n]: ",
+                        fg="yellow"))
+                    if choice.lower() == "y":
+                        return _run_corrected(similar_cmds[0])
+                    else:
                         return -1, f"{cmd_name}: command not found"
+
+                elif len(similar_cmds) > 1:
+                    # Multiple suggestions – numbered list
+                    click.echo(click.style("Did you mean one of these?", fg="yellow"))
+                    for i, cmd in enumerate(similar_cmds, 1):
+                        corrected = command.replace(cmd_name, cmd, 1)
+                        click.echo(click.style(f"  [{i}] {corrected}", fg="yellow"))
+                    choice = input(click.style(
+                        f"Select a number to run, or press Enter to cancel: ",
+                        fg="blue"))
+                    if choice.isdigit() and 1 <= int(choice) <= len(similar_cmds):
+                        return _run_corrected(similar_cmds[int(choice) - 1])
+                    else:
+                        return -1, f"{cmd_name}: command not found"
+
                 else:
-                    # No similar command found
+                    # No suggestions at all
                     return -1, f"{cmd_name}: command not found"
                         
             elif "No such file or directory" in error:
