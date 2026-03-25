@@ -9,8 +9,19 @@ Usage:
     outputs -v   - Show outputs with full content preview
 """
 
+import re
 import click
 from app.plugin_system import BuiltinCommand, BuiltinCommandRegistry
+
+# Matches ANSI/VT escape sequences (CSI, OSC, single-char escapes, etc.)
+_ANSI_ESCAPE = re.compile(
+    r'\x1b(?:'
+    r'\[[0-9;:<=>?]*[ -/]*[@-~]'   # CSI sequences
+    r'|\][^\x07\x1b]*(?:\x07|\x1b\\)'  # OSC sequences
+    r'|[PX^_][^\x1b]*\x1b\\'       # DCS/PM/APC/SOS
+    r'|[^[\]PX^_]'                 # other Esc+single-char (e.g. \x1b= \x1b>)
+    r')'
+)
 
 
 class OutputsPlugin(BuiltinCommand):
@@ -66,13 +77,14 @@ class OutputsPlugin(BuiltinCommand):
                 # Show more of the output in verbose mode
                 entry = get_output(idx)
                 if entry:
-                    output_preview = entry['output']
-                    if len(output_preview) > 300:
-                        output_preview = output_preview[:300] + "..."
+                    # Strip terminal control sequences so TUI output (vi, htop, etc.)
+                    # doesn't corrupt the display
+                    clean = _ANSI_ESCAPE.sub('', entry['output']).replace('\r', '')
+                    output_preview = clean if len(clean) <= 300 else clean[:300] + "..."
                     # Indent the output preview
                     for line in output_preview.split('\n')[:5]:
                         click.echo(click.style(f"               {line}", fg="white", dim=True))
-                    if output_preview.count('\n') > 5:
+                    if clean.count('\n') >= 5:
                         click.echo(click.style(f"               ... (more lines)", fg="white", dim=True))
                 click.echo()
         
